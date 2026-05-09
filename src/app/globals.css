@@ -63,3 +63,51 @@ body {
 .btn-primary:hover {
   filter: brightness(1.05);
 }
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.role-admin { background: #fee2e2; color: #b91c1c; }
+.role-editor { background: #dbeafe; color: #1d4ed8; }
+.role-premium { background: #ede9fe; color: #7c3aed; }
+.role-general { background: var(--surface-2); color: var(--muted-foreground); }
+
+:root[data-theme="dark"] .role-admin { background: #3b0d0d; color: #fca5a5; }
+:root[data-theme="dark"] .role-editor { background: #0d1f3b; color: #93c5fd; }
+:root[data-theme="dark"] .role-premium { background: #1e0a3b; color: #c4b5fd; }
+
+.plan-free { background: var(--surface-2); color: var(--muted-foreground); }
+.plan-premium { background: #fef3c7; color: #92400e; }
+
+:root[data-theme="dark"] .plan-premium { background: #2d1a00; color: #fcd34d; }
+
+/* Priority badges */
+.priority-high   { background: #fee2e2; color: #b91c1c; }
+.priority-medium { background: #fef3c7; color: #92400e; }
+.priority-low    { background: #dcfce7; color: #166534; }
+
+:root[data-theme="dark"] .priority-high   { background: #3b0d0d; color: #fca5a5; }
+:root[data-theme="dark"] .priority-medium { background: #2d1a00; color: #fcd34d; }
+:root[data-theme="dark"] .priority-low    { background: #052e16; color: #86efac; }
+
+/* Status badges */
+.status-wishlist  { background: var(--surface-2); color: var(--muted-foreground); }
+.status-submitted { background: #dbeafe; color: #1d4ed8; }
+.status-no-resp   { background: #fef3c7; color: #92400e; }
+.status-interview { background: #cffafe; color: #0e7490; }
+.status-active    { background: #ede9fe; color: #7c3aed; }
+.status-offer     { background: #dcfce7; color: #166534; }
+.status-rejected  { background: #fee2e2; color: #b91c1c; }
+
+:root[data-theme="dark"] .status-submitted { background: #0d1f3b; color: #93c5fd; }
+:root[data-theme="dark"] .status-no-resp   { background: #2d1a00; color: #fcd34d; }
+:root[data-theme="dark"] .status-interview { background: #042d34; color: #67e8f9; }
+:root[data-theme="dark"] .status-active    { background: #1e0a3b; color: #c4b5fd; }
+:root[data-theme="dark"] .status-offer     { background: #052e16; color: #86efac; }
+:root[data-theme="dark"] .status-rejected  { background: #3b0d0d; color: #fca5a5; }

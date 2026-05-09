@@ -11,6 +11,8 @@ export interface Application {
   applicationStatus: (typeof APPLICATION_STATUSES)[number];
   responseStatus?: string;
   country?: string;
+  location?: string;
+  contactNumber?: string;
   salary?: string;
   jobPostUrl?: string;
   appliedDate?: Date;

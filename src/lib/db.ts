@@ -23,9 +23,26 @@ export default async function dbConnect() {
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(mongoUri).then((conn) => conn);
+    if (process.env.NODE_ENV === "development") {
+      const safeUri = mongoUri.replace(/:\/\/[^@]+@/, "://***:***@");
+      console.log("[db] connecting to", safeUri);
+    }
+    cached.promise = mongoose
+      .connect(mongoUri, {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+      })
+      .then((conn) => conn);
   }
 
-  cached.conn = await cached.promise;
+  try {
+    cached.conn = await cached.promise;
+  } catch (err) {
+    cached.promise = null;
+    throw err;
+  }
+
   return cached.conn;
 }

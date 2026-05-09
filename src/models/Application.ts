@@ -26,6 +26,8 @@ const ApplicationSchema = new Schema(
     },
     responseStatus: { type: String },
     country: { type: String },
+    location: { type: String },
+    contactNumber: { type: String },
     salary: { type: String },
     jobPostUrl: { type: String },
     appliedDate: { type: Date },

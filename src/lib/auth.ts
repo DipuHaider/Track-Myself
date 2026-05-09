@@ -28,6 +28,7 @@ export const authOptions = {
           id: user._id.toString(),
           email: user.email,
           name: user.name,
+          role: user.role ?? "general",
         };
       },
     }),
@@ -35,18 +36,30 @@ export const authOptions = {
   pages: { signIn: "/login" },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    async jwt({ token, user }: { token: { id?: string }; user?: { id: string } }) {
-      if (user) token.id = user.id;
+    async jwt({
+      token,
+      user,
+    }: {
+      token: { id?: string; role?: string };
+      user?: { id: string; role?: string };
+    }) {
+      if (user) {
+        token.id = user.id;
+        token.role = user.role;
+      }
       return token;
     },
     async session({
       session,
       token,
     }: {
-      session: { user?: { id?: string } };
-      token: { id?: string };
+      session: { user?: { id?: string; role?: string } };
+      token: { id?: string; role?: string };
     }) {
-      if (session.user) session.user.id = token.id;
+      if (session.user) {
+        session.user.id = token.id;
+        session.user.role = token.role ?? "general";
+      }
       return session;
     },
   },

@@ -30,8 +30,15 @@ export default function RegisterPage() {
       return;
     }
 
-    const payload = (await response.json()) as { error?: string };
-    setError(payload.error ?? "Registration failed");
+    let payload: { error?: string | object } = {};
+    try {
+      payload = await response.json();
+    } catch {
+      // empty or non-JSON body
+    }
+
+    const msg = typeof payload.error === "string" ? payload.error : "Registration failed. Please try again.";
+    setError(msg);
   };
 
   return (

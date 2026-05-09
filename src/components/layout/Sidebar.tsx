@@ -1,26 +1,41 @@
-import Link from "next/link";
+"use client";
 
-const links = [
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+
+const baseLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/applications", label: "Applications" },
   { href: "/analytics", label: "Analytics" },
+  { href: "/profile", label: "Profile" },
   { href: "/settings", label: "Settings" },
 ];
 
 export default function Sidebar() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
+
   return (
-    <aside className="surface hidden w-56 shrink-0 border-r p-4 md:block">
+    <aside className="surface hidden w-56 shrink-0 flex-col border-r p-4 md:flex">
       <p className="mb-4 text-lg font-semibold">Track Myself</p>
-      <nav className="space-y-2">
-        {links.map((item) => (
+      <nav className="flex-1 space-y-1">
+        {baseLinks.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="block rounded-md px-3 py-2 transition hover:bg-[var(--surface-2)]"
+            className="block rounded-md px-3 py-2 text-sm transition hover:bg-[var(--surface-2)]"
           >
             {item.label}
           </Link>
         ))}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="mt-2 block rounded-md px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+          >
+            Admin Panel
+          </Link>
+        )}
       </nav>
     </aside>
   );

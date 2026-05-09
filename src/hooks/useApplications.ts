@@ -14,5 +14,17 @@ export function useApplications() {
       .finally(() => setLoading(false));
   }, []);
 
-  return { applications, loading };
+  function addApplication(app: Application) {
+    setApplications((prev) => [app, ...prev]);
+  }
+
+  function updateApplication(app: Application) {
+    setApplications((prev) => prev.map((a) => (a._id === app._id ? app : a)));
+  }
+
+  function removeApplication(id: string) {
+    setApplications((prev) => prev.filter((a) => a._id !== id));
+  }
+
+  return { applications, loading, addApplication, updateApplication, removeApplication };
 }
