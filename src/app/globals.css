@@ -1,8 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f6ff;
+  --surface: #ffffff;
+  --surface-2: #eef1ff;
+  --foreground: #111827;
+  --muted-foreground: #4b5563;
+  --primary: #4169e1;
+  --accent: #7c3aed;
+  --border: #cfd8ff;
+}
+
+:root[data-theme="dark"] {
+  --background: #111317;
+  --surface: #1b1f2a;
+  --surface-2: #242a38;
+  --foreground: #f3f4f6;
+  --muted-foreground: #c3cad6;
+  --primary: #5f83ff;
+  --accent: #a78bfa;
+  --border: #333a4c;
 }
 
 @theme inline {
@@ -12,15 +29,37 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+* {
+  border-color: var(--border);
+}
+
+.surface {
+  background: var(--surface);
+}
+
+.surface-muted {
+  background: var(--surface-2);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
 }
