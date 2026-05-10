@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
-import { APPLICATION_STATUSES, PLATFORMS } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, PLATFORMS } from "@/constants/applicationStatus";
 import type { Application } from "@/types/application";
 
 /* ── helpers ─────────────────────────────────────── */
@@ -27,9 +27,11 @@ function fmtSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
-function toDateStr(d?: Date | string) {
+function toDateTimeStr(d?: Date | string) {
   if (!d) return "";
-  return new Date(d).toISOString().split("T")[0];
+  const date = new Date(d);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function fileName(p: string) {
@@ -46,15 +48,29 @@ async function uploadFile(file: File, companyName: string): Promise<string> {
   return data.path as string;
 }
 
+const CURRENCIES = [
+  { code: "EUR", symbol: "€" },
+  { code: "USD", symbol: "$" },
+  { code: "BDT", symbol: "৳" },
+] as const;
+
+type Currency = (typeof CURRENCIES)[number]["code"];
+
 /* ── types ───────────────────────────────────────── */
 
 type FormData = {
   companyName: string;
   jobTitle: string;
   platform: string;
+  platformDetail: string;
   applicationStatus: string;
-  location: string;
-  salary: string;
+  city: string;
+  country: string;
+  salaryType: "fixed" | "range";
+  salaryCurrency: Currency;
+  salaryFixed: string;
+  salaryMin: string;
+  salaryMax: string;
   contactNumber: string;
   jobPostUrl: string;
   appliedDate: string;
@@ -66,9 +82,15 @@ const EMPTY: FormData = {
   companyName: "",
   jobTitle: "",
   platform: "",
+  platformDetail: "",
   applicationStatus: "Wishlist",
-  location: "",
-  salary: "",
+  city: "",
+  country: "",
+  salaryType: "fixed",
+  salaryCurrency: "USD",
+  salaryFixed: "",
+  salaryMin: "",
+  salaryMax: "",
   contactNumber: "",
   jobPostUrl: "",
   appliedDate: "",
@@ -81,12 +103,18 @@ function toForm(app: Application): FormData {
     companyName: app.companyName,
     jobTitle: app.jobTitle,
     platform: app.platform ?? "",
+    platformDetail: app.platformDetail ?? "",
     applicationStatus: app.applicationStatus,
-    location: app.location ?? app.country ?? "",
-    salary: app.salary ?? "",
+    city: app.city ?? "",
+    country: app.country ?? "",
+    salaryType: app.salaryType ?? "fixed",
+    salaryCurrency: app.salaryCurrency ?? "USD",
+    salaryFixed: app.salaryFixed != null ? String(app.salaryFixed) : "",
+    salaryMin: app.salaryMin != null ? String(app.salaryMin) : "",
+    salaryMax: app.salaryMax != null ? String(app.salaryMax) : "",
     contactNumber: app.contactNumber ?? "",
     jobPostUrl: app.jobPostUrl ?? "",
-    appliedDate: toDateStr(app.appliedDate),
+    appliedDate: toDateTimeStr(app.appliedDate),
     priority: app.priority ?? "Medium",
     notes: app.notes ?? "",
   };
@@ -141,6 +169,20 @@ export default function ApplicationFormModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [field]: e.target.value }));
 
+  const handleContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^0-9+\-()\s]/g, "");
+    setForm((f) => ({ ...f, contactNumber: val }));
+  };
+
+  const handlePlatformChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const platform = e.target.value;
+    setForm((f) => ({
+      ...f,
+      platform,
+      platformDetail: FACEBOOK_PLATFORMS.has(platform) ? f.platformDetail : "",
+    }));
+  };
+
   const reset = () => {
     setForm(application ? toForm(application) : EMPTY);
     setExistingAttachments(application?.attachments ?? []);
@@ -169,7 +211,6 @@ export default function ApplicationFormModal({
     setError("");
 
     try {
-      // Upload pending files
       const uploadedPaths: string[] = [];
       for (const file of pendingFiles) {
         const p = await uploadFile(file, form.companyName || "unknown");
@@ -178,12 +219,23 @@ export default function ApplicationFormModal({
 
       const attachments = [...existingAttachments, ...uploadedPaths];
       const payload = {
-        ...form,
-        location: form.location || undefined,
+        companyName: form.companyName,
+        jobTitle: form.jobTitle,
+        platform: form.platform || undefined,
+        platformDetail: form.platformDetail || undefined,
+        applicationStatus: form.applicationStatus,
+        city: form.city || undefined,
+        country: form.country || undefined,
+        salaryType: form.salaryType,
+        salaryCurrency: form.salaryCurrency,
+        salaryFixed: form.salaryFixed ? Number(form.salaryFixed) : undefined,
+        salaryMin: form.salaryMin ? Number(form.salaryMin) : undefined,
+        salaryMax: form.salaryMax ? Number(form.salaryMax) : undefined,
         contactNumber: form.contactNumber || undefined,
         jobPostUrl: form.jobPostUrl || undefined,
-        platform: form.platform || undefined,
         appliedDate: form.appliedDate || undefined,
+        priority: form.priority,
+        notes: form.notes || undefined,
         attachments,
       };
 
@@ -212,6 +264,11 @@ export default function ApplicationFormModal({
   };
 
   const title = isEdit ? "Edit Application" : "New Job Application";
+  const isFbPlatform = FACEBOOK_PLATFORMS.has(form.platform);
+  const fbDetailLabel =
+    form.platform === "Facebook Page" ? "Page URL / Name" : "Group URL / Name";
+  const fbDetailPlaceholder =
+    form.platform === "Facebook Page" ? "e.g. Tech Jobs BD" : "e.g. Remote Jobs Group";
 
   return (
     <Modal open={open} onClose={onClose} title={title}>
@@ -220,42 +277,156 @@ export default function ApplicationFormModal({
           {/* Row 1 */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Company Name *">
-              <input className={inputCls} placeholder="e.g. Google" value={form.companyName} onChange={set("companyName")} required />
+              <input
+                className={inputCls}
+                placeholder="e.g. Google"
+                value={form.companyName}
+                onChange={set("companyName")}
+                required
+              />
             </Field>
             <Field label="Job Title *">
-              <input className={inputCls} placeholder="e.g. Software Engineer" value={form.jobTitle} onChange={set("jobTitle")} required />
+              <input
+                className={inputCls}
+                placeholder="e.g. Software Engineer"
+                value={form.jobTitle}
+                onChange={set("jobTitle")}
+                required
+              />
             </Field>
           </div>
 
           {/* Row 2 */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Status">
-              <select className={inputCls} value={form.applicationStatus} onChange={set("applicationStatus")}>
-                {APPLICATION_STATUSES.map((s) => <option key={s}>{s}</option>)}
+              <select
+                className={inputCls}
+                value={form.applicationStatus}
+                onChange={set("applicationStatus")}
+              >
+                {APPLICATION_STATUSES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
               </select>
             </Field>
             <Field label="Platform">
-              <select className={inputCls} value={form.platform} onChange={set("platform")}>
+              <select className={inputCls} value={form.platform} onChange={handlePlatformChange}>
                 <option value="">Select platform</option>
-                {PLATFORMS.map((p) => <option key={p}>{p}</option>)}
+                {PLATFORMS.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
               </select>
             </Field>
           </div>
 
-          {/* Row 3 */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Location">
-              <input className={inputCls} placeholder="e.g. London, UK" value={form.location} onChange={set("location")} />
+          {/* Facebook page/group detail */}
+          {isFbPlatform && (
+            <Field label={fbDetailLabel}>
+              <input
+                className={inputCls}
+                placeholder={fbDetailPlaceholder}
+                value={form.platformDetail}
+                onChange={set("platformDetail")}
+              />
             </Field>
-            <Field label="Salary">
-              <input className={inputCls} placeholder="e.g. £50,000/yr" value={form.salary} onChange={set("salary")} />
+          )}
+
+          {/* Row 3 — Location: city + country */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="City">
+              <input
+                className={inputCls}
+                placeholder="e.g. London"
+                value={form.city}
+                onChange={set("city")}
+              />
+            </Field>
+            <Field label="Country">
+              <input
+                className={inputCls}
+                placeholder="e.g. United Kingdom"
+                value={form.country}
+                onChange={set("country")}
+              />
             </Field>
           </div>
 
-          {/* Row 4 */}
+          {/* Row 4 — Salary */}
+          <Field label="Salary">
+            <div className="flex items-center gap-2">
+              {/* Fixed / Range toggle */}
+              <div className="flex overflow-hidden rounded-md border shrink-0">
+                {(["fixed", "range"] as const).map((t, i) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, salaryType: t }))}
+                    className={`px-3 py-1.5 text-xs capitalize transition ${i > 0 ? "border-l" : ""} ${form.salaryType === t ? "bg-[var(--primary)] text-white" : "hover:bg-[var(--surface-2)]"}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              {/* Currency icons */}
+              <div className="flex overflow-hidden rounded-md border shrink-0">
+                {CURRENCIES.map((c, i) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    title={c.code}
+                    onClick={() => setForm((f) => ({ ...f, salaryCurrency: c.code }))}
+                    className={`w-8 py-1.5 text-sm transition ${i > 0 ? "border-l" : ""} ${form.salaryCurrency === c.code ? "bg-[var(--primary)] text-white" : "hover:bg-[var(--surface-2)]"}`}
+                  >
+                    {c.symbol}
+                  </button>
+                ))}
+              </div>
+
+              {/* Amount inputs */}
+              {form.salaryType === "fixed" ? (
+                <input
+                  type="number"
+                  min="0"
+                  className={`${inputCls} flex-1`}
+                  placeholder="Amount"
+                  value={form.salaryFixed}
+                  onChange={set("salaryFixed")}
+                />
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    min="0"
+                    className={`${inputCls} flex-1`}
+                    placeholder="Min"
+                    value={form.salaryMin}
+                    onChange={set("salaryMin")}
+                  />
+                  <span className="text-muted shrink-0 text-sm">—</span>
+                  <input
+                    type="number"
+                    min="0"
+                    className={`${inputCls} flex-1`}
+                    placeholder="Max"
+                    value={form.salaryMax}
+                    onChange={set("salaryMax")}
+                  />
+                </>
+              )}
+            </div>
+          </Field>
+
+          {/* Row 5 */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Contact Number">
-              <input className={inputCls} placeholder="+44 7700 900000" value={form.contactNumber} onChange={set("contactNumber")} />
+              <input
+                className={inputCls}
+                placeholder="+44 7700 900000"
+                value={form.contactNumber}
+                onChange={handleContactChange}
+                inputMode="tel"
+              />
             </Field>
             <Field label="Priority">
               <select className={inputCls} value={form.priority} onChange={set("priority")}>
@@ -266,34 +437,57 @@ export default function ApplicationFormModal({
             </Field>
           </div>
 
-          {/* Row 5 */}
+          {/* Row 6 */}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Applied Date">
-              <input type="date" className={inputCls} value={form.appliedDate} onChange={set("appliedDate")} />
+            <Field label="Applied Date & Time">
+              <input
+                type="datetime-local"
+                className={inputCls}
+                value={form.appliedDate}
+                onChange={set("appliedDate")}
+              />
             </Field>
             <Field label="Job Post URL">
-              <input type="url" className={inputCls} placeholder="https://..." value={form.jobPostUrl} onChange={set("jobPostUrl")} />
+              <input
+                type="url"
+                className={inputCls}
+                placeholder="https://..."
+                value={form.jobPostUrl}
+                onChange={set("jobPostUrl")}
+              />
             </Field>
           </div>
 
           {/* Notes */}
           <Field label="Notes">
-            <textarea className={inputCls} rows={2} placeholder="Any notes..." value={form.notes} onChange={set("notes")} />
+            <textarea
+              className={inputCls}
+              rows={2}
+              placeholder="Any notes..."
+              value={form.notes}
+              onChange={set("notes")}
+            />
           </Field>
 
           {/* Attachments */}
           <div className="border-t pt-3">
             <p className="mb-2 text-xs font-medium">Attachments</p>
 
-            {/* Existing attachments (edit mode) */}
             {existingAttachments.length > 0 && (
               <div className="mb-2 space-y-1">
                 <p className="text-muted text-xs">Saved files</p>
                 {existingAttachments.map((p) => (
-                  <div key={p} className="surface-muted flex items-center gap-2 rounded-md px-3 py-1.5 text-sm">
+                  <div
+                    key={p}
+                    className="surface-muted flex items-center gap-2 rounded-md px-3 py-1.5 text-sm"
+                  >
                     <FileTypeIcon name={fileName(p)} />
                     <span className="flex-1 truncate text-xs">{fileName(p)}</span>
-                    <button type="button" onClick={() => removeExisting(p)} className="text-muted hover:text-red-500">
+                    <button
+                      type="button"
+                      onClick={() => removeExisting(p)}
+                      className="text-muted hover:text-red-500"
+                    >
                       <X size={13} />
                     </button>
                   </div>
@@ -301,16 +495,22 @@ export default function ApplicationFormModal({
               </div>
             )}
 
-            {/* Pending files */}
             {pendingFiles.length > 0 && (
               <div className="mb-2 space-y-1">
                 <p className="text-muted text-xs">Pending upload</p>
                 {pendingFiles.map((file, i) => (
-                  <div key={i} className="surface-muted flex items-center gap-2 rounded-md px-3 py-1.5 text-sm">
+                  <div
+                    key={i}
+                    className="surface-muted flex items-center gap-2 rounded-md px-3 py-1.5 text-sm"
+                  >
                     <FileTypeIcon name={file.name} />
                     <span className="flex-1 truncate text-xs">{file.name}</span>
                     <span className="text-muted shrink-0 text-xs">{fmtSize(file.size)}</span>
-                    <button type="button" onClick={() => removePending(i)} className="text-muted hover:text-red-500">
+                    <button
+                      type="button"
+                      onClick={() => removePending(i)}
+                      className="text-muted hover:text-red-500"
+                    >
                       <X size={13} />
                     </button>
                   </div>
@@ -318,7 +518,6 @@ export default function ApplicationFormModal({
               </div>
             )}
 
-            {/* File picker trigger */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}

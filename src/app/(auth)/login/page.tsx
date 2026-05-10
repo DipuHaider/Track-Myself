@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,8 +24,15 @@ export default function LoginPage() {
     });
 
     setIsSubmitting(false);
+
     if (result?.ok) {
-      router.push("/dashboard");
+      const session = await getSession();
+      const role = (session?.user as { role?: string } | undefined)?.role;
+      if (role === "admin" || role === "editor") {
+        router.push("/dashboard");
+      } else {
+        router.push("/");
+      }
       return;
     }
     setError("Invalid email or password");
@@ -64,6 +72,13 @@ export default function LoginPage() {
         >
           {isSubmitting ? "Signing in..." : "Sign in"}
         </button>
+
+        <p className="text-muted mt-4 text-center text-sm">
+          Don&apos;t have an account?{" "}
+          <Link href="/register" className="text-primary font-medium hover:underline">
+            Register
+          </Link>
+        </p>
       </form>
     </main>
   );

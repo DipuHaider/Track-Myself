@@ -6,7 +6,7 @@ import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { authOptions } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions as any);
   const userId = (session as { user?: { id?: string } } | null)?.user?.id;
   if (!userId) {
@@ -14,10 +14,20 @@ export async function GET() {
   }
 
   await dbConnect();
-  const applications = await Application.find({ userId }).sort({
-    createdAt: -1,
-  });
 
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get("q")?.trim();
+
+  const filter: Record<string, unknown> = { userId };
+  if (q) {
+    filter.$or = [
+      { companyName: { $regex: q, $options: "i" } },
+      { jobTitle: { $regex: q, $options: "i" } },
+      { notes: { $regex: q, $options: "i" } },
+    ];
+  }
+
+  const applications = await Application.find(filter).sort({ createdAt: -1 });
   return NextResponse.json(applications);
 }
 

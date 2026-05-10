@@ -8,7 +8,8 @@
       "Bash(node *)",
       "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx next build)",
       "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" NEXT_PRIVATE_DISABLE_MEMORY_WATCHER=1 npx next build)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(npm install *)"
     ]
   }
 }

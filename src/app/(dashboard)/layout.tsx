@@ -1,9 +1,19 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
 import Sidebar from "@/components/layout/Sidebar";
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default async function DashboardLayout({ children }: { children: ReactNode }) {
+  const session = await getServerSession(authOptions as any);
+  const role = (session as { user?: { role?: string } } | null)?.user?.role;
+
+  if (!session || (role !== "admin" && role !== "editor")) {
+    redirect("/");
+  }
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />

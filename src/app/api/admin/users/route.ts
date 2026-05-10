@@ -6,8 +6,9 @@ import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { authOptions } from "@/lib/auth";
 
-function requireAdmin(session: { user?: { role?: string } } | null) {
-  if (!session?.user || session.user.role !== "admin") {
+function requireAdminOrEditor(session: { user?: { role?: string } } | null) {
+  const role = session?.user?.role;
+  if (!role || (role !== "admin" && role !== "editor")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return null;
@@ -15,7 +16,7 @@ function requireAdmin(session: { user?: { role?: string } } | null) {
 
 export async function GET() {
   const session = await getServerSession(authOptions as any);
-  const deny = requireAdmin(session as any);
+  const deny = requireAdminOrEditor(session as any);
   if (deny) return deny;
 
   await dbConnect();

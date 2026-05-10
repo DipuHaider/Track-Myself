@@ -16,9 +16,16 @@ export const PLATFORMS = [
   "Indeed",
   "Glassdoor",
   "Company Website",
+  "Facebook Page",
+  "Facebook Group",
   "Referral",
   "Other",
 ] as const;
+
+export const FACEBOOK_PLATFORMS: ReadonlySet<string> = new Set([
+  "Facebook Page",
+  "Facebook Group",
+]);
 
 export const DOCUMENT_TYPES = [
   "CV",

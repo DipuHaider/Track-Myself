@@ -13,7 +13,8 @@ const baseLinks = [
 
 export default function Sidebar() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "admin";
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const canManageUsers = role === "admin" || role === "editor";
 
   return (
     <aside className="surface hidden w-56 shrink-0 flex-col border-r p-4 md:flex">
@@ -28,12 +29,12 @@ export default function Sidebar() {
             {item.label}
           </Link>
         ))}
-        {isAdmin && (
+        {canManageUsers && (
           <Link
-            href="/admin"
-            className="mt-2 block rounded-md px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+            href="/dashboard/users"
+            className="block rounded-md px-3 py-2 text-sm transition hover:bg-[var(--surface-2)]"
           >
-            Admin Panel
+            Users
           </Link>
         )}
       </nav>

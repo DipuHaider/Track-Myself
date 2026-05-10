@@ -5,7 +5,8 @@ import { useSession } from "next-auth/react";
 
 export default function MobileNav() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "admin";
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const canManageUsers = role === "admin" || role === "editor";
 
   return (
     <nav className="surface border-b p-3 md:hidden">
@@ -14,10 +15,8 @@ export default function MobileNav() {
         <Link href="/applications">Applications</Link>
         <Link href="/analytics">Analytics</Link>
         <Link href="/profile">Profile</Link>
-        {isAdmin && (
-          <Link href="/admin" className="font-medium text-red-600">
-            Admin
-          </Link>
+        {canManageUsers && (
+          <Link href="/dashboard/users">Users</Link>
         )}
       </div>
     </nav>
