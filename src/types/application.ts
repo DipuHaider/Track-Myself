@@ -28,6 +28,7 @@ export interface Application {
   followUpDate?: Date;
   priority?: "Low" | "Medium" | "High";
   attachments?: string[];
+  favourite?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

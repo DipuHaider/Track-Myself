@@ -6,6 +6,8 @@ import ViewApplicationModal from "@/components/applications/ViewApplicationModal
 import ApplicationTable from "@/components/applications/ApplicationTable";
 import { useApplications } from "@/hooks/useApplications";
 import type { Application } from "@/types/application";
+import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
+import type { QuickField } from "@/components/applications/ApplicationTable";
 
 const PAGE_SIZE = 10;
 
@@ -28,26 +30,34 @@ export default function PortalApplicationsPage() {
   const [viewTarget, setViewTarget] = useState<Application | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
   const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
+    let result = applications;
+    if (filterStatus) result = result.filter((a) => a.applicationStatus === filterStatus);
+    if (filterPriority) result = result.filter((a) => a.priority === filterPriority);
     const q = search.toLowerCase().trim();
-    if (!q) return applications;
-    return applications.filter((app) =>
-      [
-        app.companyName, app.jobTitle, app.platform,
-        app.location, app.country, app.applicationStatus,
-        app.notes, app.salary, app.contactNumber,
-      ]
-        .filter(Boolean)
-        .some((f) => f!.toLowerCase().includes(q)),
-    );
-  }, [applications, search]);
+    if (q) {
+      result = result.filter((app) =>
+        [app.companyName, app.jobTitle, app.platform, app.location, app.country,
+          app.applicationStatus, app.notes, app.salary, app.contactNumber]
+          .filter(Boolean)
+          .some((f) => f!.toLowerCase().includes(q)),
+      );
+    }
+    return result;
+  }, [applications, search, filterStatus, filterPriority]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const onSearch = (v: string) => { setSearch(v); setPage(1); };
+
+  const resetPage = () => setPage(1);
+  const onSearch = (v: string) => { setSearch(v); resetPage(); };
+  const onFilterStatus = (v: string) => { setFilterStatus(v); resetPage(); };
+  const onFilterPriority = (v: string) => { setFilterPriority(v); resetPage(); };
 
   const handleDelete = async (app: Application) => {
     if (!confirm(`Delete application for "${app.jobTitle}" at ${app.companyName}?`)) return;
@@ -57,21 +67,23 @@ export default function PortalApplicationsPage() {
     if (res.ok) removeApplication(app._id);
   };
 
-  const handleQuickUpdate = async (
-    id: string,
-    field: "priority" | "applicationStatus",
-    value: string,
-  ) => {
+  const handleQuickUpdate = async (id: string, field: QuickField, value: string | boolean) => {
+    const body =
+      field === "favourite"
+        ? { favourite: value }
+        : { [field]: (value as string) || null };
     const res = await fetch(`/api/applications/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value || null }),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       const updated: Application = await res.json();
       updateApplication(updated);
     }
   };
+
+  const activeFilters = (filterStatus ? 1 : 0) + (filterPriority ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -87,7 +99,7 @@ export default function PortalApplicationsPage() {
         </button>
       </div>
 
-      {/* Search */}
+      {/* Search + Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
@@ -96,21 +108,58 @@ export default function PortalApplicationsPage() {
           value={search}
           onChange={(e) => onSearch(e.target.value)}
         />
-        {search && (
-          <button type="button" onClick={() => onSearch("")} className="text-muted text-sm hover:underline">
-            Clear
+
+        {/* Status filter */}
+        <select
+          value={filterStatus}
+          onChange={(e) => onFilterStatus(e.target.value)}
+          className={`surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] ${
+            filterStatus ? "border-[var(--primary)]" : ""
+          }`}
+        >
+          <option value="">All Statuses</option>
+          {APPLICATION_STATUSES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+
+        {/* Priority filter */}
+        <select
+          value={filterPriority}
+          onChange={(e) => onFilterPriority(e.target.value)}
+          className={`surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] ${
+            filterPriority ? "border-[var(--primary)]" : ""
+          }`}
+        >
+          <option value="">All Priorities</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+
+        {(search || activeFilters > 0) && (
+          <button
+            type="button"
+            onClick={() => { onSearch(""); onFilterStatus(""); onFilterPriority(""); }}
+            className="text-muted text-sm hover:underline"
+          >
+            Clear{activeFilters > 0 ? ` (${activeFilters} filter${activeFilters > 1 ? "s" : ""})` : ""}
           </button>
         )}
+
         <p className="text-muted ml-auto text-sm">
           {loading
             ? "Loading…"
-            : `${filtered.length} result${filtered.length !== 1 ? "s" : ""}${search ? ` for "${search}"` : ""}`}
+            : `${filtered.length} result${filtered.length !== 1 ? "s" : ""}${
+                search || activeFilters > 0 ? " (filtered)" : ""
+              }`}
         </p>
       </div>
 
       {/* Table */}
       <ApplicationTable
         applications={deletingId ? pageItems.filter((a) => a._id !== deletingId) : pageItems}
+        startIndex={(safePage - 1) * PAGE_SIZE}
         onView={(app) => setViewTarget(app)}
         onEdit={(app) => setEditTarget(app)}
         onDelete={handleDelete}

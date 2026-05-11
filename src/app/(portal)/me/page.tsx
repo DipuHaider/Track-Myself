@@ -8,15 +8,24 @@ import {
   Trophy, XCircle, Clock, TrendingUp,
 } from "lucide-react";
 import type { Application } from "@/types/application";
+import StatsModal from "@/components/applications/StatsModal";
 
 type Profile = { name: string; email: string; role: string; plan: string; bio: string };
 
 /* ── stat card ── */
-function StatCard({ label, value, icon, color }: {
-  label: string; value: number; icon: React.ReactNode; color: string;
+function StatCard({ label, value, icon, color, onClick }: {
+  label: string; value: number; icon: React.ReactNode; color: string; onClick?: () => void;
 }) {
   return (
-    <div className="surface flex items-center gap-4 rounded-xl border p-4 transition hover:shadow-sm">
+    <div
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") onClick(); } : undefined}
+      className={`surface flex items-center gap-4 rounded-xl border p-4 transition hover:shadow-sm ${
+        onClick ? "cursor-pointer select-none hover:-translate-y-0.5 hover:border-[var(--primary)] active:translate-y-0" : ""
+      }`}
+    >
       <div
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg"
         style={{ background: color + "22", color }}
@@ -31,7 +40,7 @@ function StatCard({ label, value, icon, color }: {
   );
 }
 
-/* ── status badge ── */
+/* ── status badge helpers ── */
 const STATUS_CLASS: Record<string, string> = {
   Wishlist: "status-wishlist", Submitted: "status-submitted",
   "No Response": "status-no-resp", "Interview Scheduled": "status-interview",
@@ -66,6 +75,9 @@ export default function MePage() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState("");
 
+  /* stats modal */
+  const [modal, setModal] = useState<{ title: string; apps: Application[] } | null>(null);
+
   useEffect(() => {
     fetch("/api/applications")
       .then((r) => r.json())
@@ -80,13 +92,14 @@ export default function MePage() {
   const stats = useMemo(() => {
     const c = (fn: (a: Application) => boolean) => apps.filter(fn).length;
     return {
-      total: apps.length,
-      wishlist: c((a) => a.applicationStatus === "Wishlist"),
-      submitted: c((a) => a.applicationStatus === "Submitted"),
+      total:      apps.length,
+      wishlist:   c((a) => a.applicationStatus === "Wishlist"),
+      submitted:  c((a) => a.applicationStatus === "Submitted"),
       interviews: c((a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled"),
-      offers: c((a) => a.applicationStatus === "Offer Received"),
-      rejected: c((a) => a.applicationStatus === "Rejected"),
+      offers:     c((a) => a.applicationStatus === "Offer Received"),
+      rejected:   c((a) => a.applicationStatus === "Rejected"),
       noResponse: c((a) => a.applicationStatus === "No Response"),
+      favourites: c((a) => !!a.favourite),
     };
   }, [apps]);
 
@@ -94,15 +107,20 @@ export default function MePage() {
   const role = (session?.user as { role?: string } | undefined)?.role ?? "free";
   const recent = apps.slice(0, 6);
 
-  const CARDS = [
-    { label: "Total Applications", value: stats.total,     icon: <Briefcase size={20} />,     color: "#4169e1" },
-    { label: "Wishlist",           value: stats.wishlist,   icon: <Star size={20} />,          color: "#f59e0b" },
-    { label: "Submitted",          value: stats.submitted,  icon: <Send size={20} />,          color: "#3b82f6" },
-    { label: "Interviews",         value: stats.interviews, icon: <MessageSquare size={20} />, color: "#8b5cf6" },
-    { label: "Offers Received",    value: stats.offers,     icon: <Trophy size={20} />,        color: "#10b981" },
-    { label: "Rejected",           value: stats.rejected,   icon: <XCircle size={20} />,       color: "#ef4444" },
-    { label: "No Response",        value: stats.noResponse, icon: <Clock size={20} />,         color: "#6b7280" },
-    { label: "Success Rate %",     value: stats.total ? Math.round((stats.offers / stats.total) * 100) : 0, icon: <TrendingUp size={20} />, color: "#06b6d4" },
+  function openModal(title: string, filter: (a: Application) => boolean) {
+    setModal({ title, apps: apps.filter(filter).slice(0, 10) });
+  }
+
+  const CARDS: { label: string; value: number; icon: React.ReactNode; color: string; filter: (a: Application) => boolean }[] = [
+    { label: "Total Applications", value: stats.total,      icon: <Briefcase size={20} />,     color: "#4169e1", filter: () => true },
+    { label: "Favourites",         value: stats.favourites, icon: <Star size={20} />,           color: "#f59e0b", filter: (a) => !!a.favourite },
+    { label: "Submitted",          value: stats.submitted,  icon: <Send size={20} />,           color: "#3b82f6", filter: (a) => a.applicationStatus === "Submitted" },
+    { label: "Interviews",         value: stats.interviews, icon: <MessageSquare size={20} />,  color: "#8b5cf6", filter: (a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled" },
+    { label: "Offers Received",    value: stats.offers,     icon: <Trophy size={20} />,         color: "#10b981", filter: (a) => a.applicationStatus === "Offer Received" },
+    { label: "Rejected",           value: stats.rejected,   icon: <XCircle size={20} />,        color: "#ef4444", filter: (a) => a.applicationStatus === "Rejected" },
+    { label: "No Response",        value: stats.noResponse, icon: <Clock size={20} />,          color: "#6b7280", filter: (a) => a.applicationStatus === "No Response" },
+    { label: "Wishlist",           value: stats.wishlist,   icon: <Star size={20} />,           color: "#e879f9", filter: (a) => a.applicationStatus === "Wishlist" },
+    { label: "Success Rate %",     value: stats.total ? Math.round((stats.offers / stats.total) * 100) : 0, icon: <TrendingUp size={20} />, color: "#06b6d4", filter: (a) => a.applicationStatus === "Offer Received" },
   ];
 
   async function saveProfile(e: React.FormEvent) {
@@ -168,14 +186,26 @@ export default function MePage() {
         </div>
         {appsLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
+            {Array.from({ length: 9 }).map((_, i) => (
               <div key={i} className="surface h-20 animate-pulse rounded-xl border" />
             ))}
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {CARDS.map((c) => <StatCard key={c.label} {...c} />)}
-          </div>
+          <>
+            <p className="text-muted mb-3 text-xs">Click a card to preview the last entries.</p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {CARDS.map((c) => (
+                <StatCard
+                  key={c.label}
+                  label={c.label}
+                  value={c.value}
+                  icon={c.icon}
+                  color={c.color}
+                  onClick={() => openModal(c.label, c.filter)}
+                />
+              ))}
+            </div>
+          </>
         )}
       </section>
 
@@ -319,6 +349,15 @@ export default function MePage() {
           </button>
         </form>
       </section>
+
+      {/* ── Stats modal ── */}
+      {modal && (
+        <StatsModal
+          title={modal.title}
+          applications={modal.apps}
+          onClose={() => setModal(null)}
+        />
+      )}
 
     </div>
   );

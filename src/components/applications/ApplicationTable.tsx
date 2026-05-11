@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Eye, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Eye, Pencil, Star, Trash2 } from "lucide-react";
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 
@@ -32,24 +32,26 @@ const STATUS_CLS: Record<string, string> = {
   "Rejected":              "status-rejected",
 };
 
-type QuickField = "priority" | "applicationStatus";
+export type QuickField = "priority" | "applicationStatus" | "favourite";
 
 export default function ApplicationTable({
   applications,
+  startIndex = 0,
   onView,
   onEdit,
   onDelete,
   onQuickUpdate,
 }: {
   applications: Application[];
+  startIndex?: number;
   onView?: (app: Application) => void;
   onEdit?: (app: Application) => void;
   onDelete?: (app: Application) => void;
-  onQuickUpdate?: (id: string, field: QuickField, value: string) => Promise<void>;
+  onQuickUpdate?: (id: string, field: QuickField, value: string | boolean) => Promise<void>;
 }) {
   const [saving, setSaving] = useState<{ id: string; field: QuickField } | null>(null);
 
-  const handleChange = async (app: Application, field: QuickField, value: string) => {
+  const handleChange = async (app: Application, field: QuickField, value: string | boolean) => {
     if (!onQuickUpdate) return;
     setSaving({ id: app._id, field });
     await onQuickUpdate(app._id, field, value);
@@ -62,9 +64,10 @@ export default function ApplicationTable({
   return (
     <div className="surface overflow-hidden rounded-lg border">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="surface-muted">
             <tr>
+              <th className="px-3 py-3 font-medium text-center text-muted">#</th>
               <th className="px-4 py-3 font-medium">Company</th>
               <th className="px-4 py-3 font-medium">Job Title</th>
               <th className="px-4 py-3 font-medium">Location</th>
@@ -77,8 +80,13 @@ export default function ApplicationTable({
             </tr>
           </thead>
           <tbody>
-            {applications.map((app) => (
+            {applications.map((app, idx) => (
               <tr key={app._id} className="border-t transition hover:bg-[var(--surface-2)]">
+                {/* # */}
+                <td className="px-3 py-3 text-center text-xs text-muted tabular-nums">
+                  {startIndex + idx + 1}
+                </td>
+
                 <td className="px-4 py-3 font-medium">{app.companyName}</td>
                 <td className="px-4 py-3">{app.jobTitle}</td>
                 <td className="text-muted px-4 py-3">{app.location ?? app.country ?? "—"}</td>
@@ -105,10 +113,7 @@ export default function ApplicationTable({
                         <option value="Medium">Medium</option>
                         <option value="High">High</option>
                       </select>
-                      <ChevronDown
-                        size={10}
-                        className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50"
-                      />
+                      <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50" />
                     </div>
                   ) : app.priority ? (
                     <span className={`role-badge ${PRIORITY_CLS[app.priority] ?? "status-wishlist"}`}>
@@ -135,10 +140,7 @@ export default function ApplicationTable({
                           <option key={s} value={s}>{s}</option>
                         ))}
                       </select>
-                      <ChevronDown
-                        size={10}
-                        className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50"
-                      />
+                      <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50" />
                     </div>
                   ) : (
                     <span className={`role-badge ${STATUS_CLS[app.applicationStatus] ?? "status-wishlist"} whitespace-nowrap`}>
@@ -150,6 +152,20 @@ export default function ApplicationTable({
                 {/* Actions */}
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-1">
+                    {/* Favourite star */}
+                    {onQuickUpdate && (
+                      <button
+                        type="button"
+                        onClick={() => handleChange(app, "favourite", !app.favourite)}
+                        disabled={isSaving(app._id, "favourite")}
+                        title={app.favourite ? "Remove from favourites" : "Add to favourites"}
+                        className={`rounded-md p-1.5 transition hover:bg-[var(--surface-2)] disabled:opacity-40 ${
+                          app.favourite ? "text-amber-400" : "text-muted"
+                        }`}
+                      >
+                        <Star size={15} fill={app.favourite ? "currentColor" : "none"} />
+                      </button>
+                    )}
                     {onView && (
                       <button
                         type="button"
@@ -186,7 +202,7 @@ export default function ApplicationTable({
             ))}
             {applications.length === 0 && (
               <tr>
-                <td className="text-muted px-4 py-10 text-center" colSpan={9}>
+                <td className="text-muted px-4 py-10 text-center" colSpan={10}>
                   No applications found.
                 </td>
               </tr>

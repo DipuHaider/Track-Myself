@@ -43,6 +43,7 @@ const ApplicationSchema = new Schema(
     followUpDate: { type: Date },
     priority: { type: String, enum: ["Low", "Medium", "High"], default: "Medium" },
     attachments: [{ type: String }],
+    favourite: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
