@@ -57,6 +57,22 @@ export default function PortalApplicationsPage() {
     if (res.ok) removeApplication(app._id);
   };
 
+  const handleQuickUpdate = async (
+    id: string,
+    field: "priority" | "applicationStatus",
+    value: string,
+  ) => {
+    const res = await fetch(`/api/applications/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value || null }),
+    });
+    if (res.ok) {
+      const updated: Application = await res.json();
+      updateApplication(updated);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -98,6 +114,7 @@ export default function PortalApplicationsPage() {
         onView={(app) => setViewTarget(app)}
         onEdit={(app) => setEditTarget(app)}
         onDelete={handleDelete}
+        onQuickUpdate={handleQuickUpdate}
       />
 
       {/* Pagination */}

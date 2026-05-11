@@ -7,32 +7,43 @@ import User from "@/models/User";
 import { authOptions } from "@/lib/auth";
 import { SUPERADMIN_EMAILS } from "@/lib/permissions";
 
-// One-time migration: rename old roles and promote superadmin emails.
-// Only callable by superadmin or admin.
-export async function POST() {
-  const session = await getServerSession(authOptions as any);
-  const role = (session as { user?: { role?: string } } | null)?.user?.role;
-  if (role !== "superadmin" && role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
+async function runMigration() {
   await dbConnect();
 
   const [generalResult, premiumResult, superadminResult] = await Promise.all([
-    // general → free
     User.updateMany({ role: "general" }, { $set: { role: "free" } }),
-    // premium → paid
     User.updateMany({ role: "premium" }, { $set: { role: "paid" } }),
-    // promote superadmin emails
     User.updateMany(
       { email: { $in: [...SUPERADMIN_EMAILS] } },
       { $set: { role: "superadmin" } }
     ),
   ]);
 
-  return NextResponse.json({
+  return {
     generalRenamed: generalResult.modifiedCount,
     premiumRenamed: premiumResult.modifiedCount,
     superadminPromoted: superadminResult.modifiedCount,
-  });
+  };
+}
+
+async function authorize() {
+  const session = await getServerSession(authOptions as any);
+  const role = (session as { user?: { role?: string } } | null)?.user?.role;
+  return role === "superadmin" || role === "admin";
+}
+
+// One-time migration: rename old roles and promote superadmin emails.
+// Only callable by superadmin or admin.
+export async function GET() {
+  if (!(await authorize())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return NextResponse.json(await runMigration());
+}
+
+export async function POST() {
+  if (!(await authorize())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return NextResponse.json(await runMigration());
 }
