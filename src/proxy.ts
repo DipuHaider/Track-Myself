@@ -13,8 +13,10 @@ export default withAuth(
       path.startsWith("/profile") ||
       path.startsWith("/settings");
 
-    if (isBackendPath && role !== "admin" && role !== "editor") {
-      return NextResponse.redirect(new URL("/", req.url));
+    const isBackendRole = role === "superadmin" || role === "admin" || role === "editor";
+
+    if (isBackendPath && !isBackendRole) {
+      return NextResponse.redirect(new URL("/me", req.url));
     }
 
     return NextResponse.next();

@@ -14,7 +14,7 @@ const baseLinks = [
 export default function Sidebar() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role;
-  const canManageUsers = role === "admin" || role === "editor";
+  const canManageUsers = role === "superadmin" || role === "admin" || role === "editor";
 
   return (
     <aside className="surface hidden w-56 shrink-0 flex-col border-r p-4 md:flex">

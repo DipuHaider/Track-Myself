@@ -9,10 +9,6 @@ export default async function PortalLayout({ children }: { children: ReactNode }
   const session = await getServerSession(authOptions as any);
   if (!session) redirect("/login");
 
-  // Admin/editor belong in the dashboard, not the portal
-  const role = (session as { user?: { role?: string } } | null)?.user?.role;
-  if (role === "admin" || role === "editor") redirect("/dashboard");
-
   return (
     <>
       <SiteHeader />

@@ -15,8 +15,9 @@ type UserRecord = {
 
 export default function UsersPage() {
   const { data: session } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const isAdmin = role === "admin";
+  const myRole = (session?.user as { role?: string } | undefined)?.role;
+  const isSuperAdmin = myRole === "superadmin";
+  const isAdmin = myRole === "superadmin" || myRole === "admin";
 
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +70,9 @@ export default function UsersPage() {
     setUsers((prev) => prev.filter((u) => u._id !== userId));
   }
 
+  // Roles available for editing: superadmin can assign any, admin cannot assign superadmin
+  const assignableRoles = isSuperAdmin ? ROLES : ROLES.filter((r) => r !== "superadmin");
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -94,62 +98,67 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
-                <tr key={user._id} className="border-t">
-                  <td className="px-4 py-3 font-medium">{user.name}</td>
-                  <td className="text-muted px-4 py-3">{user.email}</td>
-                  <td className="px-4 py-3">
-                    {isAdmin ? (
-                      <select
-                        value={user.role}
-                        disabled={saving === user._id}
-                        onChange={(e) => updateRole(user._id, e.target.value)}
-                        className="surface rounded border px-2 py-1 text-xs"
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className={`role-badge role-${user.role}`}>
-                        {ROLE_LABELS[user.role as Role] ?? user.role}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {isAdmin ? (
-                      <select
-                        value={user.plan}
-                        disabled={saving === user._id + "-plan"}
-                        onChange={(e) => updatePlan(user._id, e.target.value)}
-                        className="surface rounded border px-2 py-1 text-xs"
-                      >
-                        <option value="free">Free</option>
-                        <option value="premium">Premium</option>
-                      </select>
-                    ) : (
-                      <span className={`role-badge plan-${user.plan}`}>
-                        {user.plan === "premium" ? "Premium" : "Free"}
-                      </span>
-                    )}
-                  </td>
-                  <td className="text-muted px-4 py-3">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </td>
-                  {isAdmin && (
+              {users.map((user) => {
+                const canEdit = isAdmin && (isSuperAdmin || user.role !== "superadmin");
+                return (
+                  <tr key={user._id} className="border-t">
+                    <td className="px-4 py-3 font-medium">{user.name}</td>
+                    <td className="text-muted px-4 py-3">{user.email}</td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        disabled={saving === user._id + "-del"}
-                        onClick={() => deleteUser(user._id, user.name)}
-                        className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {saving === user._id + "-del" ? "Deleting…" : "Delete"}
-                      </button>
+                      {canEdit ? (
+                        <select
+                          value={user.role}
+                          disabled={saving === user._id}
+                          onChange={(e) => updateRole(user._id, e.target.value)}
+                          className="surface rounded border px-2 py-1 text-xs"
+                        >
+                          {assignableRoles.map((r) => (
+                            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`role-badge role-${user.role}`}>
+                          {ROLE_LABELS[user.role as Role] ?? user.role}
+                        </span>
+                      )}
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td className="px-4 py-3">
+                      {canEdit ? (
+                        <select
+                          value={user.plan}
+                          disabled={saving === user._id + "-plan"}
+                          onChange={(e) => updatePlan(user._id, e.target.value)}
+                          className="surface rounded border px-2 py-1 text-xs"
+                        >
+                          <option value="free">Free</option>
+                          <option value="premium">Premium</option>
+                        </select>
+                      ) : (
+                        <span className={`role-badge plan-${user.plan}`}>
+                          {user.plan === "premium" ? "Premium" : "Free"}
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-muted px-4 py-3">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3">
+                        {canEdit && (
+                          <button
+                            type="button"
+                            disabled={saving === user._id + "-del"}
+                            onClick={() => deleteUser(user._id, user.name)}
+                            className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {saving === user._id + "-del" ? "Deleting…" : "Delete"}
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
               {users.length === 0 && (
                 <tr>
                   <td className="text-muted px-4 py-8" colSpan={isAdmin ? 6 : 5}>

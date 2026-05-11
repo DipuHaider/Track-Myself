@@ -29,7 +29,7 @@ function statusClass(s: string) {
 export default function SiteSearch() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role;
-  const isBackend = role === "admin" || role === "editor";
+  const isBackend = role === "superadmin" || role === "admin" || role === "editor";
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");

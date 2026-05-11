@@ -29,7 +29,7 @@ export default function LoginPage() {
     if (result?.ok) {
       const session = await getSession();
       const role = (session?.user as { role?: string } | undefined)?.role;
-      if (role === "admin" || role === "editor") {
+      if (role === "superadmin" || role === "admin" || role === "editor") {
         router.push("/dashboard");
       } else {
         router.push("/me");

@@ -8,7 +8,7 @@ if (process.env.NODE_ENV !== "production") {
 const nextConfig: NextConfig = {
   serverExternalPackages: ["mongoose", "bcryptjs"],
   typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
+  // eslint: { ignoreDuringBuilds: true }, // uncomment if tsc check crashes on Windows
   experimental: {
     staticGenerationMaxConcurrency: 1,
     staticGenerationMinPagesPerWorker: 25,

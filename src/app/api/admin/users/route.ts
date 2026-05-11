@@ -8,9 +8,8 @@ import { authOptions } from "@/lib/auth";
 
 function requireAdminOrEditor(session: { user?: { role?: string } } | null) {
   const role = session?.user?.role;
-  if (!role || (role !== "admin" && role !== "editor")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const allowed = role === "superadmin" || role === "admin" || role === "editor";
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return null;
 }
 

@@ -11,7 +11,7 @@ export default function AuthRedirectPage() {
   useEffect(() => {
     if (status === "loading") return;
     const role = (session?.user as { role?: string } | undefined)?.role;
-    if (role === "admin" || role === "editor") {
+    if (role === "superadmin" || role === "admin" || role === "editor") {
       router.replace("/dashboard");
     } else {
       router.replace("/me");

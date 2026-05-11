@@ -139,7 +139,7 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold">Welcome, {displayName}</h1>
           <p className="text-muted flex flex-wrap items-center gap-2 text-sm">
             <span className={`role-badge role-${profile.role}`}>{ROLE_LABELS[roleKey] ?? profile.role}</span>
-            <span className={`role-badge plan-${profile.plan}`}>{profile.plan === "premium" ? "Premium Plan" : "Free Plan"}</span>
+            <span className={`role-badge plan-${profile.plan}`}>{profile.plan === "premium" ? "Premium" : "Free"}</span>
             {session?.user?.id && (
               <span className="text-muted text-xs">ID: {session.user.id.slice(-6)}</span>
             )}

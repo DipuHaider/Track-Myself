@@ -91,7 +91,7 @@ export default function MePage() {
   }, [apps]);
 
   const displayName = profile?.name ?? session?.user?.name ?? "User";
-  const role = (session?.user as { role?: string } | undefined)?.role ?? "general";
+  const role = (session?.user as { role?: string } | undefined)?.role ?? "free";
   const recent = apps.slice(0, 6);
 
   const CARDS = [
@@ -148,7 +148,7 @@ export default function MePage() {
             <span className={`role-badge role-${role}`}>{role}</span>
             {profile?.plan && (
               <span className={`role-badge plan-${profile.plan}`}>
-                {profile.plan === "premium" ? "Premium Plan" : "Free Plan"}
+                {profile.plan === "premium" ? "Premium" : "Free"}
               </span>
             )}
             {apps.length > 0 && `· ${apps.length} application${apps.length !== 1 ? "s" : ""} tracked`}

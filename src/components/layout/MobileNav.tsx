@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 export default function MobileNav() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role;
-  const canManageUsers = role === "admin" || role === "editor";
+  const canManageUsers = role === "superadmin" || role === "admin" || role === "editor";
 
   return (
     <nav className="surface border-b p-3 md:hidden">

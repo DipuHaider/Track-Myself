@@ -9,8 +9,7 @@ import SiteSearch from "@/components/site/SiteSearch";
 export default function SiteHeader() {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role;
-  const isBackendUser = role === "admin" || role === "editor";
-  const isFrontendUser = role === "general" || role === "premium";
+  const isBackendUser = role === "superadmin" || role === "admin" || role === "editor";
 
   return (
     <header className="surface fixed top-0 right-0 left-0 z-50 border-b">
@@ -51,7 +50,7 @@ export default function SiteHeader() {
                 </Link>
               )}
 
-              {isFrontendUser && (
+              {session && (
                 <Link
                   href="/me"
                   className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-2)]"

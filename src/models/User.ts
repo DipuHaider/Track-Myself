@@ -8,8 +8,8 @@ const UserSchema = new Schema(
     googleId: { type: String, default: null },
     role: {
       type: String,
-      enum: ["admin", "editor", "premium", "general"],
-      default: "general",
+      enum: ["superadmin", "admin", "editor", "paid", "free"],
+      default: "free",
     },
     plan: {
       type: String,

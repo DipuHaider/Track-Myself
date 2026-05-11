@@ -3,6 +3,12 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
+import { SUPERADMIN_EMAILS } from "@/lib/permissions";
+
+function effectiveRole(email: string, dbRole: string): string {
+  if (SUPERADMIN_EMAILS.includes(email as (typeof SUPERADMIN_EMAILS)[number])) return "superadmin";
+  return dbRole ?? "free";
+}
 
 export const authOptions = {
   providers: [
@@ -18,22 +24,19 @@ export const authOptions = {
       },
       async authorize(credentials: { email?: string; password?: string } | undefined) {
         await dbConnect();
-
-        if (!credentials?.email || !credentials.password) {
-          return null;
-        }
+        if (!credentials?.email || !credentials.password) return null;
 
         const user = await User.findOne({ email: credentials.email });
         if (!user || !user.password) return null;
 
-        const passwordMatch = await bcrypt.compare(credentials.password, user.password);
-        if (!passwordMatch) return null;
+        const match = await bcrypt.compare(credentials.password, user.password);
+        if (!match) return null;
 
         return {
           id: user._id.toString(),
           email: user.email,
           name: user.name,
-          role: user.role ?? "general",
+          role: effectiveRole(user.email, user.role),
         };
       },
     }),
@@ -41,7 +44,7 @@ export const authOptions = {
   pages: { signIn: "/login" },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    async signIn({ user, account }: { user: { id?: string; email?: string | null; name?: string | null; image?: string | null }; account: { provider?: string } | null }) {
+    async signIn({ user, account }: { user: { id?: string; email?: string | null; name?: string | null }; account: { provider?: string } | null }) {
       if (account?.provider === "google") {
         await dbConnect();
         const existing = await User.findOne({ email: user.email });
@@ -50,7 +53,7 @@ export const authOptions = {
             name: user.name ?? "Google User",
             email: user.email,
             googleId: user.id,
-            role: "general",
+            role: "free",
             plan: "free",
           });
         } else if (!existing.googleId) {
@@ -73,13 +76,12 @@ export const authOptions = {
         token.id = user.id;
         token.role = user.role;
       }
-      // For Google sign-in, look up role from DB on first JWT creation
       if (account?.provider === "google" && token.email) {
         await dbConnect();
         const dbUser = await User.findOne({ email: token.email });
         if (dbUser) {
           token.id = dbUser._id.toString();
-          token.role = dbUser.role ?? "general";
+          token.role = effectiveRole(dbUser.email, dbUser.role);
         }
       }
       return token;
@@ -93,7 +95,7 @@ export const authOptions = {
     }) {
       if (session.user) {
         session.user.id = token.id;
-        session.user.role = token.role ?? "general";
+        session.user.role = token.role ?? "free";
       }
       return session;
     },

@@ -57,9 +57,9 @@ export default function UserStatsSection() {
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatPill label="Total Users" value={users.length} />
-            <StatPill label="Admins" value={byRole("admin")} />
-            <StatPill label="Editors" value={byRole("editor")} />
-            <StatPill label="Premium Members" value={byRole("premium")} />
+            <StatPill label="Staff" value={byRole("superadmin") + byRole("admin") + byRole("editor")} />
+            <StatPill label="Paid Members" value={byRole("paid")} />
+            <StatPill label="Free Members" value={byRole("free")} />
           </div>
 
           <div className="surface rounded-lg border">
