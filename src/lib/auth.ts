@@ -1,10 +1,15 @@
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 
 export const authOptions = {
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -19,7 +24,7 @@ export const authOptions = {
         }
 
         const user = await User.findOne({ email: credentials.email });
-        if (!user) return null;
+        if (!user || !user.password) return null;
 
         const passwordMatch = await bcrypt.compare(credentials.password, user.password);
         if (!passwordMatch) return null;
@@ -36,16 +41,46 @@ export const authOptions = {
   pages: { signIn: "/login" },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
+    async signIn({ user, account }: { user: { id?: string; email?: string | null; name?: string | null; image?: string | null }; account: { provider?: string } | null }) {
+      if (account?.provider === "google") {
+        await dbConnect();
+        const existing = await User.findOne({ email: user.email });
+        if (!existing) {
+          await User.create({
+            name: user.name ?? "Google User",
+            email: user.email,
+            googleId: user.id,
+            role: "general",
+            plan: "free",
+          });
+        } else if (!existing.googleId) {
+          existing.googleId = user.id;
+          await existing.save();
+        }
+      }
+      return true;
+    },
     async jwt({
       token,
       user,
+      account,
     }: {
-      token: { id?: string; role?: string };
+      token: { id?: string; role?: string; email?: string };
       user?: { id: string; role?: string };
+      account?: { provider?: string } | null;
     }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+      }
+      // For Google sign-in, look up role from DB on first JWT creation
+      if (account?.provider === "google" && token.email) {
+        await dbConnect();
+        const dbUser = await User.findOne({ email: token.email });
+        if (dbUser) {
+          token.id = dbUser._id.toString();
+          token.role = dbUser.role ?? "general";
+        }
       }
       return token;
     },
