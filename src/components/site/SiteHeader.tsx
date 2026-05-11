@@ -29,6 +29,9 @@ export default function SiteHeader() {
           <a href="#cta" className="text-muted hover:text-foreground transition">
             Get Started
           </a>
+          <Link href="/tools" className="text-muted hover:text-foreground transition">
+            Tools
+          </Link>
         </nav>
 
         {/* Right actions */}

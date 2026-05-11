@@ -12,11 +12,13 @@ import {
   LogOut,
   User,
   Briefcase,
+  Wrench,
 } from "lucide-react";
 
 const NAV = [
   { href: "/me", icon: LayoutDashboard, label: "Overview" },
   { href: "/me/applications", icon: Briefcase, label: "Applications" },
+  { href: "/tools", icon: Wrench, label: "Tools" },
   { href: "/", icon: Home, label: "Home" },
 ];
 
