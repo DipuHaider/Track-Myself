@@ -17,6 +17,7 @@ const UserSchema = new Schema(
       default: "free",
     },
     bio: { type: String, default: "" },
+    image: { type: String, default: "" },
   },
   { timestamps: true },
 );

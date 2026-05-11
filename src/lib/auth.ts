@@ -44,7 +44,7 @@ export const authOptions = {
   pages: { signIn: "/login" },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    async signIn({ user, account }: { user: { id?: string; email?: string | null; name?: string | null }; account: { provider?: string } | null }) {
+    async signIn({ user, account }: { user: { id?: string; email?: string | null; name?: string | null; image?: string | null }; account: { provider?: string } | null }) {
       if (account?.provider === "google") {
         await dbConnect();
         const existing = await User.findOne({ email: user.email });
@@ -53,12 +53,15 @@ export const authOptions = {
             name: user.name ?? "Google User",
             email: user.email,
             googleId: user.id,
+            image: user.image ?? "",
             role: "free",
             plan: "free",
           });
-        } else if (!existing.googleId) {
-          existing.googleId = user.id;
-          await existing.save();
+        } else {
+          let dirty = false;
+          if (!existing.googleId) { existing.googleId = user.id; dirty = true; }
+          if (user.image && existing.image !== user.image) { existing.image = user.image; dirty = true; }
+          if (dirty) await existing.save();
         }
       }
       return true;
@@ -68,7 +71,7 @@ export const authOptions = {
       user,
       account,
     }: {
-      token: { id?: string; role?: string; email?: string };
+      token: { id?: string; role?: string; email?: string; picture?: string };
       user?: { id: string; role?: string };
       account?: { provider?: string } | null;
     }) {
@@ -82,6 +85,7 @@ export const authOptions = {
         if (dbUser) {
           token.id = dbUser._id.toString();
           token.role = effectiveRole(dbUser.email, dbUser.role);
+          if (dbUser.image) token.picture = dbUser.image;
         }
       }
       return token;

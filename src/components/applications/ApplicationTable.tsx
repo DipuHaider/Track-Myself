@@ -5,6 +5,20 @@ import { ChevronDown, Eye, Pencil, Star, Trash2 } from "lucide-react";
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 
+const CURRENCY_SYM: Record<string, string> = { EUR: "€", USD: "$", BDT: "৳" };
+
+function formatSalary(app: Application): string {
+  const sym = CURRENCY_SYM[app.salaryCurrency ?? ""] ?? "";
+  if (app.salaryType === "range" && app.salaryMin != null && app.salaryMax != null) {
+    return `${sym}${app.salaryMin.toLocaleString("en-US")} – ${sym}${app.salaryMax.toLocaleString("en-US")}`;
+  }
+  if (app.salaryFixed != null) {
+    return `${sym}${app.salaryFixed.toLocaleString("en-US")}`;
+  }
+  if (app.salary) return app.salary;
+  return "—";
+}
+
 function formatDateTime(d?: Date | string) {
   if (!d) return "—";
   return new Date(d).toLocaleString("en-GB", {
@@ -90,7 +104,7 @@ export default function ApplicationTable({
                 <td className="px-4 py-3 font-medium">{app.companyName}</td>
                 <td className="px-4 py-3">{app.jobTitle}</td>
                 <td className="text-muted px-4 py-3">{app.location ?? app.country ?? "—"}</td>
-                <td className="text-muted px-4 py-3">{app.salary ?? "—"}</td>
+                <td className="text-muted px-4 py-3 whitespace-nowrap">{formatSalary(app)}</td>
                 <td className="text-muted px-4 py-3 whitespace-nowrap">{formatDateTime(app.appliedDate)}</td>
                 <td className="text-muted px-4 py-3">{app.contactNumber ?? "—"}</td>
 

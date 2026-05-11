@@ -154,12 +154,21 @@ export default function MePage() {
 
       {/* ── Welcome ── */}
       <div className="flex items-center gap-4">
-        <div
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white"
-          style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))" }}
-        >
-          {displayName[0]?.toUpperCase()}
-        </div>
+        {session?.user?.image ? (
+          <img
+            src={session.user.image}
+            alt={displayName}
+            referrerPolicy="no-referrer"
+            className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-[var(--primary)]/20"
+          />
+        ) : (
+          <div
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white"
+            style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))" }}
+          >
+            {displayName[0]?.toUpperCase()}
+          </div>
+        )}
         <div>
           <h1 className="text-2xl font-bold">Welcome back, {displayName}!</h1>
           <p className="text-muted flex flex-wrap items-center gap-2 text-sm">
