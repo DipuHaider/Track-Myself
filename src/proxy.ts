@@ -19,6 +19,11 @@ export default withAuth(
       return NextResponse.redirect(new URL("/me", req.url));
     }
 
+    // Editors cannot access settings — superadmin/admin only
+    if (path === "/settings" && role !== "superadmin" && role !== "admin") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
     return NextResponse.next();
   },
   {
