@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
-  Briefcase, Star, Send, MessageSquare,
+  Briefcase, Copy, Ghost, Star, Send, MessageSquare,
   Trophy, XCircle, Clock, TrendingUp,
 } from "lucide-react";
 import type { Application } from "@/types/application";
 import StatsModal from "@/components/applications/StatsModal";
+import { computeDuplicateIds } from "@/lib/applicationFlags";
 
 type Profile = { name: string; email: string; role: string; plan: string; bio: string };
 
@@ -91,15 +92,19 @@ export default function MePage() {
 
   const stats = useMemo(() => {
     const c = (fn: (a: Application) => boolean) => apps.filter(fn).length;
+    const dupIds = computeDuplicateIds(apps);
     return {
-      total:      apps.length,
-      wishlist:   c((a) => a.applicationStatus === "Wishlist"),
-      submitted:  c((a) => a.applicationStatus === "Submitted"),
-      interviews: c((a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled"),
-      offers:     c((a) => a.applicationStatus === "Offer Received"),
-      rejected:   c((a) => a.applicationStatus === "Rejected"),
-      noResponse: c((a) => a.applicationStatus === "No Response"),
-      favourites: c((a) => !!a.favourite),
+      total:       apps.length,
+      wishlist:    c((a) => a.applicationStatus === "Wishlist"),
+      submitted:   c((a) => a.applicationStatus === "Submitted"),
+      interviews:  c((a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled"),
+      offers:      c((a) => a.applicationStatus === "Offer Received"),
+      rejected:    c((a) => a.applicationStatus === "Rejected"),
+      noResponse:  c((a) => a.applicationStatus === "No Response"),
+      favourites:  c((a) => !!a.favourite),
+      ghostManual: c((a) => !!a.isGhostJob),
+      duplicates:  dupIds.size,
+      _dupIds:     dupIds,
     };
   }, [apps]);
 
@@ -121,6 +126,8 @@ export default function MePage() {
     { label: "No Response",        value: stats.noResponse, icon: <Clock size={20} />,          color: "#6b7280", filter: (a) => a.applicationStatus === "No Response" },
     { label: "Wishlist",           value: stats.wishlist,   icon: <Star size={20} />,           color: "#e879f9", filter: (a) => a.applicationStatus === "Wishlist" },
     { label: "Success Rate %",     value: stats.total ? Math.round((stats.offers / stats.total) * 100) : 0, icon: <TrendingUp size={20} />, color: "#06b6d4", filter: (a) => a.applicationStatus === "Offer Received" },
+    { label: "Ghost Jobs",         value: stats.ghostManual, icon: <Ghost size={20} />,          color: "#be123c", filter: (a) => !!a.isGhostJob },
+    { label: "Duplicates",         value: stats.duplicates,  icon: <Copy size={20} />,           color: "#c2410c", filter: (a) => stats._dupIds.has(a._id) },
   ];
 
   async function saveProfile(e: React.FormEvent) {

@@ -44,6 +44,7 @@ const ApplicationSchema = new Schema(
     priority: { type: String, enum: ["Low", "Medium", "High"], default: "Medium" },
     attachments: [{ type: String }],
     favourite: { type: Boolean, default: false },
+    isGhostJob: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Eye, Pencil, Star, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lucide-react";
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
+import { isPossibleGhost } from "@/lib/applicationFlags";
 
 const CURRENCY_SYM: Record<string, string> = { EUR: "€", USD: "$", BDT: "৳" };
 
@@ -46,7 +47,7 @@ const STATUS_CLS: Record<string, string> = {
   "Rejected":              "status-rejected",
 };
 
-export type QuickField = "priority" | "applicationStatus" | "favourite";
+export type QuickField = "priority" | "applicationStatus" | "favourite" | "isGhostJob";
 
 export default function ApplicationTable({
   applications,
@@ -55,6 +56,7 @@ export default function ApplicationTable({
   onEdit,
   onDelete,
   onQuickUpdate,
+  duplicateIds,
 }: {
   applications: Application[];
   startIndex?: number;
@@ -62,6 +64,7 @@ export default function ApplicationTable({
   onEdit?: (app: Application) => void;
   onDelete?: (app: Application) => void;
   onQuickUpdate?: (id: string, field: QuickField, value: string | boolean) => Promise<void>;
+  duplicateIds?: Set<string>;
 }) {
   const [saving, setSaving] = useState<{ id: string; field: QuickField } | null>(null);
 
@@ -101,7 +104,14 @@ export default function ApplicationTable({
                   {startIndex + idx + 1}
                 </td>
 
-                <td className="px-4 py-3 font-medium">{app.companyName}</td>
+                <td className="px-4 py-3 font-medium">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {app.companyName}
+                    {duplicateIds?.has(app._id) && (
+                      <span className="role-badge badge-dup px-1.5 py-0.5 text-[10px]">Dup</span>
+                    )}
+                  </span>
+                </td>
                 <td className="px-4 py-3">{app.jobTitle}</td>
                 <td className="text-muted px-4 py-3">{app.location ?? app.country ?? "—"}</td>
                 <td className="text-muted px-4 py-3 whitespace-nowrap">{formatSalary(app)}</td>
@@ -166,6 +176,30 @@ export default function ApplicationTable({
                 {/* Actions */}
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-1">
+                    {/* Auto-detected ghost — amber warning, click to confirm */}
+                    {onQuickUpdate && isPossibleGhost(app) && !app.isGhostJob && (
+                      <button
+                        type="button"
+                        title="Possible ghost job (45+ days, no progress) — click to confirm"
+                        onClick={() => handleChange(app, "isGhostJob", true)}
+                        disabled={isSaving(app._id, "isGhostJob")}
+                        className="rounded-md p-1.5 text-amber-500 transition hover:bg-[var(--surface-2)] disabled:opacity-40"
+                      >
+                        <AlertTriangle size={15} />
+                      </button>
+                    )}
+                    {/* Manually confirmed ghost — rose, click to unmark */}
+                    {onQuickUpdate && app.isGhostJob && (
+                      <button
+                        type="button"
+                        title="Confirmed ghost job — click to unmark"
+                        onClick={() => handleChange(app, "isGhostJob", false)}
+                        disabled={isSaving(app._id, "isGhostJob")}
+                        className="rounded-md p-1.5 text-rose-700 transition hover:bg-[var(--surface-2)] disabled:opacity-40"
+                      >
+                        <Ghost size={15} />
+                      </button>
+                    )}
                     {/* Favourite star */}
                     {onQuickUpdate && (
                       <button

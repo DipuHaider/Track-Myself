@@ -113,3 +113,12 @@ body {
 :root[data-theme="dark"] .status-active    { background: #1e0a3b; color: #c4b5fd; }
 :root[data-theme="dark"] .status-offer     { background: #052e16; color: #86efac; }
 :root[data-theme="dark"] .status-rejected  { background: #3b0d0d; color: #fca5a5; }
+
+/* Ghost job & duplicate badges */
+.ghost-auto   { background: #fff7ed; color: #c2410c; }
+.ghost-manual { background: #ffe4e6; color: #9f1239; }
+.badge-dup    { background: #ffedd5; color: #c2410c; }
+
+:root[data-theme="dark"] .ghost-auto   { background: #431407; color: #fb923c; }
+:root[data-theme="dark"] .ghost-manual { background: #3b0d1a; color: #fda4af; }
+:root[data-theme="dark"] .badge-dup   { background: #431407; color: #fdba74; }

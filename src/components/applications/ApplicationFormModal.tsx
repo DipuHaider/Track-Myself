@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, PLATFORMS } from "@/constants/applicationStatus";
@@ -134,16 +134,23 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 /* ── component ───────────────────────────────────── */
 
+type ServerDuplicate = {
+  _id: string; companyName: string; jobTitle: string;
+  appliedDate?: Date; applicationStatus: string;
+};
+
 export default function ApplicationFormModal({
   open,
   onClose,
   onSaved,
   application,
+  applications,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: (app: Application) => void;
   application?: Application;
+  applications?: Application[];
 }) {
   const isEdit = !!application;
   const [form, setForm] = useState<FormData>(isEdit ? toForm(application!) : EMPTY);
@@ -153,6 +160,7 @@ export default function ApplicationFormModal({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [serverDuplicate, setServerDuplicate] = useState<ServerDuplicate | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -161,8 +169,21 @@ export default function ApplicationFormModal({
       setExistingAttachments(application?.attachments ?? []);
       setPendingFiles([]);
       setError("");
+      setServerDuplicate(null);
     }
   }, [open, application]);
+
+  const duplicateWarnings = useMemo(() => {
+    if (!applications || !form.companyName || !form.jobTitle) return [];
+    const cn = form.companyName.toLowerCase().trim();
+    const jt = form.jobTitle.toLowerCase().trim();
+    return applications.filter(
+      (a) =>
+        (!application || a._id !== application._id) &&
+        a.companyName.toLowerCase().trim() === cn &&
+        a.jobTitle.toLowerCase().trim() === jt,
+    );
+  }, [applications, form.companyName, form.jobTitle, application]);
 
   const set =
     (field: keyof FormData) =>
@@ -205,40 +226,43 @@ export default function ApplicationFormModal({
   const removeExisting = (path: string) =>
     setExistingAttachments((prev) => prev.filter((p) => p !== path));
 
+  const buildPayload = async () => {
+    const uploadedPaths: string[] = [];
+    for (const file of pendingFiles) {
+      const p = await uploadFile(file, form.companyName || "unknown");
+      uploadedPaths.push(p);
+    }
+    const attachments = [...existingAttachments, ...uploadedPaths];
+    return {
+      companyName: form.companyName,
+      jobTitle: form.jobTitle,
+      platform: form.platform || undefined,
+      platformDetail: form.platformDetail || undefined,
+      applicationStatus: form.applicationStatus,
+      city: form.city || undefined,
+      country: form.country || undefined,
+      salaryType: form.salaryType,
+      salaryCurrency: form.salaryCurrency,
+      salaryFixed: form.salaryFixed ? Number(form.salaryFixed) : undefined,
+      salaryMin: form.salaryMin ? Number(form.salaryMin) : undefined,
+      salaryMax: form.salaryMax ? Number(form.salaryMax) : undefined,
+      contactNumber: form.contactNumber || undefined,
+      jobPostUrl: form.jobPostUrl || undefined,
+      appliedDate: form.appliedDate || undefined,
+      priority: form.priority,
+      notes: form.notes || undefined,
+      attachments,
+    };
+  };
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
+    setServerDuplicate(null);
 
     try {
-      const uploadedPaths: string[] = [];
-      for (const file of pendingFiles) {
-        const p = await uploadFile(file, form.companyName || "unknown");
-        uploadedPaths.push(p);
-      }
-
-      const attachments = [...existingAttachments, ...uploadedPaths];
-      const payload = {
-        companyName: form.companyName,
-        jobTitle: form.jobTitle,
-        platform: form.platform || undefined,
-        platformDetail: form.platformDetail || undefined,
-        applicationStatus: form.applicationStatus,
-        city: form.city || undefined,
-        country: form.country || undefined,
-        salaryType: form.salaryType,
-        salaryCurrency: form.salaryCurrency,
-        salaryFixed: form.salaryFixed ? Number(form.salaryFixed) : undefined,
-        salaryMin: form.salaryMin ? Number(form.salaryMin) : undefined,
-        salaryMax: form.salaryMax ? Number(form.salaryMax) : undefined,
-        contactNumber: form.contactNumber || undefined,
-        jobPostUrl: form.jobPostUrl || undefined,
-        appliedDate: form.appliedDate || undefined,
-        priority: form.priority,
-        notes: form.notes || undefined,
-        attachments,
-      };
-
+      const payload = await buildPayload();
       const url = isEdit ? `/api/applications/${application!._id}` : "/api/applications";
       const method = isEdit ? "PUT" : "POST";
 
@@ -248,11 +272,39 @@ export default function ApplicationFormModal({
         body: JSON.stringify(payload),
       });
 
+      if (res.status === 409) {
+        const d = await res.json();
+        setServerDuplicate(d.existing);
+        return;
+      }
+
       if (!res.ok) {
         setError("Failed to save. Please try again.");
         return;
       }
 
+      const saved = await res.json();
+      onSaved(saved);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveAnyway = async () => {
+    setServerDuplicate(null);
+    setSaving(true);
+    setError("");
+    try {
+      const payload = await buildPayload();
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, force: true }),
+      });
+      if (!res.ok) { setError("Failed to save. Please try again."); return; }
       const saved = await res.json();
       onSaved(saved);
       onClose();
@@ -535,6 +587,46 @@ export default function ApplicationFormModal({
               onChange={handleFileAdd}
             />
           </div>
+
+          {/* Client-side duplicate warning (live as user types) */}
+          {duplicateWarnings.length > 0 && !serverDuplicate && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+              <strong>Possible duplicate:</strong> You already have {duplicateWarnings.length}{" "}
+              application{duplicateWarnings.length > 1 ? "s" : ""} for{" "}
+              <em>{form.jobTitle}</em> at <em>{form.companyName}</em>. You can still save.
+            </div>
+          )}
+
+          {/* Server-confirmed 409 duplicate */}
+          {serverDuplicate && (
+            <div className="rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              <p className="font-medium">Duplicate confirmed by server</p>
+              <p className="mt-0.5 text-xs">
+                Existing: <strong>{serverDuplicate.companyName}</strong> —{" "}
+                {serverDuplicate.jobTitle}
+                {serverDuplicate.appliedDate &&
+                  ` · applied ${new Date(serverDuplicate.appliedDate).toLocaleDateString("en-GB")}`}
+                {" "}· {serverDuplicate.applicationStatus}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={saveAnyway}
+                  disabled={saving}
+                  className="rounded-md bg-amber-600 px-3 py-1 text-xs text-white transition hover:bg-amber-700 disabled:opacity-60"
+                >
+                  Save anyway
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setServerDuplicate(null)}
+                  className="rounded-md border px-3 py-1 text-xs transition hover:bg-[var(--surface-2)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>

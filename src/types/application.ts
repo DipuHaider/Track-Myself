@@ -29,6 +29,7 @@ export interface Application {
   priority?: "Low" | "Medium" | "High";
   attachments?: string[];
   favourite?: boolean;
+  isGhostJob?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

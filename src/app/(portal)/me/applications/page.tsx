@@ -8,6 +8,7 @@ import { useApplications } from "@/hooks/useApplications";
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 import type { QuickField } from "@/components/applications/ApplicationTable";
+import { computeDuplicateIds, isPossibleGhost } from "@/lib/applicationFlags";
 
 const PAGE_SIZE = 10;
 
@@ -32,12 +33,19 @@ export default function PortalApplicationsPage() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
+  const [filterGhost, setFilterGhost] = useState<"" | "auto" | "manual">("");
+  const [filterDuplicates, setFilterDuplicates] = useState(false);
   const [page, setPage] = useState(1);
+
+  const duplicateIds = useMemo(() => computeDuplicateIds(applications), [applications]);
 
   const filtered = useMemo(() => {
     let result = applications;
-    if (filterStatus) result = result.filter((a) => a.applicationStatus === filterStatus);
-    if (filterPriority) result = result.filter((a) => a.priority === filterPriority);
+    if (filterStatus)           result = result.filter((a) => a.applicationStatus === filterStatus);
+    if (filterPriority)         result = result.filter((a) => a.priority === filterPriority);
+    if (filterGhost === "auto") result = result.filter(isPossibleGhost);
+    if (filterGhost === "manual") result = result.filter((a) => !!a.isGhostJob);
+    if (filterDuplicates)       result = result.filter((a) => duplicateIds.has(a._id));
     const q = search.toLowerCase().trim();
     if (q) {
       result = result.filter((app) =>
@@ -48,7 +56,7 @@ export default function PortalApplicationsPage() {
       );
     }
     return result;
-  }, [applications, search, filterStatus, filterPriority]);
+  }, [applications, search, filterStatus, filterPriority, filterGhost, filterDuplicates, duplicateIds]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -58,6 +66,11 @@ export default function PortalApplicationsPage() {
   const onSearch = (v: string) => { setSearch(v); resetPage(); };
   const onFilterStatus = (v: string) => { setFilterStatus(v); resetPage(); };
   const onFilterPriority = (v: string) => { setFilterPriority(v); resetPage(); };
+
+  const clearAll = () => {
+    onSearch(""); onFilterStatus(""); onFilterPriority("");
+    setFilterGhost(""); setFilterDuplicates(false);
+  };
 
   const handleDelete = async (app: Application) => {
     if (!confirm(`Delete application for "${app.jobTitle}" at ${app.companyName}?`)) return;
@@ -69,8 +82,8 @@ export default function PortalApplicationsPage() {
 
   const handleQuickUpdate = async (id: string, field: QuickField, value: string | boolean) => {
     const body =
-      field === "favourite"
-        ? { favourite: value }
+      field === "favourite" || field === "isGhostJob"
+        ? { [field]: value }
         : { [field]: (value as string) || null };
     const res = await fetch(`/api/applications/${id}`, {
       method: "PUT",
@@ -83,7 +96,11 @@ export default function PortalApplicationsPage() {
     }
   };
 
-  const activeFilters = (filterStatus ? 1 : 0) + (filterPriority ? 1 : 0);
+  const activeFilters =
+    (filterStatus ? 1 : 0) +
+    (filterPriority ? 1 : 0) +
+    (filterGhost ? 1 : 0) +
+    (filterDuplicates ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -137,10 +154,34 @@ export default function PortalApplicationsPage() {
           <option value="Low">Low</option>
         </select>
 
+        {/* Ghost filter */}
+        <select
+          value={filterGhost}
+          onChange={(e) => { setFilterGhost(e.target.value as "" | "auto" | "manual"); resetPage(); }}
+          className={`surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] ${
+            filterGhost ? "border-[var(--primary)]" : ""
+          }`}
+        >
+          <option value="">All Ghost States</option>
+          <option value="auto">Possible Ghost (45+ days)</option>
+          <option value="manual">Confirmed Ghost</option>
+        </select>
+
+        {/* Duplicates filter */}
+        <label className="flex cursor-pointer items-center gap-1.5 text-sm">
+          <input
+            type="checkbox"
+            checked={filterDuplicates}
+            onChange={(e) => { setFilterDuplicates(e.target.checked); resetPage(); }}
+            className="rounded accent-[var(--primary)]"
+          />
+          Duplicates only
+        </label>
+
         {(search || activeFilters > 0) && (
           <button
             type="button"
-            onClick={() => { onSearch(""); onFilterStatus(""); onFilterPriority(""); }}
+            onClick={clearAll}
             className="text-muted text-sm hover:underline"
           >
             Clear{activeFilters > 0 ? ` (${activeFilters} filter${activeFilters > 1 ? "s" : ""})` : ""}
@@ -164,6 +205,7 @@ export default function PortalApplicationsPage() {
         onEdit={(app) => setEditTarget(app)}
         onDelete={handleDelete}
         onQuickUpdate={handleQuickUpdate}
+        duplicateIds={duplicateIds}
       />
 
       {/* Pagination */}
@@ -214,12 +256,14 @@ export default function PortalApplicationsPage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onSaved={(app) => { addApplication(app); setAddOpen(false); }}
+        applications={applications}
       />
       <ApplicationFormModal
         open={!!editTarget}
         onClose={() => setEditTarget(null)}
         onSaved={(app) => { updateApplication(app); setEditTarget(null); }}
         application={editTarget ?? undefined}
+        applications={applications}
       />
       <ViewApplicationModal
         open={!!viewTarget}

@@ -32,3 +32,28 @@ export function isEditor(role?: string | null): boolean {
 export function isPaid(role?: string | null): boolean {
   return role === "paid" || isAdmin(role);
 }
+
+/* ── Dashboard action → minimum roles allowed ── */
+export type DashboardAction =
+  | "view:analytics"
+  | "view:users"
+  | "view:applications"
+  | "view:settings"
+  | "edit:users"
+  | "delete:users"
+  | "assign:superadmin";
+
+export const ACTION_ROLES: Record<DashboardAction, readonly Role[]> = {
+  "view:analytics":    ["superadmin", "admin", "editor"],
+  "view:users":        ["superadmin", "admin", "editor"],
+  "view:applications": ["superadmin", "admin", "editor"],
+  "view:settings":     ["superadmin", "admin"],
+  "edit:users":        ["superadmin", "admin"],
+  "delete:users":      ["superadmin", "admin"],
+  "assign:superadmin": ["superadmin"],
+};
+
+export function canDo(role: string | null | undefined, action: DashboardAction): boolean {
+  if (!role) return false;
+  return (ACTION_ROLES[action] as readonly string[]).includes(role);
+}

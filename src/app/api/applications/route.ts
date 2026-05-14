@@ -31,6 +31,10 @@ export async function GET(req: Request) {
   return NextResponse.json(applications);
 }
 
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions as any);
   const userId = (session as { user?: { id?: string } } | null)?.user?.id;
@@ -40,6 +44,20 @@ export async function POST(req: Request) {
 
   await dbConnect();
   const body = await req.json();
-  const application = await Application.create({ ...body, userId });
+
+  if (!body.force) {
+    const existing = await Application.findOne({
+      userId,
+      companyName: { $regex: `^${escapeRegex(body.companyName ?? "")}$`, $options: "i" },
+      jobTitle:    { $regex: `^${escapeRegex(body.jobTitle ?? "")}$`,    $options: "i" },
+    }).select("_id companyName jobTitle appliedDate applicationStatus").lean();
+
+    if (existing) {
+      return NextResponse.json({ error: "duplicate", existing }, { status: 409 });
+    }
+  }
+
+  const { force: _force, ...data } = body;
+  const application = await Application.create({ ...data, userId });
   return NextResponse.json(application, { status: 201 });
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { ROLES, ROLE_LABELS, type Role } from "@/lib/permissions";
+import { ROLES, ROLE_LABELS, canDo, type Role } from "@/lib/permissions";
 
 type UserRecord = {
   _id: string;
@@ -15,14 +15,20 @@ type UserRecord = {
 
 export default function UsersPage() {
   const { data: session } = useSession();
-  const myRole = (session?.user as { role?: string } | undefined)?.role;
-  const isSuperAdmin = myRole === "superadmin";
-  const isAdmin = myRole === "superadmin" || myRole === "admin";
+  const myRole = (session?.user as { role?: string } | undefined)?.role ?? "";
 
-  const [users, setUsers] = useState<UserRecord[]>([]);
+  const canEdit   = canDo(myRole, "edit:users");
+  const canDelete = canDo(myRole, "delete:users");
+
+  // Roles available in the dropdown (superadmin can assign all; admin cannot assign superadmin)
+  const assignableRoles = canDo(myRole, "assign:superadmin")
+    ? ROLES
+    : ROLES.filter((r) => r !== "superadmin");
+
+  const [users, setUsers]   = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [saving, setSaving]   = useState<string | null>(null);
+  const [error, setError]     = useState("");
 
   useEffect(() => {
     fetch("/api/admin/users")
@@ -32,21 +38,19 @@ export default function UsersPage() {
   }, []);
 
   async function updateRole(userId: string, newRole: string) {
-    setSaving(userId);
-    setError("");
+    setSaving(userId); setError("");
     const res = await fetch(`/api/admin/users/${userId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: newRole }),
     });
     setSaving(null);
-    if (!res.ok) { setError("Failed to update role."); return; }
+    if (!res.ok) { const d = await res.json(); setError(d.error ?? "Failed to update role."); return; }
     setUsers((prev) => prev.map((u) => (u._id === userId ? { ...u, role: newRole } : u)));
   }
 
   async function updatePlan(userId: string, plan: string) {
-    setSaving(userId + "-plan");
-    setError("");
+    setSaving(userId + "-plan"); setError("");
     const res = await fetch(`/api/admin/users/${userId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -62,28 +66,33 @@ export default function UsersPage() {
     setSaving(userId + "-del");
     const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
     setSaving(null);
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error ?? "Failed to delete user.");
-      return;
-    }
+    if (!res.ok) { const d = await res.json(); setError(d.error ?? "Failed to delete user."); return; }
     setUsers((prev) => prev.filter((u) => u._id !== userId));
   }
 
-  // Roles available for editing: superadmin can assign any, admin cannot assign superadmin
-  const assignableRoles = isSuperAdmin ? ROLES : ROLES.filter((r) => r !== "superadmin");
+  // Per-row: admins cannot edit superadmin users (only superadmin can)
+  function rowCanEdit(user: UserRecord) {
+    return canEdit && (canDo(myRole, "assign:superadmin") || user.role !== "superadmin");
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Users</h2>
+        <div>
+          <h2 className="text-2xl font-semibold">Users</h2>
+          {!canEdit && (
+            <p className="text-muted mt-0.5 text-xs">
+              Read-only view — editors can view but not modify users.
+            </p>
+          )}
+        </div>
         <p className="text-muted text-sm">{users.length} total</p>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <p className="text-muted text-sm">Loading...</p>
+        <p className="text-muted text-sm">Loading…</p>
       ) : (
         <div className="surface overflow-hidden rounded-lg border">
           <table className="w-full text-left text-sm">
@@ -94,18 +103,20 @@ export default function UsersPage() {
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Plan</th>
                 <th className="px-4 py-3">Joined</th>
-                {isAdmin && <th className="px-4 py-3"></th>}
+                {(canEdit || canDelete) && <th className="px-4 py-3" />}
               </tr>
             </thead>
             <tbody>
               {users.map((user) => {
-                const canEdit = isAdmin && (isSuperAdmin || user.role !== "superadmin");
+                const editable = rowCanEdit(user);
                 return (
-                  <tr key={user._id} className="border-t">
+                  <tr key={user._id} className="border-t transition hover:bg-[var(--surface-2)]">
                     <td className="px-4 py-3 font-medium">{user.name}</td>
                     <td className="text-muted px-4 py-3">{user.email}</td>
+
+                    {/* Role cell */}
                     <td className="px-4 py-3">
-                      {canEdit ? (
+                      {editable ? (
                         <select
                           value={user.role}
                           disabled={saving === user._id}
@@ -122,8 +133,10 @@ export default function UsersPage() {
                         </span>
                       )}
                     </td>
+
+                    {/* Plan cell */}
                     <td className="px-4 py-3">
-                      {canEdit ? (
+                      {editable ? (
                         <select
                           value={user.plan}
                           disabled={saving === user._id + "-plan"}
@@ -139,12 +152,14 @@ export default function UsersPage() {
                         </span>
                       )}
                     </td>
+
                     <td className="text-muted px-4 py-3">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
-                    {isAdmin && (
+
+                    {(canEdit || canDelete) && (
                       <td className="px-4 py-3">
-                        {canEdit && (
+                        {canDelete && editable && (
                           <button
                             type="button"
                             disabled={saving === user._id + "-del"}
@@ -161,7 +176,10 @@ export default function UsersPage() {
               })}
               {users.length === 0 && (
                 <tr>
-                  <td className="text-muted px-4 py-8" colSpan={isAdmin ? 6 : 5}>
+                  <td
+                    className="text-muted px-4 py-8"
+                    colSpan={(canEdit || canDelete) ? 6 : 5}
+                  >
                     No users found.
                   </td>
                 </tr>
