@@ -26,6 +26,9 @@ export default function SiteHeader() {
           <a href="#trending" className="text-muted hover:text-foreground transition">
             Trending
           </a>
+          <a href="#job-sites" className="text-muted hover:text-foreground transition">
+            Job Sites
+          </a>
           <a href="#cta" className="text-muted hover:text-foreground transition">
             Get Started
           </a>
