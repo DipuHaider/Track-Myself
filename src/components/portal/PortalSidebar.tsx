@@ -13,13 +13,15 @@ import {
   User,
   Briefcase,
   Wrench,
+  FileText,
 } from "lucide-react";
 
 const NAV = [
-  { href: "/me", icon: LayoutDashboard, label: "Overview" },
-  { href: "/me/applications", icon: Briefcase, label: "Applications" },
-  { href: "/tools", icon: Wrench, label: "Tools" },
-  { href: "/", icon: Home, label: "Home" },
+  { href: "/me",              icon: LayoutDashboard, label: "Overview",     premium: false },
+  { href: "/me/applications", icon: Briefcase,       label: "Applications", premium: false },
+  { href: "/me/cv",           icon: FileText,        label: "CV Builder",   premium: true  },
+  { href: "/tools",           icon: Wrench,          label: "Tools",        premium: false },
+  { href: "/",                icon: Home,            label: "Home",         premium: false },
 ];
 
 export default function PortalSidebar() {
@@ -85,7 +87,7 @@ export default function PortalSidebar() {
 
       {/* Nav links */}
       <nav className="flex-1 space-y-0.5 p-2">
-        {NAV.map(({ href, icon: Icon, label }) => {
+        {NAV.map(({ href, icon: Icon, label, premium }) => {
           const active = pathname === href;
           return (
             <Link
@@ -101,7 +103,16 @@ export default function PortalSidebar() {
               }`}
             >
               <Icon size={16} className="shrink-0" />
-              {!collapsed && <span className="truncate">{label}</span>}
+              {!collapsed && (
+                <span className="flex flex-1 items-center gap-1.5 truncate">
+                  {label}
+                  {premium && !active && (
+                    <span className="ml-auto rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-bold leading-none text-amber-600">
+                      PRO
+                    </span>
+                  )}
+                </span>
+              )}
             </Link>
           );
         })}

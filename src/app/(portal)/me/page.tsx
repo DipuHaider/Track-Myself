@@ -117,17 +117,18 @@ export default function MePage() {
   }
 
   const CARDS: { label: string; value: number; icon: React.ReactNode; color: string; filter: (a: Application) => boolean }[] = [
-    { label: "Total Applications", value: stats.total,      icon: <Briefcase size={20} />,     color: "#4169e1", filter: () => true },
-    { label: "Favourites",         value: stats.favourites, icon: <Star size={20} />,           color: "#f59e0b", filter: (a) => !!a.favourite },
-    { label: "Submitted",          value: stats.submitted,  icon: <Send size={20} />,           color: "#3b82f6", filter: (a) => a.applicationStatus === "Submitted" },
-    { label: "Interviews",         value: stats.interviews, icon: <MessageSquare size={20} />,  color: "#8b5cf6", filter: (a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled" },
-    { label: "Offers Received",    value: stats.offers,     icon: <Trophy size={20} />,         color: "#10b981", filter: (a) => a.applicationStatus === "Offer Received" },
-    { label: "Rejected",           value: stats.rejected,   icon: <XCircle size={20} />,        color: "#ef4444", filter: (a) => a.applicationStatus === "Rejected" },
-    { label: "No Response",        value: stats.noResponse, icon: <Clock size={20} />,          color: "#6b7280", filter: (a) => a.applicationStatus === "No Response" },
-    { label: "Wishlist",           value: stats.wishlist,   icon: <Star size={20} />,           color: "#e879f9", filter: (a) => a.applicationStatus === "Wishlist" },
+    // ── pipeline order ───────────────────────────────────────────────────────
+    { label: "Total Applications", value: stats.total,       icon: <Briefcase size={20} />,    color: "#4169e1", filter: () => true },
+    { label: "Favourites",         value: stats.favourites,  icon: <Star size={20} />,          color: "#f59e0b", filter: (a) => !!a.favourite },
+    { label: "Wishlist",           value: stats.wishlist,    icon: <Star size={20} />,          color: "#e879f9", filter: (a) => a.applicationStatus === "Wishlist" },
+    { label: "Submitted",          value: stats.submitted,   icon: <Send size={20} />,          color: "#3b82f6", filter: (a) => a.applicationStatus === "Submitted" },
+    { label: "No Response",        value: stats.noResponse,  icon: <Clock size={20} />,         color: "#6b7280", filter: (a) => a.applicationStatus === "No Response" },
+    { label: "Interviews",         value: stats.interviews,  icon: <MessageSquare size={20} />, color: "#8b5cf6", filter: (a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled" },
+    { label: "Offers Received",    value: stats.offers,      icon: <Trophy size={20} />,        color: "#10b981", filter: (a) => a.applicationStatus === "Offer Received" },
+    { label: "Rejected",           value: stats.rejected,    icon: <XCircle size={20} />,       color: "#ef4444", filter: (a) => a.applicationStatus === "Rejected" },
     { label: "Success Rate %",     value: stats.total ? Math.round((stats.offers / stats.total) * 100) : 0, icon: <TrendingUp size={20} />, color: "#06b6d4", filter: (a) => a.applicationStatus === "Offer Received" },
-    { label: "Ghost Jobs",         value: stats.ghostManual, icon: <Ghost size={20} />,          color: "#be123c", filter: (a) => !!a.isGhostJob },
-    { label: "Duplicates",         value: stats.duplicates,  icon: <Copy size={20} />,           color: "#c2410c", filter: (a) => stats._dupIds.has(a._id) },
+    { label: "Ghost Jobs",         value: stats.ghostManual, icon: <Ghost size={20} />,         color: "#be123c", filter: (a) => !!a.isGhostJob },
+    { label: "Duplicates",         value: stats.duplicates,  icon: <Copy size={20} />,          color: "#c2410c", filter: (a) => stats._dupIds.has(a._id) },
   ];
 
   async function saveProfile(e: React.FormEvent) {

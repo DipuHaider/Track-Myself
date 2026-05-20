@@ -203,11 +203,14 @@ function buildDesigner(cv: CVData, idx: number): string {
 
 // ── public API ─────────────────────────────────────────────────────────────
 
+export function getCVHTML(cv: CVData, tab: TabKey, templateIdx: number): string {
+  if (tab === "ats") return buildATS(cv, templateIdx);
+  if (tab === "europass") return buildEuropass(cv, templateIdx);
+  return buildDesigner(cv, templateIdx);
+}
+
 export function downloadAsWord(cv: CVData, tab: TabKey, templateIdx: number) {
-  let html: string;
-  if (tab === "ats") html = buildATS(cv, templateIdx);
-  else if (tab === "europass") html = buildEuropass(cv, templateIdx);
-  else html = buildDesigner(cv, templateIdx);
+  const html = getCVHTML(cv, tab, templateIdx);
 
   const blob = new Blob(["﻿", html], {
     type: "application/vnd.ms-word;charset=utf-8",
