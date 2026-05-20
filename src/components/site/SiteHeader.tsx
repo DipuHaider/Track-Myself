@@ -29,6 +29,9 @@ export default function SiteHeader() {
           <a href="#job-sites" className="text-muted hover:text-foreground transition">
             Job Sites
           </a>
+          <a href="#cv-builder" className="text-muted hover:text-foreground transition">
+            CV Builder
+          </a>
           <a href="#cta" className="text-muted hover:text-foreground transition">
             Get Started
           </a>

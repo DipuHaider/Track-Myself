@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, ExternalLink, Globe, Star } from "lucide-react";
 
 type JobSite = {
   name: string;
@@ -9,16 +9,17 @@ type JobSite = {
   domain: string;
   description: string;
   color: string;
+  featured?: true;
 };
 
 type FilterKey = "international" | "bangladesh" | "germany" | "uk" | "usa";
 
-const FILTERS: { key: FilterKey; label: string; flag: string }[] = [
-  { key: "international", label: "International", flag: "🌐" },
-  { key: "bangladesh", label: "Bangladesh", flag: "🇧🇩" },
-  { key: "germany", label: "Germany", flag: "🇩🇪" },
-  { key: "uk", label: "UK", flag: "🇬🇧" },
-  { key: "usa", label: "USA", flag: "🇺🇸" },
+const FILTERS: { key: FilterKey; label: string; flagCode: string | null }[] = [
+  { key: "international", label: "International", flagCode: null },
+  { key: "bangladesh", label: "Bangladesh", flagCode: "bd" },
+  { key: "germany", label: "Germany", flagCode: "de" },
+  { key: "uk", label: "UK", flagCode: "gb" },
+  { key: "usa", label: "USA", flagCode: "us" },
 ];
 
 const SITES: Record<FilterKey, JobSite[]> = {
@@ -29,6 +30,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       domain: "linkedin.com",
       description: "World's largest professional network with 1B+ members and job listings",
       color: "#0a66c2",
+      featured: true,
     },
     {
       name: "Indeed",
@@ -73,6 +75,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       domain: "bdjobs.com",
       description: "Bangladesh's largest online job portal with 50,000+ active listings",
       color: "#e8312a",
+      featured: true,
     },
     {
       name: "Chakri.com",
@@ -152,6 +155,14 @@ const SITES: Record<FilterKey, JobSite[]> = {
       domain: "experteer.de",
       description: "Premium executive job platform for senior leadership roles in Germany",
       color: "#c41e3a",
+    },
+    {
+      name: "Make it in Germany",
+      url: "https://www.make-it-in-germany.com",
+      domain: "make-it-in-germany.com",
+      description: "Official German government portal for skilled workers relocating to Germany",
+      color: "#cc0000",
+      featured: true,
     },
   ],
   uk: [
@@ -245,18 +256,38 @@ const SITES: Record<FilterKey, JobSite[]> = {
 };
 
 const PER_PAGE = 4;
+const AUTO_SCROLL_MS = 3000;
 
 export default function JobSitesSection() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("international");
   const [page, setPage] = useState(0);
+  const pausedRef = useRef(false);
 
   const sites = SITES[activeFilter];
   const totalPages = Math.ceil(sites.length / PER_PAGE);
   const visible = sites.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
 
+  useEffect(() => {
+    if (totalPages <= 1) return;
+    const id = setInterval(() => {
+      if (!pausedRef.current) {
+        setPage((p) => (p + 1) % totalPages);
+      }
+    }, AUTO_SCROLL_MS);
+    return () => clearInterval(id);
+  }, [totalPages, activeFilter]);
+
   function handleFilter(key: FilterKey) {
     setActiveFilter(key);
     setPage(0);
+  }
+
+  function prev() {
+    setPage((p) => (p - 1 + totalPages) % totalPages);
+  }
+
+  function next() {
+    setPage((p) => (p + 1) % totalPages);
   }
 
   return (
@@ -277,7 +308,7 @@ export default function JobSitesSection() {
 
       {/* Filter tabs */}
       <div className="mb-8 flex flex-wrap justify-center gap-2">
-        {FILTERS.map(({ key, label, flag }) => (
+        {FILTERS.map(({ key, label, flagCode }) => (
           <button
             key={key}
             onClick={() => handleFilter(key)}
@@ -288,98 +319,125 @@ export default function JobSitesSection() {
                 : { borderColor: "var(--border)", color: "var(--foreground)" }
             }
           >
-            <span>{flag}</span>
+            {flagCode ? (
+              <img
+                src={`https://flagcdn.com/w20/${flagCode}.png`}
+                srcSet={`https://flagcdn.com/w40/${flagCode}.png 2x`}
+                width={20}
+                height={14}
+                alt={label}
+                className="rounded-sm object-cover"
+                style={{ display: "block" }}
+              />
+            ) : (
+              <Globe size={14} />
+            )}
             {label}
           </button>
         ))}
       </div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {visible.map((site) => (
-          <a
-            key={site.name + site.url}
-            href={site.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="surface group flex flex-col gap-3 rounded-2xl border p-5 transition hover:-translate-y-0.5 hover:shadow-lg"
-          >
-            {/* Logo row */}
-            <div className="flex items-start justify-between">
-              <div
-                className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl"
-                style={{ background: site.color + "18" }}
-              >
-                <img
-                  src={`https://logo.clearbit.com/${site.domain.replace(/^[a-z]{2}\./, "")}`}
-                  alt={site.name}
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 object-contain"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${site.url}`;
-                  }}
+      {/* Cards + nav */}
+      <div
+        onMouseEnter={() => { pausedRef.current = true; }}
+        onMouseLeave={() => { pausedRef.current = false; }}
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {visible.map((site) => (
+            <a
+              key={site.name + site.url}
+              href={site.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="surface group relative flex flex-col gap-3 overflow-hidden rounded-2xl border p-5 transition hover:-translate-y-0.5 hover:shadow-lg"
+              style={site.featured ? { borderColor: "#f59e0b", boxShadow: "0 0 0 1px #f59e0b33" } : undefined}
+            >
+              {/* Featured badge */}
+              {site.featured && (
+                <span
+                  className="absolute right-3 top-3 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  style={{ background: "#f59e0b", color: "#fff" }}
+                >
+                  <Star size={9} fill="currentColor" />
+                  Featured
+                </span>
+              )}
+
+              {/* Logo row */}
+              <div className="flex items-start justify-between">
+                <div
+                  className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl"
+                  style={{ background: site.color + "18" }}
+                >
+                  <img
+                    src={`https://logo.clearbit.com/${site.domain.replace(/^[a-z]{2}\./, "")}`}
+                    alt={site.name}
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 object-contain"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${site.url}`;
+                    }}
+                  />
+                </div>
+                <ExternalLink
+                  size={13}
+                  className="mt-0.5 opacity-0 transition-opacity group-hover:opacity-60"
+                  style={{ color: "var(--foreground)" }}
                 />
               </div>
-              <ExternalLink
-                size={13}
-                className="mt-0.5 opacity-0 transition-opacity group-hover:opacity-60"
-                style={{ color: "var(--foreground)" }}
-              />
-            </div>
 
-            {/* Name + description */}
-            <div>
-              <p className="text-sm font-semibold">{site.name}</p>
-              <p className="text-muted mt-1 text-xs leading-relaxed">{site.description}</p>
-            </div>
+              {/* Name + description */}
+              <div>
+                <p className="text-sm font-semibold">{site.name}</p>
+                <p className="text-muted mt-1 text-xs leading-relaxed">{site.description}</p>
+              </div>
 
-            {/* Domain badge */}
-            <span
-              className="mt-auto self-start rounded-full px-2.5 py-0.5 text-xs font-medium"
-              style={{ background: site.color + "18", color: site.color }}
-            >
-              {site.domain}
-            </span>
-          </a>
-        ))}
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-4">
-          <button
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="flex h-8 w-8 items-center justify-center rounded-full border transition hover:bg-[var(--surface-2)] disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft size={15} />
-          </button>
-
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                className="h-1.5 rounded-full transition-all"
-                style={{
-                  width: i === page ? "20px" : "6px",
-                  background: i === page ? "var(--primary)" : "var(--surface-2)",
-                }}
-              />
-            ))}
-          </div>
-
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={page === totalPages - 1}
-            className="flex h-8 w-8 items-center justify-center rounded-full border transition hover:bg-[var(--surface-2)] disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronRight size={15} />
-          </button>
+              {/* Domain badge */}
+              <span
+                className="mt-auto self-start rounded-full px-2.5 py-0.5 text-xs font-medium"
+                style={{ background: site.color + "18", color: site.color }}
+              >
+                {site.domain}
+              </span>
+            </a>
+          ))}
         </div>
-      )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-4">
+            <button
+              onClick={prev}
+              className="flex h-8 w-8 items-center justify-center rounded-full border transition hover:bg-[var(--surface-2)]"
+            >
+              <ChevronLeft size={15} />
+            </button>
+
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i)}
+                  className="h-1.5 rounded-full transition-all duration-300"
+                  style={{
+                    width: i === page ? "20px" : "6px",
+                    background: i === page ? "var(--primary)" : "var(--surface-2)",
+                  }}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={next}
+              className="flex h-8 w-8 items-center justify-center rounded-full border transition hover:bg-[var(--surface-2)]"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
