@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ImageIcon, Scissors, Zap } from "lucide-react";
+import { ArrowRight, ImageIcon, Scissors, ScanText, Zap } from "lucide-react";
 
 const TOOLS = [
   {
@@ -22,6 +22,16 @@ const TOOLS = [
       "Extract any pages from a PDF by entering a range like 1-3, 5, 8-10. Or split every page into its own file. Pure browser — no server involved.",
     tags: ["Extract pages", "Split", "PDF"],
   },
+  {
+    href: "/tools/jd-analyzer",
+    icon: ScanText,
+    color: "#f97316",
+    gradient: "from-orange-500/10 to-amber-500/5",
+    title: "JD Analyser",
+    description:
+      "Paste a job description and instantly see every technical skill, soft skill, seniority signal, and keyword you should mirror in your CV and cover letter.",
+    tags: ["Skills", "Keywords", "ATS"],
+  },
 ] as const;
 
 export default function ToolsSection() {
@@ -43,7 +53,7 @@ export default function ToolsSection() {
       </div>
 
       {/* Tool cards */}
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {TOOLS.map(({ href, icon: Icon, color, gradient, title, description, tags }) => (
           <Link
             key={href}

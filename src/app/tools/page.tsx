@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ImageIcon, Scissors, ArrowRight } from "lucide-react";
+import { ImageIcon, Scissors, ScanText, ArrowRight } from "lucide-react";
 
 const TOOLS = [
   {
@@ -20,6 +20,15 @@ const TOOLS = [
       "Extract specific pages from a PDF file. Enter a page range like 1-3, 5, 8-10 and download the extracted document — works entirely in your browser.",
     badge: "Client-side",
   },
+  {
+    href: "/tools/jd-analyzer",
+    icon: ScanText,
+    color: "#f97316",
+    title: "JD Analyser",
+    description:
+      "Paste any job description and instantly extract technical skills, soft skills, seniority level, work type, and the top keywords to mirror in your CV.",
+    badge: "Client-side",
+  },
 ] as const;
 
 export default function ToolsPage() {
@@ -34,7 +43,7 @@ export default function ToolsPage() {
       </div>
 
       {/* Grid */}
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {TOOLS.map(({ href, icon: Icon, color, title, description, badge }) => (
           <Link
             key={href}
