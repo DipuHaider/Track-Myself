@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { LayoutDashboard, LogOut, UserCircle } from "lucide-react";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import SiteSearch from "@/components/site/SiteSearch";
+import { Logo } from "@/components/shared/Logo";
 
 export default function SiteHeader() {
   const { data: session } = useSession();
@@ -15,11 +16,7 @@ export default function SiteHeader() {
     <header className="surface fixed top-0 right-0 left-0 z-50 border-b">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <span className="text-lg font-bold" style={{ color: "var(--primary)" }}>
-            Track<span style={{ color: "var(--accent)" }}>Myself</span>
-          </span>
-        </Link>
+        <Logo size={30} textSize="text-base" />
 
         {/* Nav */}
         <nav className="hidden items-center gap-6 text-sm md:flex">

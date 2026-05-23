@@ -8,6 +8,7 @@ import {
   UserCircle, Settings, LogOut,
 } from "lucide-react";
 import { canDo, ROLE_LABELS, type Role, type DashboardAction } from "@/lib/permissions";
+import { Logo } from "@/components/shared/Logo";
 
 type NavItem = {
   href: string;
@@ -44,7 +45,9 @@ export default function Sidebar() {
   return (
     <aside className="surface hidden w-56 shrink-0 flex-col border-r p-4 md:flex">
       {/* Branding */}
-      <p className="mb-1 text-lg font-semibold">Track Myself</p>
+      <div className="mb-3">
+        <Logo size={26} textSize="text-sm" />
+      </div>
 
       {/* Current user pill */}
       <div className="mb-5 flex flex-wrap items-center gap-1.5">

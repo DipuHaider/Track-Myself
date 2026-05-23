@@ -15,6 +15,7 @@ import {
   Wrench,
   FileText,
 } from "lucide-react";
+import { Logo } from "@/components/shared/Logo";
 
 const NAV = [
   { href: "/me",              icon: LayoutDashboard, label: "Overview",     premium: false },
@@ -54,8 +55,8 @@ export default function PortalSidebar() {
       {/* Header */}
       <div className="flex h-14 items-center border-b px-3">
         {!collapsed && (
-          <span className="flex-1 overflow-hidden truncate text-sm font-semibold">
-            TrackMyself
+          <span className="flex-1 overflow-hidden">
+            <Logo size={22} textSize="text-sm" />
           </span>
         )}
         <button

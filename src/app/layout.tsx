@@ -5,8 +5,12 @@ import "./globals.css";
 import SessionProvider from "@/providers/SessionProvider";
 
 export const metadata: Metadata = {
-  title: "Track Myself",
+  title: "TrackMyself",
   description: "Job application tracker",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

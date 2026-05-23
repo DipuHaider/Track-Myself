@@ -252,6 +252,18 @@ function buildDesigner(cv: CVData, idx: number): string {
 
 // ── public API ─────────────────────────────────────────────────────────────
 
+const TAB_LABELS: Record<TabKey, string> = {
+  ats: "ATS Friendly",
+  europass: "Europass",
+  designer: "Designer",
+};
+
+const TEMPLATE_NAMES: Record<TabKey, string[]> = {
+  ats: ["Classic ATS", "Modern ATS", "Executive ATS"],
+  europass: ["Official EU", "Euro Modern", "Euro Compact"],
+  designer: ["Creative Sidebar", "Bold Header", "Minimal Accent"],
+};
+
 export function getCVHTML(cv: CVData, tab: TabKey, templateIdx: number): string {
   if (tab === "ats") return buildATS(cv, templateIdx);
   if (tab === "europass") return buildEuropass(cv, templateIdx);
@@ -261,13 +273,19 @@ export function getCVHTML(cv: CVData, tab: TabKey, templateIdx: number): string 
 export function downloadAsWord(cv: CVData, tab: TabKey, templateIdx: number) {
   const html = getCVHTML(cv, tab, templateIdx);
 
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yyyy = now.getFullYear();
+  const filename = `${TAB_LABELS[tab]}_${TEMPLATE_NAMES[tab][templateIdx]}_${dd}_${mm}_${yyyy}.doc`;
+
   const blob = new Blob(["﻿", html], {
     type: "application/vnd.ms-word;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${(cv.name || "CV").replace(/\s+/g, "_")}.doc`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

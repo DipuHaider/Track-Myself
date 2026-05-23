@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/shared/Logo";
 
 const LINKS = [
   {
@@ -25,10 +26,7 @@ export default function SiteFooter() {
         <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
           {/* Brand */}
           <div className="md:col-span-2">
-            <Link href="/" className="text-lg font-bold">
-              <span style={{ color: "var(--primary)" }}>Track</span>
-              <span style={{ color: "var(--accent)" }}>Myself</span>
-            </Link>
+            <Logo size={28} textSize="text-base" />
             <p className="text-muted mt-3 max-w-xs text-sm">
               Your career command center. Track applications, manage interviews, and land your dream job — all in one place.
             </p>
