@@ -19,12 +19,12 @@ import {
 import { Logo } from "@/components/shared/Logo";
 
 const NAV = [
-  { href: "/me",              icon: LayoutDashboard, label: "Overview",     mobileLabel: "Home",    premium: false, hideMobile: false },
-  { href: "/me/applications", icon: Briefcase,       label: "Applications", mobileLabel: "Apps",    premium: false, hideMobile: false },
-  { href: "/me/my-cv",        icon: ScrollText,      label: "My CV",        mobileLabel: "My CV",   premium: false, hideMobile: false },
-  { href: "/me/cv",           icon: FileText,        label: "CV Builder",   mobileLabel: "Builder", premium: true,  hideMobile: false },
-  { href: "/tools",           icon: Wrench,          label: "Tools",        mobileLabel: "Tools",   premium: false, hideMobile: false },
-  { href: "/",                icon: Home,            label: "Home",         mobileLabel: "Home",    premium: false, hideMobile: true  },
+  { href: "/me",              icon: LayoutDashboard, label: "Overview",     mobileLabel: "Home",    premium: false, hideMobile: false, exact: true  },
+  { href: "/me/applications", icon: Briefcase,       label: "Applications", mobileLabel: "Apps",    premium: false, hideMobile: false, exact: false },
+  { href: "/me/my-cv",        icon: ScrollText,      label: "My CV",        mobileLabel: "My CV",   premium: false, hideMobile: false, exact: false },
+  { href: "/me/cv",           icon: FileText,        label: "CV Builder",   mobileLabel: "Builder", premium: true,  hideMobile: false, exact: false },
+  { href: "/tools",           icon: Wrench,          label: "Tools",        mobileLabel: "Tools",   premium: false, hideMobile: false, exact: false },
+  { href: "/",                icon: Home,            label: "Home",         mobileLabel: "Home",    premium: false, hideMobile: true,  exact: true  },
 ];
 
 export default function PortalSidebar() {
@@ -95,8 +95,8 @@ export default function PortalSidebar() {
 
         {/* Nav */}
         <nav className="flex-1 space-y-0.5 p-2" aria-label="Portal menu">
-          {NAV.map(({ href, icon: Icon, label, premium }) => {
-            const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+          {NAV.map(({ href, icon: Icon, label, premium, exact }) => {
+            const active = exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
             return (
               <Link
                 key={href}
@@ -144,8 +144,8 @@ export default function PortalSidebar() {
         aria-label="Portal navigation"
         className="surface fixed bottom-0 left-0 right-0 z-40 flex border-t md:hidden"
       >
-        {NAV.filter((n) => !n.hideMobile).map(({ href, icon: Icon, label, mobileLabel }) => {
-          const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+        {NAV.filter((n) => !n.hideMobile).map(({ href, icon: Icon, label, mobileLabel, exact }) => {
+          const active = exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}
