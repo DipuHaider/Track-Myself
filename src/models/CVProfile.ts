@@ -5,7 +5,7 @@ const FileEntrySchema = new Schema(
     name:     { type: String, required: true },
     size:     { type: Number, required: true },
     mimeType: { type: String, required: true },
-    data:     { type: String, required: true, select: false },
+    data:     { type: String, required: true },
   },
   { timestamps: { createdAt: "uploadedAt", updatedAt: false } },
 );

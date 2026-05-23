@@ -390,10 +390,11 @@ function triggerDocBlob(html: string, filename: string): void {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.style.display = "none";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export function downloadAppDocument(info: AppInfo, cv: CVData, docType: DocType, format: "doc" | "pdf"): void {
