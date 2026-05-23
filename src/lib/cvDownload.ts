@@ -304,14 +304,6 @@ export type AppInfo = {
 
 export type DocType = "cv" | "resume" | "cover-letter";
 
-function loadUserCV(): CVData {
-  try {
-    const raw = localStorage.getItem("trackmyself-cv");
-    if (raw) return { ...DEFAULT_CV, ...JSON.parse(raw) };
-  } catch {}
-  return DEFAULT_CV;
-}
-
 function safeFilename(s: string) {
   return s.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "").slice(0, 30);
 }
@@ -320,8 +312,7 @@ function docTypeLabel(dt: DocType) {
   return dt === "cv" ? "CV" : dt === "resume" ? "Resume" : "Cover_Letter";
 }
 
-function buildAppCoverLetter(info: AppInfo): string {
-  const cv = loadUserCV();
+function buildAppCoverLetter(info: AppInfo, cv: CVData): string {
   const dateStr = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const topSkills = cv.skills
     ? cv.skills.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 4).join(", ")
@@ -354,8 +345,7 @@ function buildAppCoverLetter(info: AppInfo): string {
 </div>`, "Calibri,Arial,sans-serif");
 }
 
-function buildAppResume(info: AppInfo): string {
-  const cv = loadUserCV();
+function buildAppResume(info: AppInfo, cv: CVData): string {
   const accent = "#6d28d9";
   const font = "Calibri,Arial,sans-serif";
   return wrap(`
@@ -378,13 +368,23 @@ function buildAppResume(info: AppInfo): string {
 </div>`, font);
 }
 
-export function getAppDocHTML(info: AppInfo, docType: DocType): string {
-  if (docType === "cover-letter") return buildAppCoverLetter(info);
-  if (docType === "resume") return buildAppResume(info);
-  return buildATS(loadUserCV(), 0);
+export function getAppDocHTML(info: AppInfo, cv: CVData, docType: DocType): string {
+  if (docType === "cover-letter") return buildAppCoverLetter(info, cv);
+  if (docType === "resume") return buildAppResume(info, cv);
+  return buildATS(cv, 0);
 }
 
-function triggerDocBlob(html: string, filename: string) {
+function openBlobInTab(html: string, forPrint = false): void {
+  const content = forPrint
+    ? html.replace("</body>", `<script>window.addEventListener('load',function(){window.print();});<\/script></body>`)
+    : html;
+  const blob = new Blob([content], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 120_000);
+}
+
+function triggerDocBlob(html: string, filename: string): void {
   const blob = new Blob(["﻿", html], { type: "application/vnd.ms-word;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -396,8 +396,8 @@ function triggerDocBlob(html: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function downloadAppDocument(info: AppInfo, docType: DocType, format: "doc" | "pdf"): void {
-  const html = getAppDocHTML(info, docType);
+export function downloadAppDocument(info: AppInfo, cv: CVData, docType: DocType, format: "doc" | "pdf"): void {
+  const html = getAppDocHTML(info, cv, docType);
   const now = new Date();
   const dd = String(now.getDate()).padStart(2, "0");
   const mm = String(now.getMonth() + 1).padStart(2, "0");
@@ -405,20 +405,12 @@ export function downloadAppDocument(info: AppInfo, docType: DocType, format: "do
   const base = `${safeFilename(info.companyName)}_${safeFilename(info.jobTitle)}_${docTypeLabel(docType)}_${dd}_${mm}_${yyyy}`;
 
   if (format === "pdf") {
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    win.addEventListener("load", () => win.print());
+    openBlobInTab(html, true);
     return;
   }
   triggerDocBlob(html, `${base}.doc`);
 }
 
-export function previewAppDocument(info: AppInfo, docType: DocType): void {
-  const html = getAppDocHTML(info, docType);
-  const win = window.open("", "_blank");
-  if (!win) return;
-  win.document.write(html);
-  win.document.close();
+export function previewAppDocument(info: AppInfo, cv: CVData, docType: DocType): void {
+  openBlobInTab(getAppDocHTML(info, cv, docType));
 }

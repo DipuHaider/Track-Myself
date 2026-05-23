@@ -14,15 +14,17 @@ import {
   Briefcase,
   Wrench,
   FileText,
+  ScrollText,
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 
 const NAV = [
-  { href: "/me",              icon: LayoutDashboard, label: "Overview",     mobileLabel: "Overview", premium: false },
-  { href: "/me/applications", icon: Briefcase,       label: "Applications", mobileLabel: "Apps",     premium: false },
-  { href: "/me/cv",           icon: FileText,        label: "CV Builder",   mobileLabel: "CV",       premium: true  },
-  { href: "/tools",           icon: Wrench,          label: "Tools",        mobileLabel: "Tools",    premium: false },
-  { href: "/",                icon: Home,            label: "Home",         mobileLabel: "Home",     premium: false },
+  { href: "/me",              icon: LayoutDashboard, label: "Overview",     mobileLabel: "Home",    premium: false, hideMobile: false },
+  { href: "/me/applications", icon: Briefcase,       label: "Applications", mobileLabel: "Apps",    premium: false, hideMobile: false },
+  { href: "/me/my-cv",        icon: ScrollText,      label: "My CV",        mobileLabel: "My CV",   premium: false, hideMobile: false },
+  { href: "/me/cv",           icon: FileText,        label: "CV Builder",   mobileLabel: "Builder", premium: true,  hideMobile: false },
+  { href: "/tools",           icon: Wrench,          label: "Tools",        mobileLabel: "Tools",   premium: false, hideMobile: false },
+  { href: "/",                icon: Home,            label: "Home",         mobileLabel: "Home",    premium: false, hideMobile: true  },
 ];
 
 export default function PortalSidebar() {
@@ -142,7 +144,7 @@ export default function PortalSidebar() {
         aria-label="Portal navigation"
         className="surface fixed bottom-0 left-0 right-0 z-40 flex border-t md:hidden"
       >
-        {NAV.map(({ href, icon: Icon, label, mobileLabel }) => {
+        {NAV.filter((n) => !n.hideMobile).map(({ href, icon: Icon, label, mobileLabel }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));
           return (
             <Link
