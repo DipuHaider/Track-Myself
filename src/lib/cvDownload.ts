@@ -291,3 +291,134 @@ export function downloadAsWord(cv: CVData, tab: TabKey, templateIdx: number) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// ── App-scoped document generation ─────────────────────────────────────────
+
+export type AppInfo = {
+  companyName: string;
+  jobTitle: string;
+  location?: string;
+  notes?: string;
+  jobPostUrl?: string;
+};
+
+export type DocType = "cv" | "resume" | "cover-letter";
+
+function loadUserCV(): CVData {
+  try {
+    const raw = localStorage.getItem("trackmyself-cv");
+    if (raw) return { ...DEFAULT_CV, ...JSON.parse(raw) };
+  } catch {}
+  return DEFAULT_CV;
+}
+
+function safeFilename(s: string) {
+  return s.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "").slice(0, 30);
+}
+
+function docTypeLabel(dt: DocType) {
+  return dt === "cv" ? "CV" : dt === "resume" ? "Resume" : "Cover_Letter";
+}
+
+function buildAppCoverLetter(info: AppInfo): string {
+  const cv = loadUserCV();
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const topSkills = cv.skills
+    ? cv.skills.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 4).join(", ")
+    : "relevant technologies";
+
+  const notesBlock = info.notes
+    ? `<p style="margin-bottom:12pt;color:#555;font-style:italic;font-size:9.5pt">Role context: ${info.notes.replace(/\n/g, " ")}</p>`
+    : "";
+
+  return wrap(`
+<div style="font-family:Calibri,Arial,sans-serif;max-width:620px;margin:auto;padding:36pt;font-size:11pt;line-height:1.75;color:#1a1a1a">
+  <p style="margin-bottom:22pt">${dateStr}</p>
+  <p style="margin-bottom:3pt">Hiring Manager</p>
+  <p style="margin-bottom:3pt;font-weight:bold">${info.companyName}</p>
+  ${info.location ? `<p style="margin-bottom:3pt">${info.location}</p>` : ""}
+  <p style="margin-bottom:20pt"> </p>
+  <p style="margin-bottom:18pt"><strong>Re: Application for ${info.jobTitle}</strong></p>
+  <p style="margin-bottom:12pt">Dear Hiring Manager,</p>
+  <p style="margin-bottom:12pt">I am writing to express my strong interest in the <strong>${info.jobTitle}</strong> position at <strong>${info.companyName}</strong>. With my background as ${cv.title || "a dedicated professional"}, I am confident that my skills and experience make me a strong candidate for this role.</p>
+  ${notesBlock}
+  <p style="margin-bottom:12pt">Throughout my career I have developed expertise in ${topSkills}, which aligns directly with the requirements of this position. I am particularly drawn to ${info.companyName} because of its reputation for excellence, and I am eager to bring my experience in ${cv.title || "my field"} to help your team achieve its goals.</p>
+  <p style="margin-bottom:12pt">I would welcome the opportunity to discuss how my background and skills can contribute to ${info.companyName}'s continued success. My CV is attached for your consideration, and I am available for an interview at your earliest convenience.</p>
+  <p style="margin-bottom:12pt">Thank you for your time and consideration. I look forward to hearing from you.</p>
+  <p style="margin-bottom:4pt">Yours sincerely,</p>
+  <p style="margin-bottom:4pt"> </p>
+  <p style="font-weight:bold;margin-bottom:2pt">${cv.name || "Your Name"}</p>
+  ${cv.email ? `<p style="font-size:9.5pt;color:#555;margin-bottom:1pt">${cv.email}</p>` : ""}
+  ${cv.phone ? `<p style="font-size:9.5pt;color:#555;margin-bottom:1pt">${cv.phone}</p>` : ""}
+  ${cv.linkedin ? `<p style="font-size:9.5pt;color:#555;margin-bottom:1pt">${cv.linkedin}</p>` : ""}
+</div>`, "Calibri,Arial,sans-serif");
+}
+
+function buildAppResume(info: AppInfo): string {
+  const cv = loadUserCV();
+  const accent = "#6d28d9";
+  const font = "Calibri,Arial,sans-serif";
+  return wrap(`
+<div style="font-family:${font};max-width:680px;margin:auto">
+  <div style="background:${accent};padding:18pt 22pt;color:#fff">
+    <h1 style="font-size:20pt;margin:0 0 4pt">${cv.name || "Your Name"}</h1>
+    <p style="font-size:11pt;margin:0 0 6pt;opacity:0.9">${cv.title || "Professional"}</p>
+    <p style="font-size:9pt;opacity:0.8">${contactLine(cv)}</p>
+  </div>
+  <div style="padding:14pt 22pt">
+    <div style="margin-bottom:12pt;padding:7pt 12pt;background:#f5f3ff;border-radius:4pt;font-size:9.5pt;color:${accent}">
+      Tailored for: <strong>${info.jobTitle}</strong> at <strong>${info.companyName}</strong>${info.location ? ` · ${info.location}` : ""}
+    </div>
+    ${cv.summary ? atsSection("Professional Summary", lines(cv.summary), accent, "leftbar") : ""}
+    ${cv.experience ? atsSection("Work Experience", lines(cv.experience), accent, "leftbar") : ""}
+    ${cv.skills ? atsSection("Core Skills", `<p style="margin:0">${cv.skills}</p>`, accent, "leftbar") : ""}
+    ${cv.education ? atsSection("Education", lines(cv.education), accent, "leftbar") : ""}
+    ${cv.languages ? atsSection("Languages", `<p style="margin:0">${cv.languages}</p>`, accent, "leftbar") : ""}
+  </div>
+</div>`, font);
+}
+
+export function getAppDocHTML(info: AppInfo, docType: DocType): string {
+  if (docType === "cover-letter") return buildAppCoverLetter(info);
+  if (docType === "resume") return buildAppResume(info);
+  return buildATS(loadUserCV(), 0);
+}
+
+function triggerDocBlob(html: string, filename: string) {
+  const blob = new Blob(["﻿", html], { type: "application/vnd.ms-word;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export function downloadAppDocument(info: AppInfo, docType: DocType, format: "doc" | "pdf"): void {
+  const html = getAppDocHTML(info, docType);
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yyyy = now.getFullYear();
+  const base = `${safeFilename(info.companyName)}_${safeFilename(info.jobTitle)}_${docTypeLabel(docType)}_${dd}_${mm}_${yyyy}`;
+
+  if (format === "pdf") {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.addEventListener("load", () => win.print());
+    return;
+  }
+  triggerDocBlob(html, `${base}.doc`);
+}
+
+export function previewAppDocument(info: AppInfo, docType: DocType): void {
+  const html = getAppDocHTML(info, docType);
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+}

@@ -58,18 +58,19 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-0.5">
+      <nav className="flex-1 space-y-0.5" aria-label="Dashboard navigation">
         {visibleLinks.map((item) => (
           <Link
             key={item.href}
             href={item.href}
+            aria-current={isActive(item) ? "page" : undefined}
             className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition ${
               isActive(item)
                 ? "bg-[var(--primary)] font-medium text-white"
                 : "hover:bg-[var(--surface-2)]"
             }`}
           >
-            {item.icon}
+            <span aria-hidden="true">{item.icon}</span>
             {item.label}
           </Link>
         ))}

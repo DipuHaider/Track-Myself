@@ -5,6 +5,7 @@ import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lu
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 import { isPossibleGhost } from "@/lib/applicationFlags";
+import AppDocDropdown from "@/components/applications/AppDocDropdown";
 
 const CURRENCY_SYM: Record<string, string> = { EUR: "€", USD: "$", BDT: "৳" };
 
@@ -93,6 +94,7 @@ export default function ApplicationTable({
               <th className="px-4 py-3 font-medium">Contact</th>
               <th className="px-4 py-3 font-medium">Priority</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium text-center">Docs</th>
               <th className="px-4 py-3 font-medium text-center">Actions</th>
             </tr>
           </thead>
@@ -173,6 +175,19 @@ export default function ApplicationTable({
                   )}
                 </td>
 
+                {/* Docs */}
+                <td className="px-4 py-3 text-center">
+                  <AppDocDropdown
+                    info={{
+                      companyName: app.companyName,
+                      jobTitle: app.jobTitle,
+                      location: app.location ?? app.city ?? app.country ?? undefined,
+                      notes: app.notes ?? undefined,
+                      jobPostUrl: app.jobPostUrl ?? undefined,
+                    }}
+                  />
+                </td>
+
                 {/* Actions */}
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-1">
@@ -250,7 +265,7 @@ export default function ApplicationTable({
             ))}
             {applications.length === 0 && (
               <tr>
-                <td className="text-muted px-4 py-10 text-center" colSpan={10}>
+                <td className="text-muted px-4 py-10 text-center" colSpan={11}>
                   No applications found.
                 </td>
               </tr>

@@ -34,7 +34,7 @@ export default function SiteFooter() {
 
           {/* Link columns */}
           {LINKS.map((col) => (
-            <div key={col.heading}>
+            <nav key={col.heading} aria-label={col.heading}>
               <h4 className="mb-3 text-sm font-semibold">{col.heading}</h4>
               <ul className="space-y-2">
                 {col.items.map((item) => (
@@ -45,7 +45,7 @@ export default function SiteFooter() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </nav>
           ))}
         </div>
 
