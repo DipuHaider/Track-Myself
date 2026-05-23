@@ -30,6 +30,21 @@ export const DEFAULT_CV: CVData = {
   languages: "",
 };
 
+export const DUMMY_CV: CVData = {
+  name: "Alex Morgan",
+  title: "Senior Software Engineer",
+  email: "alex.morgan@example.com",
+  phone: "+44 7700 900123",
+  location: "London, United Kingdom",
+  linkedin: "linkedin.com/in/alexmorgan",
+  website: "alexmorgan.dev",
+  summary: "Results-driven Software Engineer with 7+ years building scalable web applications and leading cross-functional teams. Proven track record in full-stack development, system architecture, and delivering high-impact products. Passionate about clean code, mentorship, and continuous improvement.",
+  experience: "Senior Software Engineer · TechCorp Ltd · 2021 – Present\n• Led development of a microservices platform handling 50,000+ daily active users\n• Reduced API response time by 40% through Redis caching and query optimisation\n• Mentored 5 junior engineers and ran weekly code reviews and sprint planning\n\nSoftware Engineer · StartupHub · 2018 – 2021\n• Built and maintained a React/Node.js SaaS product used by 200+ companies\n• Integrated Stripe and PayPal payment systems, processing £2M+ monthly\n• Improved test coverage from 40% to 85%, reducing production incidents by 60%\n\nJunior Developer · Digital Agency Co. · 2016 – 2018\n• Developed client websites and web apps using React, PHP, and MySQL\n• Collaborated with design team to implement pixel-perfect UIs",
+  education: "MSc Computer Science · University of London · 2014 – 2016\nDissertation: Distributed Caching Strategies for High-Traffic APIs\n\nBSc Software Engineering · Manchester Metropolitan University · 2011 – 2014\nFirst Class Honours",
+  skills: "TypeScript, JavaScript, React, Node.js, Python, PostgreSQL, MongoDB, Redis, Docker, Kubernetes, AWS (EC2, S3, Lambda), CI/CD, Git, REST APIs, GraphQL",
+  languages: "English (Native), Spanish (B2), French (A2)",
+};
+
 // ── helpers ────────────────────────────────────────────────────────────────
 
 function contactLine(cv: CVData): string {

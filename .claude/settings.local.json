@@ -9,7 +9,8 @@
       "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx next build)",
       "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" NEXT_PRIVATE_DISABLE_MEMORY_WATCHER=1 npx next build)",
       "Bash(grep -v \"^$\")",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "PowerShell(Test-Path \"E:\\\\Track Myself 2026\\\\track-myself\\\\public\" ; Get-ChildItem -Path \"E:\\\\Track Myself 2026\\\\track-myself\" -Directory | Where-Object { $_.Name -match \"public|template|upload\" })"
     ]
   }
 }

@@ -7,7 +7,7 @@ import {
   Check, Download, FileText, Loader2, Lock,
   Save, Sparkles, Star, X,
 } from "lucide-react";
-import { downloadAsWord, getCVHTML, DEFAULT_CV } from "@/lib/cvDownload";
+import { downloadAsWord, getCVHTML, DEFAULT_CV, DUMMY_CV } from "@/lib/cvDownload";
 import type { CVData, TabKey } from "@/lib/cvDownload";
 
 const CV_KEY = "trackmyself-cv";
@@ -229,6 +229,11 @@ export default function CVBuilderPage() {
     setTimeout(() => setDlFlash(false), 2500);
   }
 
+  function handleTemplateDownload(e: React.MouseEvent, tabKey: TabKey, idx: number) {
+    e.stopPropagation();
+    downloadAsWord(DUMMY_CV, tabKey, idx);
+  }
+
   function handleDownloadPDF() {
     if (!isPremium) return;
     const html = getCVHTML(cv, tab, selected);
@@ -325,8 +330,13 @@ export default function CVBuilderPage() {
         {templates.map((t, i) => {
           const active = selected === i;
           return (
-            <button key={t.name} onClick={() => setSelected(i)}
-              className="group flex flex-col overflow-hidden rounded-2xl border text-left transition hover:-translate-y-0.5 hover:shadow-md"
+            <div
+              key={t.name}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelected(i)}
+              onKeyDown={(e) => e.key === "Enter" && setSelected(i)}
+              className="group flex flex-col overflow-hidden rounded-2xl border text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
               style={active ? { borderColor: "var(--primary)", boxShadow: "0 0 0 2px var(--primary)" } : { borderColor: "var(--border)" }}>
               <div className="relative h-36 w-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
                 <div className="absolute inset-3 drop-shadow-sm">{t.mockup}</div>
@@ -340,8 +350,14 @@ export default function CVBuilderPage() {
               <div className="surface flex flex-1 flex-col gap-0.5 px-3 py-2.5">
                 <p className="text-xs font-semibold">{t.name}</p>
                 <p className="text-muted text-[11px] leading-relaxed">{t.description}</p>
+                <button
+                  onClick={(e) => handleTemplateDownload(e, tab, i)}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition hover:bg-[var(--primary)] hover:text-white hover:border-[var(--primary)]"
+                  style={{ borderColor: "var(--primary)", color: "var(--primary)" }}>
+                  <Download size={11} /> Download Word
+                </button>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
