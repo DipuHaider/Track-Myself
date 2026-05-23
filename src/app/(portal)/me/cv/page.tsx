@@ -41,9 +41,12 @@ function ATSMockup({ accent, leftBar }: { accent: string; leftBar?: boolean }) {
 function EuropassMockup({ color }: { color: string }) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded bg-white">
-      <div className="px-2 py-1.5" style={{ background: color }}>
-        <div className="mb-0.5 h-2.5 w-2/3 rounded bg-white" />
-        <div className="h-1 w-1/2 rounded" style={{ background: "rgba(255,255,255,0.5)" }} />
+      <div className="flex items-center gap-1.5 px-2 py-1.5" style={{ background: color }}>
+        <div className="h-8 w-6 flex-shrink-0 rounded-sm" style={{ background: "rgba(255,255,255,0.3)" }} />
+        <div className="flex-1">
+          <div className="mb-0.5 h-2.5 w-2/3 rounded bg-white" />
+          <div className="h-1 w-1/2 rounded" style={{ background: "rgba(255,255,255,0.5)" }} />
+        </div>
       </div>
       <div className="px-2 py-0.5" style={{ background: color + "28" }}>
         <div className="h-1 w-full rounded bg-gray-300" />
@@ -65,6 +68,7 @@ function DesignerSidebarMockup({ sidebar, accent }: { sidebar: string; accent: s
   return (
     <div className="flex h-full w-full overflow-hidden rounded">
       <div className="flex w-[35%] flex-col gap-1 p-1.5" style={{ background: sidebar }}>
+        <div className="mb-0.5 h-8 w-6 flex-shrink-0 rounded-sm" style={{ background: "rgba(255,255,255,0.25)" }} />
         <div className="h-2 w-4/5 rounded" style={{ background: accent }} />
         <div className="h-1 w-3/4 rounded bg-white/30" />
         <div className="mt-1 h-px bg-white/20" />
@@ -86,10 +90,13 @@ function DesignerSidebarMockup({ sidebar, accent }: { sidebar: string; accent: s
 function DesignerBoldMockup({ sidebar, accent }: { sidebar: string; accent: string }) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded bg-white">
-      <div className="px-2 py-2" style={{ background: sidebar }}>
-        <div className="mb-0.5 h-2.5 w-2/3 rounded bg-white" />
-        <div className="mb-1 h-1.5 w-1/2 rounded" style={{ background: accent }} />
-        <div className="h-1 w-full rounded bg-white/20" />
+      <div className="flex items-start gap-1.5 px-2 py-2" style={{ background: sidebar }}>
+        <div className="h-9 w-6 flex-shrink-0 rounded-sm" style={{ background: "rgba(255,255,255,0.2)" }} />
+        <div className="flex-1">
+          <div className="mb-0.5 h-2.5 w-2/3 rounded bg-white" />
+          <div className="mb-1 h-1.5 w-1/2 rounded" style={{ background: accent }} />
+          <div className="h-1 w-full rounded bg-white/20" />
+        </div>
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-2">
         {[0, 1, 2].map((i) => (
@@ -107,10 +114,13 @@ function DesignerBoldMockup({ sidebar, accent }: { sidebar: string; accent: stri
 function DesignerMinimalMockup({ accent }: { accent: string }) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded bg-white p-2">
-      <div className="mb-1.5 border-l-[3px] pl-1.5" style={{ borderColor: accent }}>
-        <div className="mb-0.5 h-2.5 w-2/3 rounded bg-gray-800" />
-        <div className="h-1.5 w-1/2 rounded" style={{ background: accent + "99" }} />
-        <div className="mt-0.5 h-1 w-full rounded bg-gray-200" />
+      <div className="mb-1.5 flex items-start gap-1.5">
+        <div className="flex-1 border-l-[3px] pl-1.5" style={{ borderColor: accent }}>
+          <div className="mb-0.5 h-2.5 w-2/3 rounded bg-gray-800" />
+          <div className="h-1.5 w-1/2 rounded" style={{ background: accent + "99" }} />
+          <div className="mt-0.5 h-1 w-full rounded bg-gray-200" />
+        </div>
+        <div className="h-9 w-6 flex-shrink-0 rounded-sm bg-gray-200" />
       </div>
       {[0, 1, 2].map((i) => (
         <div key={i} className="mb-1.5">
@@ -352,9 +362,8 @@ export default function CVBuilderPage() {
                 <p className="text-muted text-[11px] leading-relaxed">{t.description}</p>
                 <button
                   onClick={(e) => handleTemplateDownload(e, tab, i)}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition hover:bg-[var(--primary)] hover:text-white hover:border-[var(--primary)]"
-                  style={{ borderColor: "var(--primary)", color: "var(--primary)" }}>
-                  <Download size={11} /> Download Word
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--primary)] px-2 py-1.5 text-[11px] font-semibold text-[var(--primary)] transition hover:bg-[var(--primary)] hover:text-white">
+                  <Download size={11} /> Download .doc
                 </button>
               </div>
             </div>
@@ -386,6 +395,7 @@ export default function CVBuilderPage() {
               <Field label="Location"            value={cv.location} onChange={set("location")} placeholder="Berlin, Germany" />
               <Field label="LinkedIn"            value={cv.linkedin} onChange={set("linkedin")} placeholder="linkedin.com/in/janedoe" />
               <Field label="Website (optional)"  value={cv.website}  onChange={set("website")}  placeholder="janedoe.dev" />
+              <Field label="Photo URL (optional, for Designer &amp; Europass)" value={cv.photo ?? ""} onChange={set("photo")} placeholder="https://example.com/photo.jpg" />
             </div>
           </div>
 

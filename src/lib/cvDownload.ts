@@ -13,6 +13,7 @@ export type CVData = {
   education: string;
   skills: string;
   languages: string;
+  photo?: string;
 };
 
 export const DEFAULT_CV: CVData = {
@@ -28,6 +29,7 @@ export const DEFAULT_CV: CVData = {
   education: "",
   skills: "",
   languages: "",
+  photo: "",
 };
 
 export const DUMMY_CV: CVData = {
@@ -43,6 +45,7 @@ export const DUMMY_CV: CVData = {
   education: "MSc Computer Science · University of London · 2014 – 2016\nDissertation: Distributed Caching Strategies for High-Traffic APIs\n\nBSc Software Engineering · Manchester Metropolitan University · 2011 – 2014\nFirst Class Honours",
   skills: "TypeScript, JavaScript, React, Node.js, Python, PostgreSQL, MongoDB, Redis, Docker, Kubernetes, AWS (EC2, S3, Lambda), CI/CD, Git, REST APIs, GraphQL",
   languages: "English (Native), Spanish (B2), French (A2)",
+  photo: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='110'%3E%3Crect width='90' height='110' fill='%23cbd5e1'/%3E%3Ccircle cx='45' cy='38' r='19' fill='%2364748b'/%3E%3Cellipse cx='45' cy='85' rx='30' ry='22' fill='%2364748b'/%3E%3C/svg%3E",
 };
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -71,6 +74,12 @@ function wrap(body: string, fontFace: string): string {
   p { margin:0; } h1,h2,h3 { font-weight:bold; margin:0; }
 </style>
 </head><body>${body}</body></html>`;
+}
+
+function photoBox(photo: string | undefined, w: string, h: string): string {
+  const src = photo?.trim();
+  if (src) return `<img src="${src}" style="width:${w};height:${h};object-fit:cover;display:block" />`;
+  return `<div style="width:${w};height:${h};background:#cbd5e1;border:1pt dashed #94a3b8"></div>`;
 }
 
 // ── ATS templates ──────────────────────────────────────────────────────────
@@ -125,12 +134,22 @@ function buildEuropass(cv: CVData, idx: number): string {
   const font = "Calibri, Arial, sans-serif";
   const compact = idx === 2;
 
+  const photoW = compact ? "60pt" : "78pt";
+  const photoH = compact ? "72pt" : "94pt";
+
   return wrap(`
 <div style="font-family:${font};max-width:680px;margin:auto">
-  <div style="background:${color};color:#fff;padding:${compact ? "10pt" : "16pt"} 16pt;margin-bottom:${compact ? "6pt" : "12pt"}">
-    <h1 style="font-size:${compact ? "15pt" : "19pt"};margin-bottom:3pt">${cv.name || "Your Name"}</h1>
-    <p style="font-size:10pt;opacity:0.85;margin-bottom:0">${cv.title || "Professional Title"}</p>
-  </div>
+  <table style="width:100%;border-collapse:collapse;background:${color};margin-bottom:${compact ? "6pt" : "12pt"}">
+  <tr>
+    <td style="padding:${compact ? "10pt" : "16pt"} 10pt ${compact ? "10pt" : "16pt"} 16pt;vertical-align:middle;width:${compact ? "74pt" : "94pt"}">
+      ${photoBox(cv.photo, photoW, photoH)}
+    </td>
+    <td style="padding:${compact ? "10pt" : "16pt"} 16pt ${compact ? "10pt" : "16pt"} 6pt;vertical-align:middle;color:#fff">
+      <h1 style="font-size:${compact ? "15pt" : "19pt"};margin-bottom:3pt;color:#fff">${cv.name || "Your Name"}</h1>
+      <p style="font-size:10pt;opacity:0.85;margin-bottom:0;color:#fff">${cv.title || "Professional Title"}</p>
+    </td>
+  </tr>
+  </table>
   <div style="background:${color}22;padding:5pt 16pt;margin-bottom:${compact ? "8pt" : "14pt"};font-size:9pt;color:#333">
     ${contactLine(cv)}
   </div>
@@ -166,6 +185,7 @@ function buildDesigner(cv: CVData, idx: number): string {
 <table style="width:100%;border-collapse:collapse;font-family:${font}">
 <tr>
   <td style="width:34%;background:${sidebar};color:#fff;padding:18pt 12pt;vertical-align:top">
+    <div style="margin-bottom:12pt">${photoBox(cv.photo, "70pt", "84pt")}</div>
     <h1 style="font-size:14pt;margin-bottom:3pt;color:#fff">${cv.name || "Your Name"}</h1>
     <p style="font-size:9pt;color:${accent};margin-bottom:14pt">${cv.title || "Professional Title"}</p>
     <p style="font-size:8pt;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8pt;margin-bottom:4pt">Contact</p>
@@ -187,11 +207,18 @@ function buildDesigner(cv: CVData, idx: number): string {
     // Bold full-width header
     return wrap(`
 <div style="font-family:${font};max-width:680px;margin:auto">
-  <div style="background:${sidebar};color:#fff;padding:20pt 18pt;margin-bottom:16pt">
-    <h1 style="font-size:22pt;margin-bottom:4pt">${cv.name || "Your Name"}</h1>
-    <p style="font-size:11pt;color:${accent};margin-bottom:8pt">${cv.title || "Professional Title"}</p>
-    <p style="font-size:9pt;color:#9ca3af">${contactLine(cv)}</p>
-  </div>
+  <table style="width:100%;border-collapse:collapse;background:${sidebar};margin-bottom:16pt">
+  <tr>
+    <td style="padding:20pt 10pt 20pt 18pt;vertical-align:top;width:92pt">
+      ${photoBox(cv.photo, "76pt", "92pt")}
+    </td>
+    <td style="padding:20pt 18pt 20pt 4pt;vertical-align:middle;color:#fff">
+      <h1 style="font-size:22pt;margin-bottom:4pt;color:#fff">${cv.name || "Your Name"}</h1>
+      <p style="font-size:11pt;color:${accent};margin-bottom:8pt">${cv.title || "Professional Title"}</p>
+      <p style="font-size:9pt;color:#9ca3af">${contactLine(cv)}</p>
+    </td>
+  </tr>
+  </table>
   ${designSection("Professional Summary", lines(cv.summary), accent)}
   ${designSection("Work Experience", lines(cv.experience), accent)}
   ${designSection("Education", lines(cv.education), accent)}
@@ -203,11 +230,18 @@ function buildDesigner(cv: CVData, idx: number): string {
   // Minimal accent border (idx === 2)
   return wrap(`
 <div style="font-family:${font};max-width:680px;margin:auto">
-  <div style="border-left:4pt solid ${accent};padding-left:14pt;margin-bottom:18pt">
-    <h1 style="font-size:20pt;margin-bottom:3pt;color:#111">${cv.name || "Your Name"}</h1>
-    <p style="font-size:11pt;color:${accent};margin-bottom:6pt">${cv.title || "Professional Title"}</p>
-    <p style="font-size:9pt;color:#555">${contactLine(cv)}</p>
-  </div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:18pt">
+  <tr>
+    <td style="border-left:4pt solid ${accent};padding-left:14pt;vertical-align:top">
+      <h1 style="font-size:20pt;margin-bottom:3pt;color:#111">${cv.name || "Your Name"}</h1>
+      <p style="font-size:11pt;color:${accent};margin-bottom:6pt">${cv.title || "Professional Title"}</p>
+      <p style="font-size:9pt;color:#555">${contactLine(cv)}</p>
+    </td>
+    <td style="vertical-align:top;width:88pt;padding-left:14pt;text-align:right">
+      ${photoBox(cv.photo, "76pt", "92pt")}
+    </td>
+  </tr>
+  </table>
   ${designSection("Professional Summary", lines(cv.summary), accent)}
   ${designSection("Work Experience", lines(cv.experience), accent)}
   ${designSection("Education", lines(cv.education), accent)}
