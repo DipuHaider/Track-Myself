@@ -8,7 +8,7 @@ export type SessionUser = { id: string; role: Role; email: string | null | undef
 type RawSession = { user?: { id?: string; role?: string; email?: string | null } } | null;
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const session = (await getServerSession(authOptions as any)) as RawSession;
+  const session = (await getServerSession(authOptions)) as RawSession;
   const u = session?.user;
   if (!u?.id || !u?.role) return null;
   return { id: u.id, role: u.role as Role, email: u.email };

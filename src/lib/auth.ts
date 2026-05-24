@@ -1,3 +1,4 @@
+import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
@@ -10,7 +11,7 @@ function effectiveRole(email: string, dbRole: string): string {
   return dbRole ?? "free";
 }
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
@@ -42,9 +43,17 @@ export const authOptions = {
     }),
   ],
   pages: { signIn: "/login" },
+  session: {
+    strategy: "jwt",
+    maxAge:    30 * 24 * 3600,
+    updateAge: 24 * 3600,
+  },
+  jwt: {
+    maxAge: 30 * 24 * 3600,
+  },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    async signIn({ user, account }: { user: { id?: string; email?: string | null; name?: string | null; image?: string | null }; account: { provider?: string } | null }) {
+    async signIn({ user, account }) {
       if (account?.provider === "google") {
         await dbConnect();
         const existing = await User.findOne({ email: user.email });
@@ -66,15 +75,7 @@ export const authOptions = {
       }
       return true;
     },
-    async jwt({
-      token,
-      user,
-      account,
-    }: {
-      token: { id?: string; role?: string; email?: string; picture?: string };
-      user?: { id: string; role?: string };
-      account?: { provider?: string } | null;
-    }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -90,15 +91,9 @@ export const authOptions = {
       }
       return token;
     },
-    async session({
-      session,
-      token,
-    }: {
-      session: { user?: { id?: string; role?: string } };
-      token: { id?: string; role?: string };
-    }) {
+    async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id;
+        session.user.id = token.id ?? "";
         session.user.role = token.role ?? "free";
       }
       return session;
