@@ -66,67 +66,173 @@ function detectSite(): State["site"] {
 
 // ── scrapers ──────────────────────────────────────────────────────────────
 
+// Strategy 1: JSON-LD structured data (most reliable — sites include this for SEO)
+function parseJobLd(): Partial<JobData> {
+  try {
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const s of scripts) {
+      const raw = JSON.parse(s.textContent ?? "{}");
+      const items: unknown[] = Array.isArray(raw) ? raw : [raw];
+      for (const item of items) {
+        const d = item as Record<string, unknown>;
+        if (d["@type"] !== "JobPosting") continue;
+        const org     = d.hiringOrganization as Record<string, unknown> | undefined;
+        const locArr  = (Array.isArray(d.jobLocation) ? d.jobLocation : [d.jobLocation]) as Array<Record<string, unknown>>;
+        const addr    = (locArr[0]?.address ?? {}) as Record<string, unknown>;
+        const locParts = [addr.addressLocality, addr.addressRegion, addr.addressCountry].filter(Boolean);
+        const rawDesc  = (typeof d.description === "string" ? d.description : "") as string;
+        const notes    = rawDesc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 600);
+        return {
+          jobTitle:    typeof d.title       === "string" ? d.title.trim()    : "",
+          companyName: typeof org?.name     === "string" ? org.name.trim()   : "",
+          location:    locParts.join(", "),
+          notes,
+        };
+      }
+    }
+  } catch { /* ignore parse errors */ }
+  return {};
+}
+
+// Strategy 2: page <title> tag pattern matching
+function parseTitleTag(site: State["site"]): Partial<JobData> {
+  const raw = document.title;
+  if (site === "linkedin") {
+    const clean = raw.replace(/\s*\|\s*LinkedIn.*$/i, "").trim();
+    // "Senior Engineer at Google" or "Senior Engineer - Google"
+    const m = clean.match(/^(.+?)\s+(?:at|-|–)\s+(.+)$/i);
+    if (m) return { jobTitle: m[1].trim(), companyName: m[2].trim() };
+  }
+  if (site === "indeed") {
+    const clean = raw.replace(/\s*\|\s*Indeed.*$/i, "").trim();
+    // "Software Engineer job in London at Google"
+    const m = clean.match(/^(.+?)\s+job(?:\s+in\s+(.+?))?\s+at\s+(.+)$/i);
+    if (m) return { jobTitle: m[1].trim(), location: (m[2] ?? "").trim(), companyName: m[3].trim() };
+    // "Software Engineer - Google"
+    const m2 = clean.match(/^(.+?)\s*[-–]\s*(.+)$/);
+    if (m2) return { jobTitle: m2[1].trim(), companyName: m2[2].trim() };
+  }
+  return {};
+}
+
+// Strategy 3: meta tag helper
+function metaAttr(names: string[]): string {
+  for (const n of names) {
+    const v = document.querySelector(`meta[name="${n}"], meta[property="${n}"]`)?.getAttribute("content")?.trim();
+    if (v) return v;
+  }
+  return "";
+}
+
+// Strategy 4: CSS selectors with many fallbacks
 function scrapeLinkedIn(): JobData {
-  return {
-    jobTitle:    qs(
-      ".job-details-jobs-unified-top-card__job-title h1",
-      "h1.t-24.t-bold",
-      ".jobs-unified-top-card__job-title h1",
-      "h1[class*='job-title']"
-    ),
-    companyName: qs(
-      ".job-details-jobs-unified-top-card__company-name a",
-      ".jobs-unified-top-card__company-name a",
-      ".job-details-jobs-unified-top-card__primary-description-without-tagline a",
-      "[data-field='company-name'] a"
-    ),
-    location:    qs(
-      ".job-details-jobs-unified-top-card__bullet",
-      ".jobs-unified-top-card__bullet",
-      ".job-details-jobs-unified-top-card__workplace-type"
-    ),
-    jobPostUrl:  location.href,
-    notes:       qs(
-      "#job-details .jobs-box__html-content",
-      ".jobs-description-content__text--stretch",
-      ".jobs-description-content__text",
-      ".jobs-description__container"
-    ).slice(0, 600),
-  };
+  const ld    = parseJobLd();
+  const title = parseTitleTag("linkedin");
+
+  const jobTitle = qs(
+    ".job-details-jobs-unified-top-card__job-title h1",
+    "h1.t-24.t-bold.inline",
+    "h1.t-24.t-bold",
+    "h1.t-24",
+    ".jobs-unified-top-card__job-title h1",
+    "h1[class*='job-title']",
+    ".job-details-jobs-unified-top-card__job-title",
+  ) || ld.jobTitle || title.jobTitle || "";
+
+  const companyName = qs(
+    ".job-details-jobs-unified-top-card__company-name a",
+    ".job-details-jobs-unified-top-card__company-name",
+    ".jobs-unified-top-card__company-name a",
+    ".jobs-unified-top-card__company-name",
+    ".job-details-jobs-unified-top-card__primary-description-without-tagline a:first-of-type",
+    "[data-test-id*='company-name'] a",
+    "[data-tracking-will-navigate] a[href*='/company/']",
+  ) || ld.companyName || title.companyName || "";
+
+  const jobLocation = qs(
+    ".tvm__text.tvm__text--positive.tvm__text--low-emphasis",
+    ".job-details-jobs-unified-top-card__workplace-type",
+    ".job-details-jobs-unified-top-card__bullet",
+    ".jobs-unified-top-card__bullet",
+    "[class*='jobs-unified-top-card__workplace']",
+    ".tvm__text--low-emphasis",
+  ) || ld.location || title.location || "";
+
+  const notes = qs(
+    "#job-details",
+    ".jobs-description-content__text--stretch",
+    ".jobs-description-content__text",
+    ".jobs-description__content",
+    ".jobs-box__html-content",
+    "[class*='description__text']",
+  ).slice(0, 600) || ld.notes || "";
+
+  return { jobTitle, companyName, location: jobLocation, jobPostUrl: location.href, notes };
 }
 
 function scrapeIndeed(): JobData {
-  return {
-    jobTitle:    qs(
-      "h1[class*='jobsearch-JobInfoHeader-title']",
-      ".jobsearch-JobInfoHeader-title",
-      "h1.icl-u-xs-mb--xs",
-      "[data-testid='jobTitle']"
-    ),
-    companyName: qs(
-      "[data-testid='inlineHeader-companyName'] a",
-      "[data-testid='inlineHeader-companyName']",
-      ".jobsearch-CompanyInfoContainer a",
-      ".icl-u-lg-mr--sm a"
-    ),
-    location:    qs(
-      "[data-testid='job-location']",
-      "[data-testid='inlineHeader-companyLocation']",
-      ".jobsearch-JobInfoHeader-subtitle .icl-u-xs-mt--xs"
-    ),
-    jobPostUrl:  location.href,
-    notes:       qs(
-      "#jobDescriptionText",
-      "[data-testid='jobsearch-JobComponent-description']",
-      ".jobsearch-jobDescriptionText"
-    ).slice(0, 600),
-  };
+  const ld    = parseJobLd();
+  const title = parseTitleTag("indeed");
+
+  const jobTitle = qs(
+    "h1[data-testid='jobTitle']",
+    "[data-testid='jobTitle'] span",
+    "h1[class*='jobsearch-JobInfoHeader-title']",
+    ".jobsearch-JobInfoHeader-title > span:first-child",
+    ".jobsearch-JobInfoHeader-title",
+    "h1.icl-u-xs-mb--xs",
+  ) || ld.jobTitle || title.jobTitle || "";
+
+  const companyName = qs(
+    "[data-testid='inlineHeader-companyName'] a",
+    "[data-testid='inlineHeader-companyName']",
+    "[data-testid='companyInfo-name']",
+    "[data-company-name='true']",
+    ".jobsearch-InlineCompanyRating-companyName",
+    ".jobsearch-CompanyInfoContainer a",
+  ) || ld.companyName || title.companyName
+    || metaAttr(["indeed:employer"]) || "";
+
+  const jobLocation = qs(
+    "[data-testid='job-location']",
+    "[data-testid='inlineHeader-companyLocation']",
+    "[data-testid='companyInfo-location']",
+    ".jobsearch-JobInfoHeader-subtitle [data-testid]",
+    "[class*='companyLocation']",
+  ) || ld.location || title.location || "";
+
+  const notes = qs(
+    "#jobDescriptionText",
+    "[data-testid='jobsearch-JobComponent-description']",
+    ".jobsearch-jobDescriptionText",
+    "#jobDetails",
+  ).slice(0, 600) || ld.notes || "";
+
+  return { jobTitle, companyName, location: jobLocation, jobPostUrl: location.href, notes };
 }
 
 function scrapeJob(site: State["site"]): JobData {
   if (site === "linkedin") return scrapeLinkedIn();
   if (site === "indeed")   return scrapeIndeed();
-  return { companyName: "", jobTitle: document.title.split(" | ")[0] ?? "", location: "", jobPostUrl: location.href, notes: "" };
+  // Generic: try JSON-LD first, then title tag
+  const ld = parseJobLd();
+  return {
+    companyName: ld.companyName ?? "",
+    jobTitle:    ld.jobTitle    ?? document.title.split(/\s*[|\-–]\s*/)[0].trim(),
+    location:    ld.location    ?? "",
+    jobPostUrl:  location.href,
+    notes:       ld.notes       ?? metaAttr(["description", "og:description"]).slice(0, 600),
+  };
+}
+
+// Retry scraping until title+company are found (LinkedIn/Indeed are SPAs — content loads after DOMContentLoaded)
+async function waitAndScrape(site: State["site"]): Promise<JobData> {
+  for (let i = 0; i < 10; i++) {
+    const job = scrapeJob(site);
+    if (job.jobTitle && job.companyName) return job;
+    await new Promise<void>(r => setTimeout(r, 400));
+  }
+  return scrapeJob(site);
 }
 
 // ── icon SVGs (inline, no external file needed) ───────────────────────────
@@ -448,11 +554,16 @@ async function initAuth() {
   if (res.ok && res.user) {
     state.user   = res.user;
     state.screen = "add";
-    state.job    = scrapeJob(state.site);
+    // Show panel immediately with whatever data we have, then update once scraping settles
+    state.job = scrapeJob(state.site);
+    renderPanel();
+    const scraped = await waitAndScrape(state.site);
+    state.job = scraped;
+    renderPanel();
   } else {
     state.screen = "login";
+    renderPanel();
   }
-  renderPanel();
 }
 
 // ── draggable toggle button ───────────────────────────────────────────────
@@ -504,8 +615,12 @@ const urlObserver = new MutationObserver(() => {
       state.screen   = "add";
       state.addError = "";
       state.addedId  = "";
-      state.job      = scrapeJob(state.site);
+      state.job      = { companyName: "", jobTitle: "", location: "", jobPostUrl: location.href, notes: "" };
       if (state.panelOpen) renderPanel();
+      waitAndScrape(state.site).then(job => {
+        state.job = job;
+        if (state.panelOpen && state.screen === "add") renderPanel();
+      });
     }
   }
 });
