@@ -6,7 +6,7 @@ import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { SUPERADMIN_EMAILS } from "@/lib/permissions";
 
-function effectiveRole(email: string, dbRole: string): string {
+export function effectiveRole(email: string, dbRole: string): string {
   if (SUPERADMIN_EMAILS.includes(email as (typeof SUPERADMIN_EMAILS)[number])) return "superadmin";
   return dbRole ?? "free";
 }

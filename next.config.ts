@@ -5,7 +5,16 @@ if (process.env.NODE_ENV !== "production") {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
+const EXT_CORS = [
+  { key: "Access-Control-Allow-Origin",  value: "*" },
+  { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
+  { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+];
+
 const nextConfig: NextConfig = {
+  async headers() {
+    return [{ source: "/api/extension/:path*", headers: EXT_CORS }];
+  },
   serverExternalPackages: ["mongoose", "bcryptjs"],
   typescript: { ignoreBuildErrors: true },
   // eslint: { ignoreDuringBuilds: true }, // uncomment if tsc check crashes on Windows
