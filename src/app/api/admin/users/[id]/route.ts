@@ -3,11 +3,11 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { ROLES, canDo } from "@/lib/permissions";
-import { requireAdminAuth, forbidden } from "@/lib/serverAuth";
+import { PLANS, ROLES, canDo } from "@/lib/permissions";
+import { requireAction, forbidden } from "@/lib/serverAuth";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdminAuth();
+  const auth = await requireAction("edit:users");
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;
@@ -16,6 +16,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   if (role && !ROLES.includes(role)) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  }
+  if (plan && !PLANS.includes(plan)) {
+    return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
 
   await dbConnect();
@@ -42,7 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdminAuth();
+  const auth = await requireAction("delete:users");
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;

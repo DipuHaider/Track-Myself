@@ -15,13 +15,15 @@ import {
   Wrench,
   FileText,
   ScrollText,
+  FolderOpen,
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
+import { isPremiumUser } from "@/lib/permissions";
 
 const NAV = [
   { href: "/me",              icon: LayoutDashboard, label: "Overview",     mobileLabel: "Home",    premium: false, hideMobile: false, exact: true  },
   { href: "/me/applications", icon: Briefcase,       label: "Applications", mobileLabel: "Apps",    premium: false, hideMobile: false, exact: false },
-  { href: "/me/my-cv",        icon: ScrollText,      label: "My CV",        mobileLabel: "My CV",   premium: false, hideMobile: false, exact: false },
+  { href: "/me/my-cv",        icon: FolderOpen,      label: "My Documents", mobileLabel: "Docs",    premium: false, hideMobile: false, exact: false },
   { href: "/me/cv",           icon: FileText,        label: "CV Builder",   mobileLabel: "Builder", premium: true,  hideMobile: false, exact: false },
   { href: "/tools",           icon: Wrench,          label: "Tools",        mobileLabel: "Tools",   premium: false, hideMobile: false, exact: false },
   { href: "/",                icon: Home,            label: "Home",         mobileLabel: "Home",    premium: false, hideMobile: true,  exact: true  },
@@ -31,7 +33,9 @@ export default function PortalSidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const name = session?.user?.name ?? "";
-  const role = (session?.user as { role?: string } | undefined)?.role ?? "";
+  const sessionUser = session?.user as { role?: string; plan?: string } | undefined;
+  const role = sessionUser?.role ?? "";
+  const isPremium = isPremiumUser(role, sessionUser?.plan);
 
   const [collapsed, setCollapsed] = useState(false);
 
@@ -111,9 +115,18 @@ export default function PortalSidebar() {
                 {!collapsed && (
                   <span className="flex flex-1 items-center gap-1.5 truncate">
                     {label}
-                    {premium && !active && (
-                      <span className="ml-auto rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-bold leading-none text-amber-600">
-                        PRO
+                    {premium && (
+                      <span
+                        title={isPremium ? "Included in your Premium plan" : "Premium features inside"}
+                        className={`ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none ${
+                          active
+                            ? "bg-white/25 text-white"
+                            : isPremium
+                              ? "bg-emerald-400/20 text-emerald-600"
+                              : "bg-amber-400/20 text-amber-600"
+                        }`}
+                      >
+                        {isPremium ? "PRO" : "Get Pro"}
                       </span>
                     )}
                   </span>

@@ -1,317 +1,216 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
-  Check, Download, FileText, Loader2, Lock,
-  Save, Sparkles, Star, X,
+  Check, Download, FileText, Loader2, Lock, Save,
+  Sparkles, Star, X,
 } from "lucide-react";
-import { downloadAsWord, getCVHTML, DEFAULT_CV, DUMMY_CV } from "@/lib/cvDownload";
-import type { CVData, TabKey } from "@/lib/cvDownload";
+import {
+  AddButton, Field, RepeatCard, Section, StringListEditor,
+  inputCls, inputStyle, moveItem,
+} from "@/components/cv/fields";
+import { downloadCVDocx, useCVProfile } from "@/hooks/useCVProfile";
+import { canUseLebenslauf, isPremiumUser } from "@/lib/permissions";
+import type {
+  CVContent, CVEducation, CVExperience, CVFormat,
+  CVLanguage, CVProject, CVSkillGroup, CVVariant,
+} from "@/types/cv";
 
-const CV_KEY = "trackmyself-cv";
-
-// ── template mockups (inline, same visual as homepage builder) ─────────────
-
-function ATSMockup({ accent, leftBar }: { accent: string; leftBar?: boolean }) {
-  return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded bg-white p-2">
-      <div className="mb-1.5 border-b border-gray-200 pb-1.5">
-        <div className="mb-0.5 h-2.5 w-2/3 rounded bg-gray-800" />
-        <div className="h-1.5 w-1/2 rounded bg-gray-300" />
-        <div className="mt-0.5 h-1 w-full rounded bg-gray-200" />
-      </div>
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="mb-1.5">
-          <div
-            className="mb-0.5 h-1.5 w-1/3 rounded"
-            style={leftBar
-              ? { boxShadow: `inset 3px 0 0 ${accent}`, paddingLeft: 3 }
-              : { background: accent, opacity: 0.85 }}
-          />
-          <div className="h-1 w-full rounded bg-gray-200" />
-          <div className="mt-0.5 h-1 w-5/6 rounded bg-gray-200" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EuropassMockup({ color }: { color: string }) {
-  return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded bg-white">
-      <div className="flex items-center gap-1.5 px-2 py-1.5" style={{ background: color }}>
-        <div className="h-8 w-6 flex-shrink-0 rounded-sm" style={{ background: "rgba(255,255,255,0.3)" }} />
-        <div className="flex-1">
-          <div className="mb-0.5 h-2.5 w-2/3 rounded bg-white" />
-          <div className="h-1 w-1/2 rounded" style={{ background: "rgba(255,255,255,0.5)" }} />
-        </div>
-      </div>
-      <div className="px-2 py-0.5" style={{ background: color + "28" }}>
-        <div className="h-1 w-full rounded bg-gray-300" />
-      </div>
-      <div className="flex flex-1 flex-col gap-1.5 p-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i}>
-            <div className="mb-0.5 h-1.5 w-1/3 rounded" style={{ background: color }} />
-            <div className="h-1 w-full rounded bg-gray-200" />
-            <div className="mt-0.5 h-1 w-4/5 rounded bg-gray-200" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DesignerSidebarMockup({ sidebar, accent }: { sidebar: string; accent: string }) {
-  return (
-    <div className="flex h-full w-full overflow-hidden rounded">
-      <div className="flex w-[35%] flex-col gap-1 p-1.5" style={{ background: sidebar }}>
-        <div className="mb-0.5 h-8 w-6 flex-shrink-0 rounded-sm" style={{ background: "rgba(255,255,255,0.25)" }} />
-        <div className="h-2 w-4/5 rounded" style={{ background: accent }} />
-        <div className="h-1 w-3/4 rounded bg-white/30" />
-        <div className="mt-1 h-px bg-white/20" />
-        {[0, 1, 2].map((i) => <div key={i} className="h-1 w-full rounded bg-white/20" />)}
-      </div>
-      <div className="flex flex-1 flex-col gap-1.5 p-1.5 bg-white">
-        {[0, 1, 2].map((i) => (
-          <div key={i}>
-            <div className="mb-0.5 h-1.5 w-1/3 rounded" style={{ background: accent }} />
-            <div className="h-1 w-full rounded bg-gray-200" />
-            <div className="mt-0.5 h-1 w-5/6 rounded bg-gray-200" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DesignerBoldMockup({ sidebar, accent }: { sidebar: string; accent: string }) {
-  return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded bg-white">
-      <div className="flex items-start gap-1.5 px-2 py-2" style={{ background: sidebar }}>
-        <div className="h-9 w-6 flex-shrink-0 rounded-sm" style={{ background: "rgba(255,255,255,0.2)" }} />
-        <div className="flex-1">
-          <div className="mb-0.5 h-2.5 w-2/3 rounded bg-white" />
-          <div className="mb-1 h-1.5 w-1/2 rounded" style={{ background: accent }} />
-          <div className="h-1 w-full rounded bg-white/20" />
-        </div>
-      </div>
-      <div className="flex flex-1 flex-col gap-1.5 p-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i}>
-            <div className="mb-0.5 h-1.5 w-1/3 rounded" style={{ background: accent }} />
-            <div className="h-1 w-full rounded bg-gray-200" />
-            <div className="mt-0.5 h-1 w-4/5 rounded bg-gray-200" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DesignerMinimalMockup({ accent }: { accent: string }) {
-  return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded bg-white p-2">
-      <div className="mb-1.5 flex items-start gap-1.5">
-        <div className="flex-1 border-l-[3px] pl-1.5" style={{ borderColor: accent }}>
-          <div className="mb-0.5 h-2.5 w-2/3 rounded bg-gray-800" />
-          <div className="h-1.5 w-1/2 rounded" style={{ background: accent + "99" }} />
-          <div className="mt-0.5 h-1 w-full rounded bg-gray-200" />
-        </div>
-        <div className="h-9 w-6 flex-shrink-0 rounded-sm bg-gray-200" />
-      </div>
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="mb-1.5">
-          <div className="mb-0.5 h-1.5 w-1/3 rounded" style={{ background: accent }} />
-          <div className="h-1 w-full rounded bg-gray-200" />
-          <div className="mt-0.5 h-1 w-5/6 rounded bg-gray-200" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── data ───────────────────────────────────────────────────────────────────
-
-type Template = { name: string; description: string; mockup: React.ReactNode };
-
-const TABS: { key: TabKey; label: string; sub: string }[] = [
-  { key: "ats",      label: "ATS Friendly", sub: "Parser-optimised"  },
-  { key: "europass", label: "Europass",      sub: "EU Standard"       },
-  { key: "designer", label: "Designer",      sub: "Stand out"         },
-];
-
-const TEMPLATES: Record<TabKey, Template[]> = {
-  ats: [
-    { name: "Classic ATS",   description: "Underlined headers — maximum parser compatibility",      mockup: <ATSMockup accent="#222" /> },
-    { name: "Modern ATS",    description: "Blue left-bar sections — crisp and professional",         mockup: <ATSMockup accent="#1a56db" leftBar /> },
-    { name: "Executive ATS", description: "Serif font, centred header — polished for senior roles",  mockup: <ATSMockup accent="#333" /> },
-  ],
-  europass: [
-    { name: "Official EU",   description: "Deep blue (#003399) — the standard Europass format",       mockup: <EuropassMockup color="#003399" /> },
-    { name: "Euro Modern",   description: "Bright blue — Europass structure, contemporary look",       mockup: <EuropassMockup color="#1a56db" /> },
-    { name: "Euro Compact",  description: "Teal header — space-efficient for 1-page CVs",             mockup: <EuropassMockup color="#00695c" /> },
-  ],
-  designer: [
-    { name: "Creative Sidebar", description: "Dark sidebar with indigo accents — bold, memorable",    mockup: <DesignerSidebarMockup sidebar="#1e293b" accent="#818cf8" /> },
-    { name: "Bold Header",      description: "Full-width dark header with emerald accents",            mockup: <DesignerBoldMockup sidebar="#111827" accent="#10b981" /> },
-    { name: "Minimal Accent",   description: "Left accent border with pink highlights — elegant",      mockup: <DesignerMinimalMockup accent="#f472b6" /> },
-  ],
+type FormatCard = {
+  key: CVFormat;
+  variant: CVVariant;
+  name: string;
+  tag: string;
+  description: string;
+  accent: string;
+  superadminOnly?: boolean;
 };
 
-// ── field component ────────────────────────────────────────────────────────
-
-function Field({ label, value, onChange, placeholder, type = "input", rows = 4 }: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; type?: "input" | "textarea"; rows?: number;
-}) {
-  const cls = "w-full rounded-lg border px-3 py-2 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]";
-  const style: React.CSSProperties = {
-    background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--foreground)",
-  };
-  return (
-    <div>
-      <label className="text-muted mb-1 block text-xs font-medium">{label}</label>
-      {type === "textarea"
-        ? <textarea className={cls} style={style} rows={rows} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-        : <input type="text" className={cls} style={style} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-      }
-    </div>
-  );
-}
-
-// ── premium badge ──────────────────────────────────────────────────────────
+const FORMATS: FormatCard[] = [
+  {
+    key: "ats", variant: "full", name: "ATS Friendly", tag: "Parser-optimised · 3 pages",
+    description: "Single column, no tables or text boxes, real bullet characters — built to survive automated parsing. Send this by default.",
+    accent: "#1a56db",
+  },
+  {
+    key: "ats", variant: "compact", name: "ATS Compact", tag: "Parser-optimised · 2 pages",
+    description: "Same content, front-loaded. Short summary, grouped skills, recent roles detailed and older ones compressed. Best for screening.",
+    accent: "#0e7490",
+  },
+  {
+    key: "europass", variant: "full", name: "Europass", tag: "EU Standard",
+    description: "Official EU structure with the CEFR self-assessment grid. For public sector, universities, EURES and visa files.",
+    accent: "#003399",
+  },
+  {
+    key: "designer", variant: "full", name: "Designer", tag: "Stand out",
+    description: "Dark header band, indigo accents and a sidebar for skills and languages. For creative and modern tech roles.",
+    accent: "#4F46E5",
+  },
+  {
+    key: "lebenslauf", variant: "full", name: "Lebenslauf", tag: "German convention",
+    description: "Tabular German CV with photo, personal details and a signature line. Never send it alongside the ATS CV.",
+    accent: "#2C3547", superadminOnly: true,
+  },
+];
 
 function PremiumBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
-      style={{ background: "#f59e0b22", color: "#d97706" }}>
-      <Star size={9} fill="currentColor" /> Premium
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+      style={{ background: "#f59e0b22", color: "#d97706" }}
+    >
+      <Star size={9} fill="currentColor" aria-hidden="true" /> Premium
     </span>
   );
 }
 
-// ── main page ──────────────────────────────────────────────────────────────
-
 export default function CVBuilderPage() {
   const { data: session } = useSession();
-  const plan = (session?.user as { plan?: string } | undefined)?.plan ?? "free";
-  const isPremium = plan === "premium" || plan === "paid";
+  const sessionUser = session?.user as { role?: string; plan?: string; email?: string } | undefined;
+  const isPremium = isPremiumUser(sessionUser?.role, sessionUser?.plan);
+  const showLebenslauf = canUseLebenslauf(sessionUser?.role, sessionUser?.email);
 
-  const [tab, setTab]                       = useState<TabKey>("ats");
-  const [selected, setSelected]             = useState(0);
-  const [cv, setCV]                         = useState<CVData>(DEFAULT_CV);
+  const { profile, setContent, save, loading, saving, saved, error } = useCVProfile();
+  const c = profile.content;
 
-  const [savedFlash, setSavedFlash]         = useState(false);
-  const [dlFlash, setDlFlash]               = useState(false);
+  const [busyFormat, setBusyFormat] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState("");
 
-  /* AI adapt panel */
-  const [showAdapt, setShowAdapt]           = useState(false);
-  const [jobDesc, setJobDesc]               = useState("");
-  const [adapting, setAdapting]             = useState(false);
-  const [adaptMsg, setAdaptMsg]             = useState("");
+  const [showAdapt, setShowAdapt] = useState(false);
+  const [jobDesc, setJobDesc] = useState("");
+  const [adapting, setAdapting] = useState(false);
+  const [adaptMsg, setAdaptMsg] = useState("");
+  const [adaptErr, setAdaptErr] = useState("");
 
-  /* load saved CV */
-  useEffect(() => {
+  function patch(update: Partial<CVContent>) {
+    setContent((prev) => ({ ...prev, ...update }));
+  }
+
+  function patchContact(key: keyof CVContent["contact"], value: string) {
+    setContent((prev) => ({ ...prev, contact: { ...prev.contact, [key]: value } }));
+  }
+
+  function patchPersonal(key: keyof CVContent["personal"], value: string) {
+    setContent((prev) => ({ ...prev, personal: { ...prev.personal, [key]: value } }));
+  }
+
+  async function handleDownload(card: FormatCard) {
+    const key = `${card.key}-${card.variant}`;
+    setBusyFormat(key);
+    setDownloadError("");
     try {
-      const raw = localStorage.getItem(CV_KEY);
-      if (raw) setCV(JSON.parse(raw));
-    } catch {}
-  }, []);
-
-  function set(field: keyof CVData) {
-    return (value: string) => setCV((p) => ({ ...p, [field]: value }));
-  }
-
-  function handleTabChange(key: TabKey) { setTab(key); setSelected(0); }
-
-  function handleSave() {
-    try { localStorage.setItem(CV_KEY, JSON.stringify(cv)); } catch {}
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 2000);
-  }
-
-  function handleDownloadWord() {
-    downloadAsWord(cv, tab, selected);
-    setDlFlash(true);
-    setTimeout(() => setDlFlash(false), 2500);
-  }
-
-  function handleTemplateDownload(e: React.MouseEvent, tabKey: TabKey, idx: number) {
-    e.stopPropagation();
-    downloadAsWord(DUMMY_CV, tabKey, idx);
-  }
-
-  function handleDownloadPDF() {
-    if (!isPremium) return;
-    const html = getCVHTML(cv, tab, selected);
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    setTimeout(() => win.print(), 400);
+      await save();
+      await downloadCVDocx({ format: card.key, variant: card.variant });
+    } catch (e) {
+      setDownloadError(e instanceof Error ? e.message : "Could not generate that document.");
+    } finally {
+      setBusyFormat(null);
+    }
   }
 
   async function handleAdapt() {
     if (!isPremium || !jobDesc.trim() || adapting) return;
     setAdapting(true);
+    setAdaptErr("");
     setAdaptMsg("");
     try {
       const res = await fetch("/api/cv/adapt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cvData: cv, jobDescription: jobDesc }),
+        body: JSON.stringify({ content: c, jobDescription: jobDesc }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error ?? "Request failed");
-      }
-      const adapted = await res.json() as Partial<CVData>;
-      setCV((p) => ({ ...p, ...adapted }));
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error ?? "Request failed");
+
+      const next: CVContent = {
+        ...c,
+        positioning: body.positioning || c.positioning,
+        summary: body.summary || c.summary,
+        summaryShort: body.summaryShort || c.summaryShort,
+        skills: Array.isArray(body.skills) && body.skills.length ? body.skills : c.skills,
+      };
+      setContent(() => next);
+      await save({ content: next });
       setShowAdapt(false);
       setJobDesc("");
-      setAdaptMsg("CV adapted to the job description.");
-      setTimeout(() => setAdaptMsg(""), 4000);
+      setAdaptMsg("Summary, positioning and skill order tailored to that job, and saved.");
+      setTimeout(() => setAdaptMsg(""), 5000);
     } catch (e) {
-      setAdaptMsg(e instanceof Error ? e.message : "Failed. Try again.");
+      setAdaptErr(e instanceof Error ? e.message : "Failed. Try again.");
     } finally {
       setAdapting(false);
     }
   }
 
-  const templates = TEMPLATES[tab];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 size={22} className="text-muted animate-spin" />
+      </div>
+    );
+  }
+
+  const cards = FORMATS.filter((f) => !f.superadminOnly || showLebenslauf);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-
-      {/* ── Header ── */}
-      <div>
+    <div className="mx-auto max-w-4xl space-y-8 pb-12">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl"
-            style={{ background: "var(--primary)22", color: "var(--primary)" }}>
-            <FileText size={20} />
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl"
+            style={{ background: "var(--primary)22", color: "var(--primary)" }}
+          >
+            <FileText size={20} aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">CV Builder</h1>
-            <p className="text-muted text-sm">Build, save and tailor your CV for every application</p>
+            <h1 className="flex items-center gap-2 text-2xl font-bold">
+              CV Builder
+              {isPremium && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                  style={{ background: "#10b98122", color: "#047857" }}
+                >
+                  <Star size={9} fill="currentColor" aria-hidden="true" /> Premium
+                </span>
+              )}
+            </h1>
+            <p className="text-muted text-sm">
+              One set of details, every format in real Word — they cannot disagree with each other.
+            </p>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => save()}
+          disabled={saving}
+          className="btn-primary flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
+        >
+          {saved
+            ? <><Check size={14} aria-hidden="true" /> Saved</>
+            : saving
+              ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Saving…</>
+              : <><Save size={14} aria-hidden="true" /> Save CV</>}
+        </button>
       </div>
 
-      {/* ── Premium banner (free users) ── */}
       {!isPremium && (
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4"
-          style={{ borderColor: "#f59e0b44", background: "#fffbeb" }}>
+        <div
+          className="flex flex-wrap items-center justify-between gap-4 rounded-xl border px-5 py-4"
+          style={{ borderColor: "#f59e0b44", background: "#fffbeb" }}
+        >
           <div className="flex items-center gap-3">
-            <Star size={18} style={{ color: "#d97706" }} fill="#d97706" />
+            <Star size={18} style={{ color: "#d97706" }} fill="#d97706" aria-hidden="true" />
             <div>
               <p className="text-sm font-semibold" style={{ color: "#92400e" }}>
-                Upgrade to Premium for PDF download &amp; AI-powered CV tailoring
+                Upgrade to Premium for AI-powered CV tailoring
               </p>
               <p className="text-xs" style={{ color: "#b45309" }}>
-                Free tier: Word download and all templates are available.
+                Every format and every Word download is free.
               </p>
             </div>
           </div>
@@ -321,225 +220,413 @@ export default function CVBuilderPage() {
         </div>
       )}
 
-      {/* ── Tabs ── */}
-      <div className="flex gap-2">
-        {TABS.map(({ key, label, sub }) => (
-          <button key={key} onClick={() => handleTabChange(key)}
-            className="flex flex-col items-center rounded-xl border px-5 py-2.5 text-sm font-medium transition"
-            style={tab === key
-              ? { background: "var(--primary)", borderColor: "var(--primary)", color: "#fff" }
-              : { borderColor: "var(--border)", color: "var(--foreground)" }}>
-            {label}
-            <span className="mt-0.5 text-[10px] font-normal" style={{ opacity: tab === key ? 0.8 : 0.5 }}>{sub}</span>
-          </button>
-        ))}
-      </div>
+      {(error || downloadError) && <p className="text-sm text-red-600">{error || downloadError}</p>}
+      {adaptMsg && <p className="text-sm font-medium" style={{ color: "#047857" }}>{adaptMsg}</p>}
 
-      {/* ── Template cards ── */}
-      <div className="grid grid-cols-3 gap-4">
-        {templates.map((t, i) => {
-          const active = selected === i;
+      {/* Formats */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map((card) => {
+          const key = `${card.key}-${card.variant}`;
+          const busy = busyFormat === key;
           return (
             <div
-              key={t.name}
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelected(i)}
-              onKeyDown={(e) => e.key === "Enter" && setSelected(i)}
-              className="group flex flex-col overflow-hidden rounded-2xl border text-left transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
-              style={active ? { borderColor: "var(--primary)", boxShadow: "0 0 0 2px var(--primary)" } : { borderColor: "var(--border)" }}>
-              <div className="relative h-36 w-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
-                <div className="absolute inset-3 drop-shadow-sm">{t.mockup}</div>
-                {active && (
-                  <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full"
-                    style={{ background: "var(--primary)" }}>
-                    <Check size={11} color="#fff" strokeWidth={3} />
-                  </div>
+              key={key}
+              className="surface flex flex-col gap-2 rounded-xl border p-4"
+              style={{ borderTop: `3px solid ${card.accent}` }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold">{card.name}</p>
+                {card.superadminOnly && (
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+                    style={{ background: "var(--surface-2)", color: "var(--muted-foreground)" }}
+                  >
+                    SUPERADMIN
+                  </span>
                 )}
               </div>
-              <div className="surface flex flex-1 flex-col gap-0.5 px-3 py-2.5">
-                <p className="text-xs font-semibold">{t.name}</p>
-                <p className="text-muted text-[11px] leading-relaxed">{t.description}</p>
-                <button
-                  onClick={(e) => handleTemplateDownload(e, tab, i)}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--primary)] px-2 py-1.5 text-[11px] font-semibold text-[var(--primary)] transition hover:bg-[var(--primary)] hover:text-white">
-                  <Download size={11} /> Download .doc
-                </button>
-              </div>
+              <p className="text-[11px] font-medium" style={{ color: card.accent }}>{card.tag}</p>
+              <p className="text-muted flex-1 text-[11px] leading-relaxed">{card.description}</p>
+              <button
+                type="button"
+                onClick={() => handleDownload(card)}
+                disabled={busy}
+                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition hover:bg-[var(--surface-2)] disabled:opacity-60"
+                style={{ borderColor: card.accent, color: card.accent }}
+              >
+                {busy
+                  ? <><Loader2 size={12} className="animate-spin" aria-hidden="true" /> Generating…</>
+                  : <><Download size={12} aria-hidden="true" /> Download .docx</>}
+              </button>
             </div>
           );
         })}
       </div>
 
-      {/* ── Editor ── */}
-      <div className="surface rounded-2xl border p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="font-semibold">
-            Editing — <span style={{ color: "var(--primary)" }}>{templates[selected].name}</span>
-          </h2>
-          <button onClick={handleSave}
-            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-2)]">
-            {savedFlash ? <><Check size={13} style={{ color: "#10b981" }} /> Saved!</> : <><Save size={13} /> Save CV</>}
-          </button>
-        </div>
+      {/* AI tailor */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-muted text-xs">
+          Your CV saves first, then generates — what you download always matches what you see here.
+        </p>
+        <button
+          type="button"
+          onClick={() => (isPremium ? setShowAdapt(true) : undefined)}
+          disabled={!isPremium}
+          title={isPremium ? "Adapt this CV to a job description" : "Upgrade to Premium to use AI tailoring"}
+          className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition"
+          style={isPremium
+            ? { borderColor: "#f59e0b", color: "#d97706", background: "#fffbeb" }
+            : { opacity: 0.5, cursor: "not-allowed", borderColor: "var(--border)" }}
+        >
+          {isPremium ? <Sparkles size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+          AI Tailor
+          {!isPremium && <PremiumBadge />}
+        </button>
+      </div>
 
-        <div className="space-y-8">
-          {/* Personal */}
-          <div>
-            <p className="text-muted mb-3 text-xs font-semibold uppercase tracking-wider">Personal Information</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Full Name"           value={cv.name}     onChange={set("name")}     placeholder="Jane Doe" />
-              <Field label="Professional Title"  value={cv.title}    onChange={set("title")}    placeholder="Senior Software Engineer" />
-              <Field label="Email"               value={cv.email}    onChange={set("email")}    placeholder="jane@example.com" />
-              <Field label="Phone"               value={cv.phone}    onChange={set("phone")}    placeholder="+49 123 456 7890" />
-              <Field label="Location"            value={cv.location} onChange={set("location")} placeholder="Berlin, Germany" />
-              <Field label="LinkedIn"            value={cv.linkedin} onChange={set("linkedin")} placeholder="linkedin.com/in/janedoe" />
-              <Field label="Website (optional)"  value={cv.website}  onChange={set("website")}  placeholder="janedoe.dev" />
-              <Field label="Photo URL (optional, for Designer &amp; Europass)" value={cv.photo ?? ""} onChange={set("photo")} placeholder="https://example.com/photo.jpg" />
-            </div>
-          </div>
-
-          {/* Summary */}
-          <div>
-            <p className="text-muted mb-3 text-xs font-semibold uppercase tracking-wider">Professional Summary</p>
-            <Field label="Summary" value={cv.summary} onChange={set("summary")} type="textarea" rows={4}
-              placeholder={"Results-driven engineer with 5+ years building scalable systems...\nKeep it 3–5 sentences, tailored to the role."} />
-          </div>
-
-          {/* Experience */}
-          <div>
-            <p className="text-muted mb-3 text-xs font-semibold uppercase tracking-wider">Work Experience</p>
-            <Field label="Experience" value={cv.experience} onChange={set("experience")} type="textarea" rows={7}
-              placeholder={"Senior Engineer · Acme Corp · Jan 2022 – Present\n• Led migration to microservices, cut latency by 40%\n• Mentored 4 junior engineers\n\nEngineer · StartupXYZ · 2019 – 2022\n• Built real-time dashboard serving 10k daily users"} />
-          </div>
-
-          {/* Education */}
-          <div>
-            <p className="text-muted mb-3 text-xs font-semibold uppercase tracking-wider">Education</p>
-            <Field label="Education" value={cv.education} onChange={set("education")} type="textarea" rows={4}
-              placeholder={"MSc Computer Science · TU Berlin · 2017 – 2019\n\nBSc Software Engineering · Dhaka University · 2013 – 2017"} />
-          </div>
-
-          {/* Skills + Languages */}
+      {/* Editor */}
+      <div className="surface space-y-8 rounded-2xl border p-6">
+        <Section title="Identity">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Skills" value={cv.skills} onChange={set("skills")}
-              placeholder="TypeScript, React, Node.js, Python, PostgreSQL, Docker, AWS" />
-            <Field label="Languages" value={cv.languages} onChange={set("languages")}
-              placeholder="English (C2), German (B2), Bengali (Native)" />
+            <Field label="Full name" value={c.name} onChange={(v) => patch({ name: v })} placeholder="Md Fuad Haider Dipu" />
+            <Field label="Positioning" value={c.positioning} onChange={(v) => patch({ positioning: v })} placeholder="AI-First Full-Stack Developer" />
+            <Field label="Grade / internal title" value={c.gradeTitle} onChange={(v) => patch({ gradeTitle: v })} placeholder="Senior Software Engineer" />
+            <Field label="Signature city" value={c.signatureCity} onChange={(v) => patch({ signatureCity: v })} placeholder="Dhaka" hint="Used on the Lebenslauf signature line." />
           </div>
-        </div>
+        </Section>
 
-        {/* ── Action bar ── */}
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-6"
-          style={{ borderColor: "var(--border)" }}>
-
-          {/* Left: format note + adapt msg */}
-          <div>
-            <p className="text-muted text-xs">
-              Word (.doc) opens in Microsoft Word, LibreOffice &amp; Google Docs.
-            </p>
-            {adaptMsg && (
-              <p className="mt-1 text-xs font-medium" style={{ color: "#10b981" }}>{adaptMsg}</p>
-            )}
+        <Section title="Contact">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="City" value={c.contact.city} onChange={(v) => patchContact("city", v)} placeholder="Dhaka, Bangladesh" />
+            <Field label="Full address" value={c.contact.addressFull} onChange={(v) => patchContact("addressFull", v)} placeholder="Dhaka Cantonment, Dhaka, Bangladesh" />
+            <Field label="Phone" value={c.contact.phone} onChange={(v) => patchContact("phone", v)} placeholder="+880 171 7768146" />
+            <Field label="Email" value={c.contact.email} onChange={(v) => patchContact("email", v)} placeholder="you@example.com" />
+            <Field label="LinkedIn" value={c.contact.linkedin} onChange={(v) => patchContact("linkedin", v)} placeholder="linkedin.com/in/you" />
+            <Field label="GitHub" value={c.contact.github} onChange={(v) => patchContact("github", v)} placeholder="github.com/you" />
+            <Field label="Portfolio" value={c.contact.portfolio} onChange={(v) => patchContact("portfolio", v)} placeholder="you.dev" />
+            <Field label="Hugging Face" value={c.contact.huggingface} onChange={(v) => patchContact("huggingface", v)} placeholder="huggingface.co/you" />
           </div>
+        </Section>
 
-          {/* Right: action buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-
-            {/* AI Adapt — premium */}
-            <div className="relative">
-              <button
-                onClick={() => isPremium ? setShowAdapt(true) : undefined}
-                disabled={!isPremium}
-                title={!isPremium ? "Upgrade to Premium to use AI tailoring" : "Adapt CV with AI"}
-                className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition"
-                style={isPremium
-                  ? { borderColor: "#f59e0b", color: "#d97706", background: "#fffbeb" }
-                  : { opacity: 0.5, cursor: "not-allowed", borderColor: "var(--border)" }}>
-                {isPremium ? <Sparkles size={14} /> : <Lock size={14} />}
-                AI Tailor
-                {!isPremium && <PremiumBadge />}
-              </button>
-            </div>
-
-            {/* Download PDF — premium */}
-            <button
-              onClick={handleDownloadPDF}
-              disabled={!isPremium}
-              title={!isPremium ? "Upgrade to Premium for PDF download" : "Download as PDF"}
-              className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition"
-              style={isPremium
-                ? { borderColor: "#6366f1", color: "#6366f1", background: "#6366f108" }
-                : { opacity: 0.5, cursor: "not-allowed", borderColor: "var(--border)" }}>
-              {isPremium ? <Download size={14} /> : <Lock size={14} />}
-              PDF
-              {!isPremium && <PremiumBadge />}
-            </button>
-
-            {/* Download Word — free */}
-            <button onClick={handleDownloadWord}
-              className="btn-primary flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold">
-              {dlFlash
-                ? <><Check size={14} strokeWidth={2.5} /> Downloaded!</>
-                : <><Download size={14} /> Word (.doc)</>}
-            </button>
-
+        <Section title="Personal details" hint="Europass and Lebenslauf only — never printed on the ATS CV.">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Date of birth" value={c.personal.dob} onChange={(v) => patchPersonal("dob", v)} placeholder="03/01/1988" />
+            <Field label="Date of birth (long)" value={c.personal.dobLong} onChange={(v) => patchPersonal("dobLong", v)} placeholder="3 January 1988" />
+            <Field label="Nationality" value={c.personal.nationality} onChange={(v) => patchPersonal("nationality", v)} placeholder="Bangladeshi" />
           </div>
+          <p className="text-muted text-[11px]">
+            The profile picture starred in{" "}
+            <Link href="/me/my-cv" className="underline" style={{ color: "var(--primary)" }}>My Documents</Link>{" "}
+            is embedded automatically in the Lebenslauf and Designer formats.
+          </p>
+        </Section>
+
+        <Section title="Summary">
+          <Field
+            label="Full summary" type="textarea" rows={4}
+            value={c.summary} onChange={(v) => patch({ summary: v })}
+            placeholder="Senior software engineer with 14 years shipping production systems…"
+          />
+          <Field
+            label="Short summary" type="textarea" rows={2}
+            value={c.summaryShort} onChange={(v) => patch({ summaryShort: v })}
+            hint="Used by the 2-page ATS variant. Two sentences is right."
+            placeholder="Senior software engineer, 14 years, 50+ production systems shipped since 2012."
+          />
+          <Field
+            label="Availability" type="textarea" rows={2}
+            value={c.availability} onChange={(v) => patch({ availability: v })}
+            placeholder="Available now for remote roles with German and EU teams."
+          />
+        </Section>
+
+        <Section
+          title="Skills"
+          hint="One group per line of the CV — a label plus a comma-separated list."
+          action={<AddButton label="Add group" onClick={() => patch({ skills: [...c.skills, { label: "", items: "" }] })} />}
+        >
+          {c.skills.length === 0 && <p className="text-muted text-xs">No skill groups yet.</p>}
+          {c.skills.map((group: CVSkillGroup, i) => (
+            <RepeatCard
+              key={i} index={i} total={c.skills.length} title={group.label || `Group ${i + 1}`}
+              onMove={(from, to) => patch({ skills: moveItem(c.skills, from, to) })}
+              onRemove={(idx) => patch({ skills: c.skills.filter((_, x) => x !== idx) })}
+            >
+              <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+                <Field label="Label" value={group.label} placeholder="Languages"
+                  onChange={(v) => patch({ skills: c.skills.map((g, x) => (x === i ? { ...g, label: v } : g)) })} />
+                <Field label="Items" value={group.items} placeholder="TypeScript, JavaScript, PHP, Python, SQL"
+                  onChange={(v) => patch({ skills: c.skills.map((g, x) => (x === i ? { ...g, items: v } : g)) })} />
+              </div>
+            </RepeatCard>
+          ))}
+        </Section>
+
+        <Section
+          title="Compact skills"
+          hint="Optional. Fewer, wider groups for the 2-page ATS variant. Leave empty to reuse the full list."
+          action={<AddButton label="Add group" onClick={() => patch({ skillsCompact: [...c.skillsCompact, { label: "", items: "" }] })} />}
+        >
+          {c.skillsCompact.map((group: CVSkillGroup, i) => (
+            <RepeatCard
+              key={i} index={i} total={c.skillsCompact.length} title={group.label || `Group ${i + 1}`}
+              onMove={(from, to) => patch({ skillsCompact: moveItem(c.skillsCompact, from, to) })}
+              onRemove={(idx) => patch({ skillsCompact: c.skillsCompact.filter((_, x) => x !== idx) })}
+            >
+              <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+                <Field label="Label" value={group.label} placeholder="Languages & AI"
+                  onChange={(v) => patch({ skillsCompact: c.skillsCompact.map((g, x) => (x === i ? { ...g, label: v } : g)) })} />
+                <Field label="Items" value={group.items} placeholder="TypeScript, Python · LLM integration, RAG"
+                  onChange={(v) => patch({ skillsCompact: c.skillsCompact.map((g, x) => (x === i ? { ...g, items: v } : g)) })} />
+              </div>
+            </RepeatCard>
+          ))}
+        </Section>
+
+        <Section
+          title="Experience"
+          hint="Most recent first. The compact and Lebenslauf formats trim older roles automatically."
+          action={<AddButton label="Add role" onClick={() => patch({
+            experience: [...c.experience, { company: "", location: "", title: "", grade: "", dates: "", bullets: [] }],
+          })} />}
+        >
+          {c.experience.length === 0 && <p className="text-muted text-xs">No roles yet.</p>}
+          {c.experience.map((job: CVExperience, i) => (
+            <RepeatCard
+              key={i} index={i} total={c.experience.length}
+              title={job.title || job.company || `Role ${i + 1}`}
+              onMove={(from, to) => patch({ experience: moveItem(c.experience, from, to) })}
+              onRemove={(idx) => patch({ experience: c.experience.filter((_, x) => x !== idx) })}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Job title" value={job.title} placeholder="Senior Software Engineer"
+                  onChange={(v) => patch({ experience: c.experience.map((j, x) => (x === i ? { ...j, title: v } : j)) })} />
+                <Field label="Company" value={job.company} placeholder="Bashundhara Group"
+                  onChange={(v) => patch({ experience: c.experience.map((j, x) => (x === i ? { ...j, company: v } : j)) })} />
+                <Field label="Location" value={job.location} placeholder="Dhaka, Bangladesh"
+                  onChange={(v) => patch({ experience: c.experience.map((j, x) => (x === i ? { ...j, location: v } : j)) })} />
+                <Field label="Dates" value={job.dates} placeholder="Apr 2025 – Present"
+                  onChange={(v) => patch({ experience: c.experience.map((j, x) => (x === i ? { ...j, dates: v } : j)) })} />
+                <Field label="Grade (optional)" value={job.grade} placeholder="Internal grade: Assistant Manager"
+                  onChange={(v) => patch({ experience: c.experience.map((j, x) => (x === i ? { ...j, grade: v } : j)) })} />
+              </div>
+              <div>
+                <p className="text-muted mb-1.5 text-xs font-medium">Bullets</p>
+                <StringListEditor
+                  items={job.bullets}
+                  placeholder="Built a distributable WordPress plugin on a provider-agnostic LLM layer…"
+                  addLabel="Add bullet"
+                  onChange={(bullets) => patch({ experience: c.experience.map((j, x) => (x === i ? { ...j, bullets } : j)) })}
+                />
+              </div>
+            </RepeatCard>
+          ))}
+        </Section>
+
+        <Section
+          title="Projects"
+          hint="Printed on the 3-page ATS, Europass and Designer formats."
+          action={<AddButton label="Add project" onClick={() => patch({
+            projects: [...c.projects, { name: "", stack: "", text: "" }],
+          })} />}
+        >
+          {c.projects.map((project: CVProject, i) => (
+            <RepeatCard
+              key={i} index={i} total={c.projects.length} title={project.name || `Project ${i + 1}`}
+              onMove={(from, to) => patch({ projects: moveItem(c.projects, from, to) })}
+              onRemove={(idx) => patch({ projects: c.projects.filter((_, x) => x !== idx) })}
+            >
+              <Field label="Name" value={project.name} placeholder="MCP GitHub Issue Tracker"
+                onChange={(v) => patch({ projects: c.projects.map((pr, x) => (x === i ? { ...pr, name: v } : pr)) })} />
+              <Field label="Stack" value={project.stack} placeholder="TypeScript, Node.js, MCP SDK, Docker"
+                onChange={(v) => patch({ projects: c.projects.map((pr, x) => (x === i ? { ...pr, stack: v } : pr)) })} />
+              <Field label="Description" type="textarea" rows={3} value={project.text}
+                placeholder="Model Context Protocol server exposing GitHub issue data to AI agents…"
+                onChange={(v) => patch({ projects: c.projects.map((pr, x) => (x === i ? { ...pr, text: v } : pr)) })} />
+            </RepeatCard>
+          ))}
+        </Section>
+
+        <Section
+          title="Education"
+          action={<AddButton label="Add entry" onClick={() => patch({
+            education: [...c.education, { degree: "", school: "", dates: "", note: "" }],
+          })} />}
+        >
+          {c.education.map((e: CVEducation, i) => (
+            <RepeatCard
+              key={i} index={i} total={c.education.length} title={e.degree || `Entry ${i + 1}`}
+              onMove={(from, to) => patch({ education: moveItem(c.education, from, to) })}
+              onRemove={(idx) => patch({ education: c.education.filter((_, x) => x !== idx) })}
+            >
+              <Field label="Degree" value={e.degree} placeholder="B.Sc., Computer Science and Engineering"
+                onChange={(v) => patch({ education: c.education.map((ed, x) => (x === i ? { ...ed, degree: v } : ed)) })} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Institution" value={e.school} placeholder="American International University-Bangladesh"
+                  onChange={(v) => patch({ education: c.education.map((ed, x) => (x === i ? { ...ed, school: v } : ed)) })} />
+                <Field label="Dates" value={e.dates} placeholder="2008 – 2012"
+                  onChange={(v) => patch({ education: c.education.map((ed, x) => (x === i ? { ...ed, dates: v } : ed)) })} />
+              </div>
+              <Field label="Note (optional)" value={e.note} placeholder="Recognised in anabin"
+                onChange={(v) => patch({ education: c.education.map((ed, x) => (x === i ? { ...ed, note: v } : ed)) })} />
+            </RepeatCard>
+          ))}
+        </Section>
+
+        <Section title="Certifications">
+          <StringListEditor
+            items={c.certifications}
+            placeholder="IELTS — Overall Band 6.5 — IDP Education (2025)"
+            addLabel="Add certification"
+            onChange={(certifications) => patch({ certifications })}
+          />
+        </Section>
+
+        <Section title="Awards">
+          <StringListEditor
+            items={c.awards}
+            placeholder="Champion — ideaTHON, iDEA Project, Bangladesh Computer Council"
+            addLabel="Add award"
+            onChange={(awards) => patch({ awards })}
+          />
+        </Section>
+
+        <Section
+          title="Languages"
+          hint="CEFR columns are read literally on Europass. Leave them blank to reuse the level text."
+          action={<AddButton label="Add language" onClick={() => patch({
+            languages: [...c.languages, {
+              name: "", level: "", mother: false,
+              cefr: { listening: "", reading: "", spokenInteraction: "", spokenProduction: "", writing: "" },
+            }],
+          })} />}
+        >
+          {c.languages.map((lang: CVLanguage, i) => (
+            <RepeatCard
+              key={i} index={i} total={c.languages.length} title={lang.name || `Language ${i + 1}`}
+              onMove={(from, to) => patch({ languages: moveItem(c.languages, from, to) })}
+              onRemove={(idx) => patch({ languages: c.languages.filter((_, x) => x !== idx) })}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Language" value={lang.name} placeholder="English"
+                  onChange={(v) => patch({ languages: c.languages.map((l, x) => (x === i ? { ...l, name: v } : l)) })} />
+                <Field label="Level" value={lang.level} placeholder="Professional working proficiency — IELTS 6.5 (CEFR B2)"
+                  onChange={(v) => patch({ languages: c.languages.map((l, x) => (x === i ? { ...l, level: v } : l)) })} />
+              </div>
+
+              <label className="text-muted flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={lang.mother}
+                  onChange={(e) => patch({
+                    languages: c.languages.map((l, x) => (x === i ? { ...l, mother: e.target.checked } : l)),
+                  })}
+                />
+                Mother tongue — listed above the CEFR grid on Europass
+              </label>
+
+              {!lang.mother && (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {([
+                    ["listening", "Listening"],
+                    ["reading", "Reading"],
+                    ["spokenInteraction", "Spoken int."],
+                    ["spokenProduction", "Spoken prod."],
+                    ["writing", "Writing"],
+                  ] as [keyof CVLanguage["cefr"], string][]).map(([key, label]) => (
+                    <div key={key}>
+                      <label className="text-muted mb-1 block text-[11px] font-medium">{label}</label>
+                      <input
+                        type="text"
+                        className={inputCls}
+                        style={inputStyle}
+                        value={lang.cefr[key]}
+                        placeholder="B2"
+                        onChange={(e) => patch({
+                          languages: c.languages.map((l, x) =>
+                            x === i ? { ...l, cefr: { ...l.cefr, [key]: e.target.value } } : l),
+                        })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </RepeatCard>
+          ))}
+        </Section>
+
+        <div className="flex justify-end border-t pt-6" style={{ borderColor: "var(--border)" }}>
+          <button
+            type="button"
+            onClick={() => save()}
+            disabled={saving}
+            className="btn-primary flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
+          >
+            {saved
+              ? <><Check size={14} aria-hidden="true" /> Saved</>
+              : saving
+                ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Saving…</>
+                : <><Save size={14} aria-hidden="true" /> Save CV</>}
+          </button>
         </div>
       </div>
 
-      {/* ── AI Adapt panel (modal) ── */}
+      {/* AI adapt modal */}
       {showAdapt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.5)" }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
           <div className="surface w-full max-w-lg rounded-2xl border p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles size={18} style={{ color: "#d97706" }} />
+                <Sparkles size={18} style={{ color: "#d97706" }} aria-hidden="true" />
                 <h3 className="font-semibold">AI CV Tailor</h3>
               </div>
-              <button onClick={() => { setShowAdapt(false); setJobDesc(""); setAdaptMsg(""); }}
-                className="text-muted hover:text-foreground transition">
+              <button
+                type="button"
+                onClick={() => { setShowAdapt(false); setJobDesc(""); setAdaptErr(""); }}
+                className="text-muted transition hover:text-foreground"
+              >
                 <X size={18} />
               </button>
             </div>
 
             <p className="text-muted mb-4 text-sm">
-              Paste the job description below. AI will rewrite your summary, rephrase your experience highlights,
-              and reorder your skills to best match the role — without inventing anything.
+              Paste the job description. AI rewrites your summary, sharpens your positioning line, and reorders
+              your skill groups so the closest match comes first. Your roles and bullets are never rewritten.
             </p>
 
             <textarea
-              className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
-              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--foreground)" }}
+              className={`${inputCls} leading-relaxed`}
+              style={inputStyle}
               rows={10}
-              placeholder={"Paste the full job description here...\n\nExample:\nWe are looking for a Senior Full Stack Engineer to join our team...\n• 5+ years of experience with React and Node.js\n• Strong understanding of microservices..."}
+              placeholder="Paste the full job description here…"
               value={jobDesc}
               onChange={(e) => setJobDesc(e.target.value)}
             />
 
-            {adaptMsg && (
-              <p className="mt-2 text-xs text-red-500">{adaptMsg}</p>
-            )}
+            {adaptErr && <p className="mt-2 text-xs text-red-500">{adaptErr}</p>}
 
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => { setShowAdapt(false); setJobDesc(""); }}
-                className="rounded-lg border px-4 py-2 text-sm transition hover:bg-[var(--surface-2)]">
+              <button
+                type="button"
+                onClick={() => { setShowAdapt(false); setJobDesc(""); }}
+                className="rounded-lg border px-4 py-2 text-sm transition hover:bg-[var(--surface-2)]"
+              >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAdapt}
                 disabled={adapting || !jobDesc.trim()}
-                className="btn-primary flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-60">
+                className="btn-primary flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-60"
+              >
                 {adapting
-                  ? <><Loader2 size={14} className="animate-spin" /> Adapting…</>
-                  : <><Sparkles size={14} /> Tailor my CV</>}
+                  ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Adapting…</>
+                  : <><Sparkles size={14} aria-hidden="true" /> Tailor my CV</>}
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }

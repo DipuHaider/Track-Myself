@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const FileEntrySchema = new Schema(
+const LegacyFileEntrySchema = new Schema(
   {
     name:     { type: String, required: true },
     size:     { type: Number, required: true },
@@ -8,6 +8,17 @@ const FileEntrySchema = new Schema(
     data:     { type: String, required: true },
   },
   { timestamps: { createdAt: "uploadedAt", updatedAt: false } },
+);
+
+const PrimarySchema = new Schema(
+  {
+    cv:           { type: String, default: "" },
+    resume:       { type: String, default: "" },
+    coverLetter:  { type: String, default: "" },
+    profilePhoto: { type: String, default: "" },
+    coverImage:   { type: String, default: "" },
+  },
+  { _id: false },
 );
 
 const CVProfileSchema = new Schema(
@@ -26,10 +37,15 @@ const CVProfileSchema = new Schema(
     skills:        { type: String, default: "" },
     languages:     { type: String, default: "" },
     photo:         { type: String, default: "" },
-    uploadedFiles: [FileEntrySchema],
+    content:       { type: Schema.Types.Mixed, default: {} },
+    contentReady:  { type: Boolean, default: false },
+    templateTab:   { type: String, enum: ["ats", "europass", "designer"], default: "ats" },
+    templateIdx:   { type: Number, default: 0, min: 0, max: 2 },
+    primary:       { type: PrimarySchema, default: () => ({}) },
+    uploadedFiles: [LegacyFileEntrySchema],
     mainFileId:    { type: String, default: "" },
   },
-  { timestamps: true },
+  { timestamps: true, minimize: false },
 );
 
 export default mongoose.models.CVProfile || mongoose.model("CVProfile", CVProfileSchema);

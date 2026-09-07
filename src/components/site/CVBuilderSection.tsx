@@ -1,16 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileText, Check } from "lucide-react";
-import { downloadAsWord, DEFAULT_CV } from "@/lib/cvDownload";
-import type { CVData, TabKey } from "@/lib/cvDownload";
+import { Check, Download, FileText, Loader2 } from "lucide-react";
+import type { CVFormat, CVVariant } from "@/types/cv";
 
 // ── template definitions ────────────────────────────────────────────────────
 
-type Template = {
-  name: string;
-  description: string;
-  mockup: React.ReactNode;
+type SampleCV = {
+  name: string; title: string; email: string; phone: string;
+  location: string; linkedin: string; website: string;
+  summary: string; experience: string; education: string;
+  skills: string; languages: string;
+};
+
+const EMPTY_CV: SampleCV = {
+  name: "", title: "", email: "", phone: "",
+  location: "", linkedin: "", website: "",
+  summary: "", experience: "", education: "",
+  skills: "", languages: "",
 };
 
 function ATSMockup({ accent, leftBar }: { accent: string; leftBar?: boolean }) {
@@ -127,66 +134,6 @@ function DesignerMinimalMockup({ accent }: { accent: string }) {
   );
 }
 
-const TABS: { key: TabKey; label: string; badge: string }[] = [
-  { key: "ats", label: "ATS Friendly", badge: "Recruiter-optimised" },
-  { key: "europass", label: "Europass", badge: "EU Standard" },
-  { key: "designer", label: "Designer", badge: "Stand out" },
-];
-
-const TEMPLATES: Record<TabKey, Template[]> = {
-  ats: [
-    {
-      name: "Classic ATS",
-      description: "Underlined headers, single column — maximum parser compatibility",
-      mockup: <ATSMockup accent="#222" />,
-    },
-    {
-      name: "Modern ATS",
-      description: "Blue left-bar sections, clean Arial — crisp and professional",
-      mockup: <ATSMockup accent="#1a56db" leftBar />,
-    },
-    {
-      name: "Executive ATS",
-      description: "Serif font, centred header — polished for senior roles",
-      mockup: <ATSMockup accent="#333" />,
-    },
-  ],
-  europass: [
-    {
-      name: "Official EU",
-      description: "Deep blue (#003399) header — the standard EU Europass format",
-      mockup: <EuropassMockup color="#003399" />,
-    },
-    {
-      name: "Euro Modern",
-      description: "Bright blue refresh — Europass structure, contemporary look",
-      mockup: <EuropassMockup color="#1a56db" />,
-    },
-    {
-      name: "Euro Compact",
-      description: "Teal header, space-efficient — ideal for 1-page CVs",
-      mockup: <EuropassMockup color="#00695c" />,
-    },
-  ],
-  designer: [
-    {
-      name: "Creative Sidebar",
-      description: "Dark sidebar with indigo accents — bold, memorable layout",
-      mockup: <DesignerSidebarMockup sidebar="#1e293b" accent="#818cf8" />,
-    },
-    {
-      name: "Bold Header",
-      description: "Full-width dark header with emerald accents — confident and clean",
-      mockup: <DesignerBoldMockup sidebar="#111827" accent="#10b981" />,
-    },
-    {
-      name: "Minimal Accent",
-      description: "Left accent border with pink highlights — elegant and modern",
-      mockup: <DesignerMinimalMockup accent="#f472b6" />,
-    },
-  ],
-};
-
 // ── editor helpers ──────────────────────────────────────────────────────────
 
 type FieldProps = {
@@ -225,29 +172,87 @@ function Field({ label, value, onChange, placeholder, type = "input", rows = 4 }
   );
 }
 
-// ── main component ──────────────────────────────────────────────────────────
+type FormatCard = {
+  key: CVFormat;
+  variant: CVVariant;
+  name: string;
+  badge: string;
+  description: string;
+  mockup: React.ReactNode;
+};
+
+const FORMATS: FormatCard[] = [
+  {
+    key: "ats", variant: "full", name: "ATS Friendly", badge: "3 pages",
+    description: "Single column, no tables — built to survive automated parsing. The safe default.",
+    mockup: <ATSMockup accent="#222" />,
+  },
+  {
+    key: "ats", variant: "compact", name: "ATS Compact", badge: "2 pages",
+    description: "Same CV, front-loaded. Short summary, grouped skills, recent roles first.",
+    mockup: <ATSMockup accent="#1a56db" leftBar />,
+  },
+  {
+    key: "europass", variant: "full", name: "Europass", badge: "EU standard",
+    description: "Official EU structure with the CEFR language grid. For public sector and visa files.",
+    mockup: <EuropassMockup color="#003399" />,
+  },
+  {
+    key: "designer", variant: "full", name: "Designer", badge: "Stand out",
+    description: "Dark header band, indigo accents, sidebar for skills. For creative and tech roles.",
+    mockup: <DesignerSidebarMockup sidebar="#1e293b" accent="#818cf8" />,
+  },
+];
 
 export default function CVBuilderSection() {
-  const [tab, setTab] = useState<TabKey>("ats");
-  const [selectedTemplate, setSelectedTemplate] = useState(0);
-  const [cv, setCV] = useState<CVData>(DEFAULT_CV);
+  const [selected, setSelected] = useState(0);
+  const [cv, setCV] = useState<SampleCV>(EMPTY_CV);
   const [downloaded, setDownloaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-  const templates = TEMPLATES[tab];
+  const format = FORMATS[selected];
 
-  function handleTab(key: TabKey) {
-    setTab(key);
-    setSelectedTemplate(0);
-  }
-
-  function set(field: keyof CVData) {
+  function set(field: keyof SampleCV) {
     return (value: string) => setCV((prev) => ({ ...prev, [field]: value }));
   }
 
-  function handleDownload() {
-    downloadAsWord(cv, tab, selectedTemplate);
-    setDownloaded(true);
-    setTimeout(() => setDownloaded(false), 2500);
+  async function handleDownload() {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/cv/sample", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...cv, format: format.key, variant: format.variant }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body?.error ?? "Could not generate that document.");
+        return;
+      }
+
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = match ? decodeURIComponent(match[1]) : "CV.docx";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+      setDownloaded(true);
+      setTimeout(() => setDownloaded(false), 2500);
+    } catch {
+      setError("Could not generate that document. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -258,47 +263,25 @@ export default function CVBuilderSection() {
           className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium"
           style={{ color: "var(--primary)", borderColor: "var(--primary)" }}
         >
-          <FileText size={11} />
+          <FileText size={11} aria-hidden="true" />
           Free CV Builder
         </span>
         <h2 className="mt-3 text-3xl font-bold">Build Your CV</h2>
         <p className="text-muted mt-2 text-sm">
-          Pick a template, fill in your details, download as Word
+          Pick a format, fill in your details, download a real Word document
         </p>
       </div>
 
-      {/* Tab bar */}
-      <div className="mb-8 flex justify-center gap-2">
-        {TABS.map(({ key, label, badge }) => (
-          <button
-            key={key}
-            onClick={() => handleTab(key)}
-            className="flex flex-col items-center rounded-xl border px-5 py-2.5 text-sm font-medium transition"
-            style={
-              tab === key
-                ? { background: "var(--primary)", borderColor: "var(--primary)", color: "#fff" }
-                : { borderColor: "var(--border)", color: "var(--foreground)" }
-            }
-          >
-            {label}
-            <span
-              className="mt-0.5 text-[10px] font-normal"
-              style={{ opacity: tab === key ? 0.8 : 0.5 }}
-            >
-              {badge}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Template cards */}
-      <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {templates.map((t, i) => {
-          const active = selectedTemplate === i;
+      {/* Format cards */}
+      <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {FORMATS.map((t, i) => {
+          const active = selected === i;
           return (
             <button
-              key={t.name}
-              onClick={() => setSelectedTemplate(i)}
+              key={`${t.key}-${t.variant}`}
+              type="button"
+              onClick={() => setSelected(i)}
+              aria-pressed={active}
               className="group flex flex-col overflow-hidden rounded-2xl border text-left transition hover:-translate-y-0.5 hover:shadow-lg"
               style={
                 active
@@ -306,24 +289,27 @@ export default function CVBuilderSection() {
                   : { borderColor: "var(--border)" }
               }
             >
-              {/* Mockup preview */}
-              <div
-                className="relative h-40 w-full overflow-hidden"
-                style={{ background: "var(--surface-2)" }}
-              >
+              <div className="relative h-40 w-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
                 <div className="absolute inset-3 drop-shadow-md">{t.mockup}</div>
                 {active && (
                   <div
                     className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full"
                     style={{ background: "var(--primary)" }}
                   >
-                    <Check size={11} color="#fff" strokeWidth={3} />
+                    <Check size={11} color="#fff" strokeWidth={3} aria-hidden="true" />
                   </div>
                 )}
               </div>
-              {/* Card info */}
               <div className="surface flex flex-1 flex-col gap-1 px-4 py-3">
-                <p className="text-sm font-semibold">{t.name}</p>
+                <p className="flex items-center justify-between gap-2 text-sm font-semibold">
+                  {t.name}
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+                    style={{ background: "var(--surface-2)", color: "var(--muted-foreground)" }}
+                  >
+                    {t.badge}
+                  </span>
+                </p>
                 <p className="text-muted text-xs leading-relaxed">{t.description}</p>
               </div>
             </button>
@@ -335,13 +321,10 @@ export default function CVBuilderSection() {
       <div className="surface rounded-2xl border p-6">
         <h3 className="mb-6 text-base font-semibold">
           Edit your details &mdash;{" "}
-          <span style={{ color: "var(--primary)" }}>
-            {templates[selectedTemplate].name}
-          </span>
+          <span style={{ color: "var(--primary)" }}>{format.name}</span>
         </h3>
 
         <div className="space-y-8">
-          {/* Personal info */}
           <div>
             <p className="text-muted mb-3 text-xs font-semibold uppercase tracking-wider">Personal Information</p>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -355,20 +338,18 @@ export default function CVBuilderSection() {
             </div>
           </div>
 
-          {/* Summary */}
           <div>
             <p className="text-muted mb-3 text-xs font-semibold uppercase tracking-wider">Professional Summary</p>
             <Field
               label="Summary"
               value={cv.summary}
               onChange={set("summary")}
-              placeholder={"Results-driven engineer with 5+ years building scalable systems...\n\nKeep it 3–5 sentences, tailored to the role."}
+              placeholder={"Results-driven engineer with 5+ years building scalable systems…\n\nKeep it 3–5 sentences, tailored to the role."}
               type="textarea"
               rows={4}
             />
           </div>
 
-          {/* Experience */}
           <div>
             <p className="text-muted mb-3 text-xs font-semibold uppercase tracking-wider">Work Experience</p>
             <Field
@@ -379,9 +360,11 @@ export default function CVBuilderSection() {
               type="textarea"
               rows={7}
             />
+            <p className="text-muted mt-1.5 text-[11px]">
+              One role per block, separated by a blank line. Start each achievement with • or -.
+            </p>
           </div>
 
-          {/* Education */}
           <div>
             <p className="text-muted mb-3 text-xs font-semibold uppercase tracking-wider">Education</p>
             <Field
@@ -394,13 +377,12 @@ export default function CVBuilderSection() {
             />
           </div>
 
-          {/* Skills + Languages */}
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
               label="Skills"
               value={cv.skills}
               onChange={set("skills")}
-              placeholder="TypeScript, React, Node.js, Python, PostgreSQL, Docker, AWS"
+              placeholder="Languages: TypeScript, Python, SQL"
             />
             <Field
               label="Languages"
@@ -411,23 +393,35 @@ export default function CVBuilderSection() {
           </div>
         </div>
 
-        {/* Download */}
-        <div className="mt-8 flex items-center justify-between gap-4 border-t pt-6" style={{ borderColor: "var(--border)" }}>
-          <p className="text-muted text-xs">
-            Downloads as <strong>.doc</strong> — opens in Microsoft Word, LibreOffice &amp; Google Docs
-          </p>
+        <div
+          className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t pt-6"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div>
+            <p className="text-muted text-xs">
+              Downloads as a real <strong>.docx</strong> — opens in Microsoft Word, LibreOffice &amp; Google Docs
+            </p>
+            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+          </div>
           <button
+            type="button"
             onClick={handleDownload}
-            className="btn-primary flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition"
+            disabled={busy}
+            className="btn-primary flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition disabled:opacity-60"
           >
             {downloaded ? (
               <>
-                <Check size={15} strokeWidth={2.5} />
+                <Check size={15} strokeWidth={2.5} aria-hidden="true" />
                 Downloaded!
+              </>
+            ) : busy ? (
+              <>
+                <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                Generating…
               </>
             ) : (
               <>
-                <Download size={15} />
+                <Download size={15} aria-hidden="true" />
                 Download Word
               </>
             )}

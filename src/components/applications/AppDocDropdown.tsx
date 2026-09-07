@@ -3,134 +3,54 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, ChevronDown, Download, Eye, FileText, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { isContentEmpty } from "@/lib/cv/content";
 import {
-  DEFAULT_CV,
-  downloadAppDocument,
-  previewAppDocument,
-  type AppInfo,
-  type CVData,
-  type DocType,
-} from "@/lib/cvDownload";
+  DEFAULT_CV_PROFILE, downloadCVDocx, fetchCVProfile,
+  getCachedCVProfile, type CVProfile,
+} from "@/hooks/useCVProfile";
 
-// ── types ──────────────────────────────────────────────────────────────────
-
-type UploadedFileMeta = { _id: string; name: string; mimeType: string; size: number };
-
-type CVProfile = CVData & {
-  mainFileId?: string;
-  uploadedFiles?: UploadedFileMeta[];
+export type AppInfo = {
+  companyName: string;
+  jobTitle: string;
+  location?: string;
+  notes?: string;
+  jobPostUrl?: string;
 };
 
-// ── module-level profile cache ──────────────────────────────────────────────
+type DocType = "cv" | "resume" | "cover-letter";
 
-let cachedProfile: CVProfile | null = null;
-
-// ── helpers ────────────────────────────────────────────────────────────────
-
-const DOC_TYPES: { key: DocType; label: string }[] = [
-  { key: "cv",           label: "CV"           },
-  { key: "resume",       label: "Resume"       },
-  { key: "cover-letter", label: "Cover Letter" },
+const DOC_TYPES: { key: DocType; label: string; hint: string }[] = [
+  { key: "cv",           label: "CV",           hint: "Your Main CV file, or a generated ATS CV" },
+  { key: "resume",       label: "Resume",       hint: "Two-page ATS resume, tailored to this role" },
+  { key: "cover-letter", label: "Cover Letter", hint: "Addressed to this company and role" },
 ];
 
-function base64ToBlob(b64: string, mimeType: string): Blob {
-  const bytes = atob(b64);
-  const arr = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  return new Blob([arr], { type: mimeType });
-}
-
-function triggerAnchorDownload(url: string, filename: string) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
-// Opens the window IMMEDIATELY (in user-gesture context), THEN loads data into it.
-// This avoids popup-blocker issues that occur when window.open() is called after await.
-async function openUploadedFile(
-  id: string,
-  mode: "view" | "download",
-  fallbackName = "document",
-) {
-  // For view: pre-open the window NOW (still in user-gesture context, before any await).
-  let preWin: Window | null = null;
-  if (mode === "view") {
-    preWin = window.open("about:blank", "_blank");
-    if (preWin) {
-      preWin.document.write(
-        "<html><body style='font-family:sans-serif;padding:2rem;color:#888'>Loading document…</body></html>",
-      );
-      preWin.document.close();
-    }
-  }
-
-  let res: Response;
-  try {
-    res = await fetch(`/api/user/cv/files/${id}`);
-  } catch {
-    preWin?.close();
-    throw new Error("Network error — could not load file.");
-  }
-
-  if (!res.ok) {
-    preWin?.close();
-    throw new Error("File not found. It may have been deleted.");
-  }
-
-  const json = await res.json();
-  if (!json.data) {
-    preWin?.close();
-    throw new Error("File data is empty — please re-upload.");
-  }
-
-  const blob = base64ToBlob(json.data, json.mimeType);
-  const url = URL.createObjectURL(blob);
-  const name: string = json.name ?? fallbackName;
-
-  if (mode === "view" && preWin) {
-    preWin.location.href = url;
-    setTimeout(() => URL.revokeObjectURL(url), 120_000);
-  } else {
-    triggerAnchorDownload(url, name);
-  }
-}
-
-// ── component ──────────────────────────────────────────────────────────────
+const PRIMARY_SLOT: Record<DocType, "cv" | "resume" | "coverLetter"> = {
+  "cv": "cv",
+  "resume": "resume",
+  "cover-letter": "coverLetter",
+};
 
 export default function AppDocDropdown({ info }: { info: AppInfo }) {
   const [open, setOpen]         = useState(false);
   const [pos, setPos]           = useState({ top: 0, left: 0 });
-  const [profile, setProfile]   = useState<CVProfile | null>(cachedProfile);
-  const [fetching, setFetching] = useState(!cachedProfile);
+  const [profile, setProfile]   = useState<CVProfile | null>(getCachedCVProfile());
+  const [fetching, setFetching] = useState(!getCachedCVProfile());
   const [busyKey, setBusyKey]   = useState<string | null>(null);
+  const [error, setError]       = useState("");
 
   const triggerRef  = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch CV profile once (shared cache across all instances on page).
   useEffect(() => {
-    if (cachedProfile) return;
-    fetch("/api/user/cv")
-      .then((r) => r.json())
-      .then((data) => {
-        const p: CVProfile = { ...DEFAULT_CV, ...(data?.error ? {} : data) };
-        cachedProfile = p;
-        setProfile(p);
-      })
-      .catch(() => {
-        cachedProfile = { ...DEFAULT_CV };
-        setProfile({ ...DEFAULT_CV });
-      })
-      .finally(() => setFetching(false));
+    if (getCachedCVProfile()) return;
+    let alive = true;
+    fetchCVProfile()
+      .then((p) => { if (alive) setProfile(p); })
+      .finally(() => { if (alive) setFetching(false); });
+    return () => { alive = false; };
   }, []);
 
-  // Close on outside click (not using capture phase to avoid racing with button handlers).
   useEffect(() => {
     if (!open) return;
     function onOutside(e: MouseEvent) {
@@ -154,52 +74,38 @@ export default function AppDocDropdown({ info }: { info: AppInfo }) {
     setOpen((v) => !v);
   }
 
-  const cv: CVData = { ...DEFAULT_CV, ...(profile ?? {}) };
-  const mainFileId  = profile?.mainFileId ?? "";
-  const mainFileMeta = profile?.uploadedFiles?.find((f) => f._id === mainFileId);
-  const cvEmpty     = !cv.name && !cv.email && !cv.experience;
+  const current = profile ?? DEFAULT_CV_PROFILE;
+  const cvEmpty = isContentEmpty(current.content);
 
-  async function handleAction(docType: DocType, action: "view" | "doc" | "pdf") {
-    // Close dropdown first; action runs independently via async closure.
+  function storedFileId(docType: DocType) {
+    return current.primary[PRIMARY_SLOT[docType]] ?? "";
+  }
+
+  function storedFileName(docType: DocType) {
+    const id = storedFileId(docType);
+    return current.uploadedFiles.find((f) => f._id === id)?.name ?? "";
+  }
+
+  async function handleGenerate(docType: DocType) {
     setOpen(false);
-    const bk = `${docType}:${action}`;
-    setBusyKey(bk);
-
+    setBusyKey(`${docType}:generate`);
+    setError("");
     try {
-      // ── CV with uploaded main file ──────────────────────────────────────
-      if (docType === "cv" && mainFileId) {
-        const isPdf = mainFileMeta?.mimeType === "application/pdf";
-        const isDoc = !isPdf; // DOC or DOCX
-
-        if (action === "view") {
-          // Pre-opens the window before await — avoids popup block.
-          await openUploadedFile(mainFileId, "view", mainFileMeta?.name);
-          return;
-        }
-        if (action === "pdf" && isPdf) {
-          await openUploadedFile(mainFileId, "download", mainFileMeta?.name);
-          return;
-        }
-        if (action === "doc" && isDoc) {
-          await openUploadedFile(mainFileId, "download", mainFileMeta?.name);
-          return;
-        }
-        // Format mismatch (e.g. main is PDF, user wants .doc) — generate from form.
-        downloadAppDocument(info, cv, docType, action === "doc" ? "doc" : "pdf");
-        return;
-      }
-
-      // ── Resume & Cover Letter — always generated from form + app data ──
-      if (action === "view") {
-        // Synchronous path — window.open is still in user-gesture context here.
-        previewAppDocument(info, cv, docType);
-      } else {
-        downloadAppDocument(info, cv, docType, action === "doc" ? "doc" : "pdf");
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
-      // eslint-disable-next-line no-alert
-      alert(msg);
+      await downloadCVDocx({
+        docType,
+        format: "ats",
+        variant: docType === "resume" ? "compact" : "full",
+        appInfo: {
+          companyName: info.companyName,
+          jobTitle: info.jobTitle,
+          location: info.location,
+          notes: info.notes,
+        },
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not generate that document.";
+      setError(message);
+      alert(message);
     } finally {
       setBusyKey(null);
     }
@@ -207,7 +113,6 @@ export default function AppDocDropdown({ info }: { info: AppInfo }) {
 
   return (
     <>
-      {/* Trigger */}
       <button
         ref={triggerRef}
         type="button"
@@ -215,82 +120,97 @@ export default function AppDocDropdown({ info }: { info: AppInfo }) {
         className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition hover:bg-[var(--surface-2)]"
         style={{ borderColor: "var(--border)" }}
       >
-        {fetching
+        {fetching || busyKey
           ? <Loader2 size={11} className="animate-spin" aria-hidden="true" />
           : <FileText size={11} aria-hidden="true" />}
         Docs
         <ChevronDown size={10} aria-hidden="true" />
       </button>
 
-      {/* Dropdown portal (fixed-position to escape table overflow-auto clip) */}
       {open && (
         <div
           ref={dropdownRef}
           role="menu"
-          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, minWidth: "14rem" }}
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, minWidth: "16rem" }}
           className="surface overflow-hidden rounded-lg border shadow-xl"
         >
-          {/* No-CV warning */}
-          {cvEmpty && !mainFileId && (
+          {cvEmpty && (
             <div className="flex items-start gap-2 border-b px-3 py-2.5">
-              <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-500" />
-              <p className="text-[11px] leading-snug text-muted">
+              <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
+              <p className="text-muted text-[11px] leading-snug">
                 CV not set up.{" "}
                 <Link
-                  href="/me/my-cv"
+                  href="/me/cv"
                   className="font-semibold underline"
                   style={{ color: "var(--primary)" }}
                   onClick={() => setOpen(false)}
                 >
-                  Add your CV
+                  Build your CV
                 </Link>{" "}
-                for best results.
+                for generated documents.
               </p>
             </div>
           )}
 
-          {/* Main file indicator */}
-          {mainFileId && (
-            <div
-              className="flex items-center gap-1.5 border-b px-3 py-2 text-[10px] font-semibold truncate"
-              style={{ color: "var(--primary)" }}
-            >
-              <FileText size={11} aria-hidden="true" />
-              CV uses: {mainFileMeta?.name ?? "uploaded file"}
-            </div>
+          {error && (
+            <p className="border-b px-3 py-2 text-[11px] text-red-600">{error}</p>
           )}
 
-          {/* Doc type rows */}
-          {DOC_TYPES.map(({ key: docType, label }) => (
-            <div key={docType} className="border-b last:border-b-0">
-              <div className="surface-muted px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                {label}
+          {DOC_TYPES.map(({ key: docType, label, hint }) => {
+            const fileId = storedFileId(docType);
+            const fileName = storedFileName(docType);
+            const busy = busyKey === `${docType}:generate`;
+
+            return (
+              <div key={docType} className="border-b last:border-b-0">
+                <div className="surface-muted px-3 py-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</p>
+                  <p className="text-muted text-[10px] leading-snug">{hint}</p>
+                </div>
+
+                <div className="flex flex-col py-0.5">
+                  {fileId && (
+                    <>
+                      <a
+                        role="menuitem"
+                        href={`/api/user/cv/files/${fileId}/raw`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs transition hover:bg-[var(--surface-2)]"
+                      >
+                        <Eye size={11} aria-hidden="true" />
+                        <span className="truncate">View {fileName || "stored file"}</span>
+                      </a>
+                      <a
+                        role="menuitem"
+                        href={`/api/user/cv/files/${fileId}/raw?download=1`}
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs transition hover:bg-[var(--surface-2)]"
+                      >
+                        <Download size={11} aria-hidden="true" />
+                        <span className="truncate">Download stored file</span>
+                      </a>
+                    </>
+                  )}
+
+                  <button
+                    role="menuitem"
+                    type="button"
+                    disabled={busy || cvEmpty}
+                    onClick={() => handleGenerate(docType)}
+                    title={cvEmpty ? "Build your CV first" : undefined}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs transition hover:bg-[var(--surface-2)] disabled:opacity-50"
+                  >
+                    {busy
+                      ? <Loader2 size={11} className="animate-spin" aria-hidden="true" />
+                      : <Download size={11} aria-hidden="true" />}
+                    Generate .docx
+                  </button>
+                </div>
               </div>
-              <div className="flex flex-col py-0.5">
-                {(["view", "doc", "pdf"] as const).map((action) => {
-                  const bk    = `${docType}:${action}`;
-                  const isBusy = busyKey === bk;
-                  return (
-                    <button
-                      key={action}
-                      role="menuitem"
-                      type="button"
-                      disabled={isBusy}
-                      onClick={() => handleAction(docType, action)}
-                      className="flex items-center gap-2 px-3 py-1.5 text-xs transition hover:bg-[var(--surface-2)] disabled:opacity-50"
-                    >
-                      {isBusy
-                        ? <Loader2 size={11} className="animate-spin" aria-hidden="true" />
-                        : action === "view"
-                          ? <Eye size={11} aria-hidden="true" />
-                          : <Download size={11} aria-hidden="true" />}
-                      {{ view: "View", doc: "Download .doc", pdf: "Download .pdf" }[action]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </>

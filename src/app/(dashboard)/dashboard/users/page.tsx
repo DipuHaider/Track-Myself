@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { ROLES, ROLE_LABELS, canDo, type Role } from "@/lib/permissions";
+import { ROLES, ROLE_LABELS, isPremiumRole, type Role } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
+import PermissionGate from "@/components/dashboard/PermissionGate";
 
 type UserRecord = {
   _id: string;
@@ -13,15 +15,16 @@ type UserRecord = {
   createdAt: string;
 };
 
-export default function UsersPage() {
+function UsersContent() {
   const { data: session } = useSession();
   const myRole = (session?.user as { role?: string } | undefined)?.role ?? "";
+  const { can } = usePermissions();
 
-  const canEdit   = canDo(myRole, "edit:users");
-  const canDelete = canDo(myRole, "delete:users");
+  const canEdit   = can("edit:users");
+  const canDelete = can("delete:users");
 
   // Roles available in the dropdown (superadmin can assign all; admin cannot assign superadmin)
-  const assignableRoles = canDo(myRole, "assign:superadmin")
+  const assignableRoles = can("assign:superadmin")
     ? ROLES
     : ROLES.filter((r) => r !== "superadmin");
 
@@ -72,7 +75,7 @@ export default function UsersPage() {
 
   // Per-row: admins cannot edit superadmin users (only superadmin can)
   function rowCanEdit(user: UserRecord) {
-    return canEdit && (canDo(myRole, "assign:superadmin") || user.role !== "superadmin");
+    return canEdit && (can("assign:superadmin") || user.role !== "superadmin");
   }
 
   return (
@@ -80,9 +83,14 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Users</h2>
-          {!canEdit && (
+          {canEdit ? (
             <p className="text-muted mt-0.5 text-xs">
-              Read-only view — editors can view but not modify users.
+              Set a plan to Premium to unlock PDF download and AI CV tailoring. Superadmin and Paid
+              accounts are always Premium; it applies within five minutes, no re-login needed.
+            </p>
+          ) : (
+            <p className="text-muted mt-0.5 text-xs">
+              Read-only view — your role can view but not modify users.
             </p>
           )}
         </div>
@@ -136,7 +144,14 @@ export default function UsersPage() {
 
                     {/* Plan cell */}
                     <td className="px-4 py-3">
-                      {editable ? (
+                      {isPremiumRole(user.role) ? (
+                        <span
+                          className="role-badge plan-premium"
+                          title={`${ROLE_LABELS[user.role as Role] ?? user.role} accounts always have Premium access`}
+                        >
+                          Premium (role)
+                        </span>
+                      ) : editable ? (
                         <select
                           value={user.plan}
                           disabled={saving === user._id + "-plan"}
@@ -189,5 +204,13 @@ export default function UsersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function UsersPage() {
+  return (
+    <PermissionGate action="view:users">
+      <UsersContent />
+    </PermissionGate>
   );
 }

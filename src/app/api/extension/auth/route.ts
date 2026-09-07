@@ -5,7 +5,7 @@ import { encode } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { effectiveRole } from "@/lib/auth";
+import { effectivePlan, effectiveRole } from "@/lib/auth";
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
@@ -40,11 +40,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
 
+  const role = effectiveRole(user.email, user.role);
+
   const token = await encode({
     token: {
-      id:    user._id.toString(),
-      role:  effectiveRole(user.email, user.role),
-      email: user.email,
+      id:       user._id.toString(),
+      role,
+      plan:     effectivePlan(role, user.plan),
+      email:    user.email,
+      claimsAt: Date.now(),
     },
     secret,
     maxAge: 30 * 24 * 3600,

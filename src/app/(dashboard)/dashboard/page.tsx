@@ -2,6 +2,7 @@ import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import StatCard from "@/components/dashboard/StatCard";
 import ApplicationsChart from "@/components/dashboard/ApplicationsChart";
+import FunnelChart from "@/components/dashboard/FunnelChart";
 import StatusDistribution from "@/components/dashboard/StatusDistribution";
 import RecentApplications from "@/components/dashboard/RecentApplications";
 import UserStatsSection from "@/components/dashboard/UserStatsSection";
@@ -37,8 +38,10 @@ export default async function DashboardPage() {
         <StatCard title="Rejections"         value={stats.rejected} />
       </section>
 
+      <ApplicationsChart />
+
       <section className="grid gap-4 lg:grid-cols-2">
-        <ApplicationsChart />
+        <FunnelChart />
         <StatusDistribution />
       </section>
 

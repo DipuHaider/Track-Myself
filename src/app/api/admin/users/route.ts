@@ -3,10 +3,10 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { requireEditorAuth } from "@/lib/serverAuth";
+import { requireAction } from "@/lib/serverAuth";
 
 export async function GET() {
-  const auth = await requireEditorAuth();
+  const auth = await requireAction("view:users");
   if (auth instanceof NextResponse) return auth;
 
   await dbConnect();

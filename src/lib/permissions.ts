@@ -11,6 +11,14 @@ export const ROLE_LABELS: Record<Role, string> = {
   free: "Free",
 };
 
+export const PLANS = ["free", "premium"] as const;
+export type Plan = (typeof PLANS)[number];
+
+export const PLAN_LABELS: Record<Plan, string> = {
+  free: "Free",
+  premium: "Premium",
+};
+
 export const BACKEND_ROLES: readonly Role[] = ["superadmin", "admin", "editor"];
 
 export function isBackendRole(role?: string | null): boolean {
@@ -38,6 +46,7 @@ export type DashboardAction =
   | "view:analytics"
   | "view:users"
   | "view:applications"
+  | "view:cv"
   | "view:settings"
   | "edit:users"
   | "delete:users"
@@ -47,13 +56,55 @@ export const ACTION_ROLES: Record<DashboardAction, readonly Role[]> = {
   "view:analytics":    ["superadmin", "admin", "editor"],
   "view:users":        ["superadmin", "admin", "editor"],
   "view:applications": ["superadmin", "admin", "editor"],
+  "view:cv":           ["superadmin", "admin", "editor"],
   "view:settings":     ["superadmin", "admin"],
   "edit:users":        ["superadmin", "admin"],
   "delete:users":      ["superadmin", "admin"],
   "assign:superadmin": ["superadmin"],
 };
 
+export const ACTION_LABELS: Record<DashboardAction, string> = {
+  "view:analytics":    "View analytics",
+  "view:users":        "View users",
+  "view:applications": "View applications",
+  "view:cv":           "View CV overview",
+  "view:settings":     "View settings",
+  "edit:users":        "Edit users",
+  "delete:users":      "Delete users",
+  "assign:superadmin": "Assign the superadmin role",
+};
+
+export const ACTION_DESCRIPTIONS: Record<DashboardAction, string> = {
+  "view:analytics":    "Open the Analytics page and read cross-user application metrics.",
+  "view:users":        "Open the Users page and list every account.",
+  "view:applications": "Open the Applications page and read every user's applications.",
+  "view:cv":           "Open the CV Overview page and see CV adoption per user.",
+  "view:settings":     "Open Settings, including configuration and data counts.",
+  "edit:users":        "Change another account's role or plan.",
+  "delete:users":      "Permanently delete an account.",
+  "assign:superadmin": "Grant or modify the superadmin role. Superadmin only.",
+};
+
+export const DASHBOARD_ACTIONS = Object.keys(ACTION_ROLES) as DashboardAction[];
+
+export const LOCKED_ACTIONS: readonly DashboardAction[] = ["assign:superadmin"];
+
 export function canDo(role: string | null | undefined, action: DashboardAction): boolean {
   if (!role) return false;
   return (ACTION_ROLES[action] as readonly string[]).includes(role);
+}
+
+export function canUseLebenslauf(role?: string | null, email?: string | null): boolean {
+  if (isSuperAdmin(role)) return true;
+  return SUPERADMIN_EMAILS.includes(email as (typeof SUPERADMIN_EMAILS)[number]);
+}
+
+export const ALWAYS_PREMIUM_ROLES: readonly Role[] = ["superadmin", "paid"];
+
+export function isPremiumRole(role?: string | null): boolean {
+  return ALWAYS_PREMIUM_ROLES.includes(role as Role);
+}
+
+export function isPremiumUser(role?: string | null, plan?: string | null): boolean {
+  return isPremiumRole(role) || plan === "premium";
 }

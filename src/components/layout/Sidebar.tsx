@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
   LayoutDashboard, BarChart2, FolderOpen, Users,
-  UserCircle, Settings, LogOut,
+  UserCircle, Settings, LogOut, ScrollText, ShieldCheck,
 } from "lucide-react";
-import { canDo, ROLE_LABELS, type Role, type DashboardAction } from "@/lib/permissions";
+import { isAdmin, ROLE_LABELS, type Role, type DashboardAction } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Logo } from "@/components/shared/Logo";
 
 type NavItem = {
@@ -15,6 +16,7 @@ type NavItem = {
   label: string;
   icon: React.ReactNode;
   action?: DashboardAction;
+  adminOnly?: boolean;
   exact?: boolean;
 };
 
@@ -22,7 +24,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",       label: "Dashboard",    icon: <LayoutDashboard size={16} />, exact: true },
   { href: "/applications",    label: "Applications", icon: <FolderOpen size={16} />,      action: "view:applications" },
   { href: "/analytics",       label: "Analytics",    icon: <BarChart2 size={16} />,        action: "view:analytics" },
+  { href: "/dashboard/cv",    label: "CV Overview",  icon: <ScrollText size={16} />,       action: "view:cv" },
   { href: "/dashboard/users", label: "Users",        icon: <Users size={16} />,            action: "view:users" },
+  { href: "/dashboard/rbac",  label: "Access Control", icon: <ShieldCheck size={16} />,    adminOnly: true },
   { href: "/profile",         label: "My Profile",   icon: <UserCircle size={16} /> },
   { href: "/settings",        label: "Settings",     icon: <Settings size={16} />,         action: "view:settings" },
 ];
@@ -32,10 +36,12 @@ export default function Sidebar() {
   const pathname = usePathname();
   const role = (session?.user as { role?: string } | undefined)?.role ?? "";
   const displayName = session?.user?.name ?? "User";
+  const { can } = usePermissions();
 
-  const visibleLinks = NAV_ITEMS.filter(
-    (item) => !item.action || canDo(role, item.action),
-  );
+  const visibleLinks = NAV_ITEMS.filter((item) => {
+    if (item.adminOnly && !isAdmin(role)) return false;
+    return !item.action || can(item.action);
+  });
 
   function isActive(item: NavItem) {
     if (item.exact) return pathname === item.href;

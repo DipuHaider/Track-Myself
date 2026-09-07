@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import User from "@/models/User";
-import { requireEditorAuth } from "@/lib/serverAuth";
+import { requireAction } from "@/lib/serverAuth";
 
 const INTERVIEW_STATUSES = [
   "Interview Scheduled",
@@ -15,7 +15,7 @@ const INTERVIEW_STATUSES = [
 ];
 
 export async function GET() {
-  const auth = await requireEditorAuth();
+  const auth = await requireAction("view:analytics");
   if (auth instanceof NextResponse) return auth;
 
   await dbConnect();

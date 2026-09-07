@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { canDo, type DashboardAction } from "@/lib/permissions";
+import { isAdmin, type DashboardAction } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
 
-const NAV_ITEMS: { href: string; label: string; action?: DashboardAction; exact?: boolean }[] = [
+const NAV_ITEMS: { href: string; label: string; action?: DashboardAction; adminOnly?: boolean; exact?: boolean }[] = [
   { href: "/dashboard",       label: "Dashboard",    exact: true                  },
   { href: "/applications",    label: "Applications", action: "view:applications"  },
   { href: "/analytics",       label: "Analytics",    action: "view:analytics"     },
+  { href: "/dashboard/cv",    label: "CV",           action: "view:cv"            },
   { href: "/dashboard/users", label: "Users",        action: "view:users"         },
+  { href: "/dashboard/rbac",  label: "Access",       adminOnly: true              },
   { href: "/profile",         label: "Profile"                                    },
   { href: "/settings",        label: "Settings",     action: "view:settings"      },
 ];
@@ -18,8 +21,12 @@ export default function MobileNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role;
+  const { can } = usePermissions();
 
-  const visible = NAV_ITEMS.filter((item) => !item.action || canDo(role, item.action));
+  const visible = NAV_ITEMS.filter((item) => {
+    if (item.adminOnly && !isAdmin(role)) return false;
+    return !item.action || can(item.action);
+  });
 
   function isActive(item: (typeof NAV_ITEMS)[number]) {
     if (item.exact) return pathname === item.href;
