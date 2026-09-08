@@ -145,12 +145,16 @@ export default function ApplicationFormModal({
   onSaved,
   application,
   applications,
+  endpoint,
+  method: methodOverride,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: (app: Application) => void;
   application?: Application;
   applications?: Application[];
+  endpoint?: string;
+  method?: "PUT" | "PATCH";
 }) {
   const isEdit = !!application;
   const [form, setForm] = useState<FormData>(isEdit ? toForm(application!) : EMPTY);
@@ -263,8 +267,8 @@ export default function ApplicationFormModal({
 
     try {
       const payload = await buildPayload();
-      const url = isEdit ? `/api/applications/${application!._id}` : "/api/applications";
-      const method = isEdit ? "PUT" : "POST";
+      const url = endpoint ?? (isEdit ? `/api/applications/${application!._id}` : "/api/applications");
+      const method = isEdit ? (methodOverride ?? "PUT") : "POST";
 
       const res = await fetch(url, {
         method,

@@ -22,12 +22,12 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",       label: "Dashboard",    icon: <LayoutDashboard size={16} />, exact: true },
-  { href: "/applications",    label: "Applications", icon: <FolderOpen size={16} />,      action: "view:applications" },
+  { href: "/applications",    label: "All Applications", icon: <FolderOpen size={16} />,  action: "view:applications" },
   { href: "/analytics",       label: "Analytics",    icon: <BarChart2 size={16} />,        action: "view:analytics" },
   { href: "/dashboard/cv",    label: "CV Overview",  icon: <ScrollText size={16} />,       action: "view:cv" },
   { href: "/dashboard/users", label: "Users",        icon: <Users size={16} />,            action: "view:users" },
   { href: "/dashboard/rbac",  label: "Access Control", icon: <ShieldCheck size={16} />,    adminOnly: true },
-  { href: "/profile",         label: "My Profile",   icon: <UserCircle size={16} /> },
+  { href: "/me",              label: "My Profile",   icon: <UserCircle size={16} />,       exact: true },
   { href: "/settings",        label: "Settings",     icon: <Settings size={16} />,         action: "view:settings" },
 ];
 

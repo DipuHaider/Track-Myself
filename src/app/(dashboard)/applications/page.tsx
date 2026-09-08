@@ -1,10 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import ApplicationTable from "@/components/applications/ApplicationTable";
+import ApplicationTable, { type QuickField } from "@/components/applications/ApplicationTable";
 import ApplicationFormModal from "@/components/applications/ApplicationFormModal";
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
-import { useApplications } from "@/hooks/useApplications";
+import PermissionGate from "@/components/dashboard/PermissionGate";
+import { useAllApplications, type AdminApplication } from "@/hooks/useAllApplications";
+import { usePermissions } from "@/hooks/usePermissions";
+import { computeDuplicateIds } from "@/lib/applicationFlags";
 import type { Application } from "@/types/application";
 
 const PAGE_SIZE = 10;
@@ -19,87 +22,166 @@ function pageNumbers(current: number, total: number): (number | "…")[] {
   return pages;
 }
 
-export default function ApplicationsPage() {
-  const { applications, loading, addApplication, updateApplication, removeApplication } = useApplications();
+function ApplicationsContent() {
+  const {
+    applications, loading, failed,
+    updateApplication, patchApplication, removeApplication,
+  } = useAllApplications();
+  const { can } = usePermissions();
 
-  const [addOpen, setAddOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Application | null>(null);
-  const [viewTarget, setViewTarget] = useState<Application | null>(null);
+  const canEdit = can("edit:applications");
+  const canDelete = can("delete:applications");
+
+  const [editTarget, setEditTarget] = useState<AdminApplication | null>(null);
+  const [viewTarget, setViewTarget] = useState<AdminApplication | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState("");
   const [page, setPage] = useState(1);
 
-  /* ── search + pagination ── */
+  const owners = useMemo(() => {
+    const map = new Map<string, { id: string; label: string; count: number }>();
+    for (const app of applications) {
+      if (!app.owner) continue;
+      const entry = map.get(app.owner._id) ?? {
+        id: app.owner._id,
+        label: `${app.owner.name} · ${app.owner.email}`,
+        count: 0,
+      };
+      entry.count++;
+      map.set(app.owner._id, entry);
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count);
+  }, [applications]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return applications;
-    return applications.filter((app) =>
-      [app.companyName, app.jobTitle, app.platform, app.location, app.country,
-       app.applicationStatus, app.notes, app.salary, app.contactNumber]
+    return applications.filter((app) => {
+      if (ownerFilter && app.owner?._id !== ownerFilter) return false;
+      if (!q) return true;
+      return [
+        app.companyName, app.jobTitle, app.platform, app.location, app.country,
+        app.applicationStatus, app.notes, app.salary, app.contactNumber,
+        app.owner?.name, app.owner?.email,
+      ]
         .filter(Boolean)
-        .some((f) => f!.toLowerCase().includes(q)),
-    );
-  }, [applications, search]);
+        .some((f) => f!.toLowerCase().includes(q));
+    });
+  }, [applications, search, ownerFilter]);
+
+  const duplicateIds = useMemo(() => computeDuplicateIds(filtered), [filtered]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const onSearch = (v: string) => { setSearch(v); setPage(1); };
 
-  /* ── actions ── */
-  const handleDelete = async (app: Application) => {
-    if (!confirm(`Delete application for "${app.jobTitle}" at ${app.companyName}?`)) return;
+  const onSearch = (v: string) => { setSearch(v); setPage(1); };
+  const onOwner = (v: string) => { setOwnerFilter(v); setPage(1); };
+
+  async function handleQuickUpdate(id: string, field: QuickField, value: string | boolean) {
+    setError("");
+    const previous = applications.find((a) => a._id === id);
+    patchApplication(id, { [field]: value } as Partial<Application>);
+
+    const res = await fetch(`/api/admin/applications/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+
+    if (!res.ok) {
+      if (previous) patchApplication(id, { [field]: previous[field] } as Partial<Application>);
+      setError("Could not update that application.");
+    }
+  }
+
+  async function handleDelete(app: Application) {
+    const owner = (app as AdminApplication).owner;
+    const who = owner ? ` (owned by ${owner.name})` : "";
+    if (!confirm(`Delete "${app.jobTitle}" at ${app.companyName}${who}? This cannot be undone.`)) return;
+
     setDeletingId(app._id);
-    const res = await fetch(`/api/applications/${app._id}`, { method: "DELETE" });
+    setError("");
+    const res = await fetch(`/api/admin/applications/${app._id}`, { method: "DELETE" });
     setDeletingId(null);
+
     if (res.ok) removeApplication(app._id);
-  };
+    else setError("Could not delete that application.");
+  }
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Applications</h2>
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className="btn-primary rounded-md px-4 py-2 text-sm"
-        >
-          + New Application
-        </button>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold">All Applications</h2>
+          <p className="text-muted mt-0.5 text-sm">
+            Every application tracked across the platform.
+            {!canEdit && " Read-only for your role."}
+          </p>
+        </div>
+        <p className="text-muted text-sm">
+          {loading ? "Loading…" : `${applications.length} total · ${owners.length} user${owners.length === 1 ? "" : "s"}`}
+        </p>
       </div>
 
-      {/* Search */}
+      {failed && (
+        <p className="surface rounded-lg border p-4 text-sm text-red-600">
+          Could not load applications. Please refresh and try again.
+        </p>
+      )}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
           className="surface w-full max-w-sm rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-          placeholder="Search company, role, location, status…"
+          placeholder="Search company, role, owner, status…"
           value={search}
           onChange={(e) => onSearch(e.target.value)}
         />
-        {search && (
-          <button type="button" onClick={() => onSearch("")} className="text-muted text-sm hover:underline">
+
+        <select
+          className="surface rounded-md border px-3 py-2 text-sm"
+          value={ownerFilter}
+          onChange={(e) => onOwner(e.target.value)}
+          aria-label="Filter by owner"
+        >
+          <option value="">All users</option>
+          {owners.map((o) => (
+            <option key={o.id} value={o.id}>{o.label} ({o.count})</option>
+          ))}
+        </select>
+
+        {(search || ownerFilter) && (
+          <button
+            type="button"
+            onClick={() => { onSearch(""); onOwner(""); }}
+            className="text-muted text-sm hover:underline"
+          >
             Clear
           </button>
         )}
+
         <p className="text-muted ml-auto text-sm">
           {loading
             ? "Loading…"
-            : `${filtered.length} result${filtered.length !== 1 ? "s" : ""}${search ? ` for "${search}"` : ""}`}
+            : `${filtered.length} result${filtered.length !== 1 ? "s" : ""}`}
         </p>
       </div>
 
-      {/* Table */}
       <ApplicationTable
         applications={deletingId ? pageItems.filter((a) => a._id !== deletingId) : pageItems}
-        onView={(app) => setViewTarget(app)}
-        onEdit={(app) => setEditTarget(app)}
-        onDelete={handleDelete}
+        startIndex={(safePage - 1) * PAGE_SIZE}
+        showOwner
+        duplicateIds={duplicateIds}
+        onView={(app) => setViewTarget(app as AdminApplication)}
+        onEdit={canEdit ? (app) => setEditTarget(app as AdminApplication) : undefined}
+        onDelete={canDelete ? handleDelete : undefined}
+        onQuickUpdate={canEdit ? handleQuickUpdate : undefined}
       />
 
-      {/* Pagination */}
       {!loading && totalPages > 1 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-muted text-sm">
@@ -142,27 +224,31 @@ export default function ApplicationsPage() {
         </div>
       )}
 
-      {/* Add modal */}
-      <ApplicationFormModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onSaved={(app) => { addApplication(app); setAddOpen(false); }}
-      />
-
-      {/* Edit modal */}
       <ApplicationFormModal
         open={!!editTarget}
         onClose={() => setEditTarget(null)}
-        onSaved={(app) => { updateApplication(app); setEditTarget(null); }}
+        onSaved={(app) => {
+          updateApplication({ ...(app as AdminApplication), owner: editTarget?.owner ?? null });
+          setEditTarget(null);
+        }}
         application={editTarget ?? undefined}
+        endpoint={editTarget ? `/api/admin/applications/${editTarget._id}` : undefined}
+        method="PATCH"
       />
 
-      {/* View modal */}
       <ViewApplicationModal
         open={!!viewTarget}
         onClose={() => setViewTarget(null)}
         application={viewTarget}
       />
     </div>
+  );
+}
+
+export default function ApplicationsPage() {
+  return (
+    <PermissionGate action="view:applications">
+      <ApplicationsContent />
+    </PermissionGate>
   );
 }

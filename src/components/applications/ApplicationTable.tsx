@@ -50,6 +50,8 @@ const STATUS_CLS: Record<string, string> = {
 
 export type QuickField = "priority" | "applicationStatus" | "favourite" | "isGhostJob";
 
+type OwnerInfo = { name?: string; email?: string; role?: string } | null;
+
 export default function ApplicationTable({
   applications,
   startIndex = 0,
@@ -58,9 +60,11 @@ export default function ApplicationTable({
   onDelete,
   onQuickUpdate,
   duplicateIds,
+  showOwner = false,
 }: {
   applications: Application[];
   startIndex?: number;
+  showOwner?: boolean;
   onView?: (app: Application) => void;
   onEdit?: (app: Application) => void;
   onDelete?: (app: Application) => void;
@@ -86,6 +90,7 @@ export default function ApplicationTable({
           <thead className="surface-muted">
             <tr>
               <th className="px-3 py-3 font-medium text-center text-muted">#</th>
+              {showOwner && <th className="px-4 py-3 font-medium">Owner</th>}
               <th className="px-4 py-3 font-medium">Company</th>
               <th className="px-4 py-3 font-medium">Job Title</th>
               <th className="px-4 py-3 font-medium">Location</th>
@@ -94,7 +99,7 @@ export default function ApplicationTable({
               <th className="px-4 py-3 font-medium">Contact</th>
               <th className="px-4 py-3 font-medium">Priority</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium text-center">Docs</th>
+              {!showOwner && <th className="px-4 py-3 font-medium text-center">Docs</th>}
               <th className="px-4 py-3 font-medium text-center">Actions</th>
             </tr>
           </thead>
@@ -105,6 +110,22 @@ export default function ApplicationTable({
                 <td className="px-3 py-3 text-center text-xs text-muted tabular-nums">
                   {startIndex + idx + 1}
                 </td>
+
+                {showOwner && (() => {
+                  const owner = (app as Application & { owner?: OwnerInfo }).owner;
+                  return (
+                    <td className="px-4 py-3">
+                      {owner ? (
+                        <>
+                          <p className="font-medium">{owner.name}</p>
+                          <p className="text-muted text-xs">{owner.email}</p>
+                        </>
+                      ) : (
+                        <span className="text-muted text-xs">Deleted user</span>
+                      )}
+                    </td>
+                  );
+                })()}
 
                 <td className="px-4 py-3 font-medium">
                   <span className="flex flex-wrap items-center gap-1.5">
@@ -176,17 +197,19 @@ export default function ApplicationTable({
                 </td>
 
                 {/* Docs */}
-                <td className="px-4 py-3 text-center">
-                  <AppDocDropdown
-                    info={{
-                      companyName: app.companyName,
-                      jobTitle: app.jobTitle,
-                      location: app.location ?? app.city ?? app.country ?? undefined,
-                      notes: app.notes ?? undefined,
-                      jobPostUrl: app.jobPostUrl ?? undefined,
-                    }}
-                  />
-                </td>
+                {!showOwner && (
+                  <td className="px-4 py-3 text-center">
+                    <AppDocDropdown
+                      info={{
+                        companyName: app.companyName,
+                        jobTitle: app.jobTitle,
+                        location: app.location ?? app.city ?? app.country ?? undefined,
+                        notes: app.notes ?? undefined,
+                        jobPostUrl: app.jobPostUrl ?? undefined,
+                      }}
+                    />
+                  </td>
+                )}
 
                 {/* Actions */}
                 <td className="px-4 py-3">

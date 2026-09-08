@@ -9,11 +9,11 @@ import SiteSearch from "@/components/site/SiteSearch";
 import { Logo } from "@/components/shared/Logo";
 
 const SITE_NAV = [
-  { label: "Trending",    href: "#trending"   },
-  { label: "Job Sites",   href: "#job-sites"  },
-  { label: "CV Builder",  href: "#cv-builder" },
-  { label: "Get Started", href: "#cta"        },
-  { label: "Tools",       href: "/tools"      },
+  { label: "Trending",    href: "/#trending"   },
+  { label: "Job Sites",   href: "/#job-sites"  },
+  { label: "CV Builder",  href: "/#cv-builder" },
+  { label: "Get Started", href: "/#cta"        },
+  { label: "Tools",       href: "/tools"       },
 ];
 
 export default function SiteHeader() {

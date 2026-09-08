@@ -8,12 +8,12 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 const NAV_ITEMS: { href: string; label: string; action?: DashboardAction; adminOnly?: boolean; exact?: boolean }[] = [
   { href: "/dashboard",       label: "Dashboard",    exact: true                  },
-  { href: "/applications",    label: "Applications", action: "view:applications"  },
+  { href: "/applications",    label: "All Apps",     action: "view:applications"  },
   { href: "/analytics",       label: "Analytics",    action: "view:analytics"     },
   { href: "/dashboard/cv",    label: "CV",           action: "view:cv"            },
   { href: "/dashboard/users", label: "Users",        action: "view:users"         },
   { href: "/dashboard/rbac",  label: "Access",       adminOnly: true              },
-  { href: "/profile",         label: "Profile"                                    },
+  { href: "/me",              label: "Profile",      exact: true                  },
   { href: "/settings",        label: "Settings",     action: "view:settings"      },
 ];
 

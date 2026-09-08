@@ -22,7 +22,7 @@ import { isPremiumUser } from "@/lib/permissions";
 
 const NAV = [
   { href: "/me",              icon: LayoutDashboard, label: "Overview",     mobileLabel: "Home",    premium: false, hideMobile: false, exact: true  },
-  { href: "/me/applications", icon: Briefcase,       label: "Applications", mobileLabel: "Apps",    premium: false, hideMobile: false, exact: false },
+  { href: "/me/applications", icon: Briefcase,       label: "My Applications", mobileLabel: "My Apps", premium: false, hideMobile: false, exact: false },
   { href: "/me/my-cv",        icon: FolderOpen,      label: "My Documents", mobileLabel: "Docs",    premium: false, hideMobile: false, exact: false },
   { href: "/me/cv",           icon: FileText,        label: "CV Builder",   mobileLabel: "Builder", premium: true,  hideMobile: false, exact: false },
   { href: "/tools",           icon: Wrench,          label: "Tools",        mobileLabel: "Tools",   premium: false, hideMobile: false, exact: false },

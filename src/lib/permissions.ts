@@ -46,6 +46,8 @@ export type DashboardAction =
   | "view:analytics"
   | "view:users"
   | "view:applications"
+  | "edit:applications"
+  | "delete:applications"
   | "view:cv"
   | "view:settings"
   | "edit:users"
@@ -55,8 +57,10 @@ export type DashboardAction =
 export const ACTION_ROLES: Record<DashboardAction, readonly Role[]> = {
   "view:analytics":    ["superadmin", "admin", "editor"],
   "view:users":        ["superadmin", "admin", "editor"],
-  "view:applications": ["superadmin", "admin", "editor"],
-  "view:cv":           ["superadmin", "admin", "editor"],
+  "view:applications":   ["superadmin", "admin", "editor"],
+  "edit:applications":   ["superadmin", "admin"],
+  "delete:applications": ["superadmin", "admin"],
+  "view:cv":             ["superadmin", "admin", "editor"],
   "view:settings":     ["superadmin", "admin"],
   "edit:users":        ["superadmin", "admin"],
   "delete:users":      ["superadmin", "admin"],
@@ -66,7 +70,9 @@ export const ACTION_ROLES: Record<DashboardAction, readonly Role[]> = {
 export const ACTION_LABELS: Record<DashboardAction, string> = {
   "view:analytics":    "View analytics",
   "view:users":        "View users",
-  "view:applications": "View applications",
+  "view:applications": "View all applications",
+  "edit:applications": "Edit any application",
+  "delete:applications": "Delete any application",
   "view:cv":           "View CV overview",
   "view:settings":     "View settings",
   "edit:users":        "Edit users",
@@ -77,7 +83,9 @@ export const ACTION_LABELS: Record<DashboardAction, string> = {
 export const ACTION_DESCRIPTIONS: Record<DashboardAction, string> = {
   "view:analytics":    "Open the Analytics page and read cross-user application metrics.",
   "view:users":        "Open the Users page and list every account.",
-  "view:applications": "Open the Applications page and read every user's applications.",
+  "view:applications": "Open All Applications and read every user's applications.",
+  "edit:applications": "Change status, priority or details on another user's application.",
+  "delete:applications": "Permanently delete another user's application.",
   "view:cv":           "Open the CV Overview page and see CV adoption per user.",
   "view:settings":     "Open Settings, including configuration and data counts.",
   "edit:users":        "Change another account's role or plan.",
