@@ -87,6 +87,11 @@ export const SEARCH_PAGES: SearchPage[] = [
     group: "tools", visibility: { type: "public" },
   },
   {
+    title: "Banner Generator & Resizer", subtitle: "Profile banners at LinkedIn, GitHub and X sizes", href: "/tools/banner-generator",
+    keywords: ["tool", "tools", "banner", "cover", "header", "linkedin", "github", "twitter", "x", "resize", "resizer", "social", "generator"],
+    group: "tools", visibility: { type: "public" },
+  },
+  {
     title: "Image Optimizer", subtitle: "Compress and resize images", href: "/tools/image-optimizer",
     keywords: ["tool", "tools", "image", "photo", "compress", "resize", "optimise", "optimize"],
     group: "tools", visibility: { type: "public" },

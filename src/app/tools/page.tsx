@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ImageIcon, Scissors, ScanText, ArrowRight, Eraser, Sparkles } from "lucide-react";
+import { ImageIcon, Scissors, ScanText, ArrowRight, Eraser, Sparkles, Layers } from "lucide-react";
 
 const TOOLS = [
   {
@@ -19,6 +19,15 @@ const TOOLS = [
     description:
       "Turn a photo into a clean headshot — background removed, lighting auto-corrected, cropped to circle, rounded or square at the exact size LinkedIn, GitHub and your CV expect.",
     badge: "Client-side AI",
+  },
+  {
+    href: "/tools/banner-generator",
+    icon: Layers,
+    color: "#f97316",
+    title: "Banner Generator & Resizer",
+    description:
+      "Describe yourself and get a profile banner at the exact size LinkedIn, GitHub and X expect — safe zones drawn on, or resize a photo you already have.",
+    badge: "Client-side",
   },
   {
     href: "/tools/image-optimizer",
