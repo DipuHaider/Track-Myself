@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { ROLES, ROLE_LABELS, isPremiumRole, type Role } from "@/lib/permissions";
 import { usePermissions } from "@/hooks/usePermissions";
+import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
 import PermissionGate from "@/components/dashboard/PermissionGate";
 
 type UserRecord = {
@@ -16,8 +16,6 @@ type UserRecord = {
 };
 
 function UsersContent() {
-  const { data: session } = useSession();
-  const myRole = (session?.user as { role?: string } | undefined)?.role ?? "";
   const { can } = usePermissions();
 
   const canEdit   = can("edit:users");
@@ -119,7 +117,18 @@ function UsersContent() {
                 const editable = rowCanEdit(user);
                 return (
                   <tr key={user._id} className="border-t transition hover:bg-[var(--surface-2)]">
-                    <td className="px-4 py-3 font-medium">{user.name}</td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-2.5">
+                        <RoleAvatar
+                          name={user.name}
+                          role={user.role}
+                          plan={user.plan}
+                          size={28}
+                          showTierBadge={false}
+                        />
+                        <span className="font-medium">{user.name}</span>
+                      </span>
+                    </td>
                     <td className="text-muted px-4 py-3">{user.email}</td>
 
                     {/* Role cell */}
@@ -136,7 +145,8 @@ function UsersContent() {
                           ))}
                         </select>
                       ) : (
-                        <span className={`role-badge role-${user.role}`}>
+                        <span className={`role-badge role-${user.role} inline-flex items-center gap-1`}>
+                          <RoleIcon role={user.role} plan={user.plan} size={11} />
                           {ROLE_LABELS[user.role as Role] ?? user.role}
                         </span>
                       )}

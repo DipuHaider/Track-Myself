@@ -6,19 +6,21 @@ import { useSession, signOut } from "next-auth/react";
 import { LayoutDashboard, LogOut, Menu, UserCircle, X } from "lucide-react";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import SiteSearch from "@/components/site/SiteSearch";
+import UserMenu from "@/components/site/UserMenu";
 import { Logo } from "@/components/shared/Logo";
 
 const SITE_NAV = [
-  { label: "Trending",    href: "/#trending"   },
   { label: "Job Sites",   href: "/#job-sites"  },
   { label: "CV Builder",  href: "/#cv-builder" },
-  { label: "Get Started", href: "/#cta"        },
   { label: "Tools",       href: "/tools"       },
 ];
 
 export default function SiteHeader() {
   const { data: session } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role;
+  const user = session?.user as {
+    role?: string; plan?: string; name?: string | null; email?: string | null; image?: string | null;
+  } | undefined;
+  const role = user?.role;
   const isBackendUser = role === "superadmin" || role === "admin" || role === "editor";
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -42,48 +44,19 @@ export default function SiteHeader() {
         {/* Right actions */}
         <div className="flex items-center gap-2">
           <SiteSearch />
-          <ThemeToggle />
 
           {session ? (
-            <>
-              {isBackendUser && (
-                <Link
-                  href="/dashboard"
-                  aria-label="Dashboard"
-                  className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-2)]"
-                >
-                  <LayoutDashboard size={13} aria-hidden="true" />
-                  <span className="hidden sm:block">Dashboard</span>
-                </Link>
-              )}
-              <Link
-                href="/me"
-                aria-label="My Profile"
-                className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-2)]"
-              >
-                <UserCircle size={13} aria-hidden="true" />
-                <span className="hidden sm:block">My Profile</span>
-              </Link>
-              <div className="hidden items-center gap-2 md:flex" aria-hidden="true">
-                <div
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                  style={{ background: "var(--primary)" }}
-                >
-                  {session.user?.name?.[0]?.toUpperCase() ?? "U"}
-                </div>
-                <span className="hidden text-sm md:block">{session.user?.name}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => signOut({ callbackUrl: "/" })}
-                aria-label="Sign out"
-                className="text-muted hover:text-red-500 transition"
-              >
-                <LogOut size={15} aria-hidden="true" />
-              </button>
-            </>
+            <UserMenu
+              name={user?.name ?? "Account"}
+              email={user?.email ?? ""}
+              image={user?.image ?? ""}
+              role={role ?? ""}
+              plan={user?.plan ?? "free"}
+              isBackendUser={isBackendUser}
+            />
           ) : (
             <>
+              <ThemeToggle />
               <Link
                 href="/login"
                 className="hidden rounded-md border px-4 py-1.5 text-sm transition hover:bg-[var(--surface-2)] sm:inline-flex"
@@ -132,6 +105,7 @@ export default function SiteHeader() {
 
             {session ? (
               <ul className="space-y-0.5" role="list">
+                <li><ThemeToggle variant="menu" onToggled={close} /></li>
                 {isBackendUser && (
                   <li>
                     <Link

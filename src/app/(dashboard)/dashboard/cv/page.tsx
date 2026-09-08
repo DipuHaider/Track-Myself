@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FileText, ImageIcon, Loader2, Star, Users } from "lucide-react";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 import PermissionGate from "@/components/dashboard/PermissionGate";
+import { RoleIcon } from "@/components/shared/RoleAvatar";
 
 type CVRow = {
   _id: string;
@@ -175,7 +176,8 @@ function DashboardCVContent() {
                         <p className="text-muted text-xs">{r.email}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`role-badge role-${r.role}`}>
+                        <span className={`role-badge role-${r.role} inline-flex items-center gap-1`}>
+                          <RoleIcon role={r.role} plan={r.plan} size={11} />
                           {ROLE_LABELS[r.role as Role] ?? r.role}
                         </span>
                       </td>

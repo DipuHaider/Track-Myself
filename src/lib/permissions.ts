@@ -107,6 +107,24 @@ export function canUseLebenslauf(role?: string | null, email?: string | null): b
   return SUPERADMIN_EMAILS.includes(email as (typeof SUPERADMIN_EMAILS)[number]);
 }
 
+export type RoleTier = "superadmin" | "admin" | "editor" | "premium" | "free";
+
+export const TIER_LABELS: Record<RoleTier, string> = {
+  superadmin: "Super Admin",
+  admin: "Admin",
+  editor: "Editor",
+  premium: "Premium",
+  free: "Free",
+};
+
+export function roleTier(role?: string | null, plan?: string | null): RoleTier {
+  if (role === "superadmin") return "superadmin";
+  if (role === "admin") return "admin";
+  if (role === "editor") return "editor";
+  if (isPremiumUser(role, plan)) return "premium";
+  return "free";
+}
+
 export const ALWAYS_PREMIUM_ROLES: readonly Role[] = ["superadmin", "paid"];
 
 export function isPremiumRole(role?: string | null): boolean {

@@ -110,7 +110,10 @@ export const authOptions: NextAuthOptions = {
           let dirty = false;
           if (!existing.googleId) { existing.googleId = user.id; dirty = true; }
           if (user.image && existing.image !== user.image) { existing.image = user.image; dirty = true; }
-          if (dirty) await existing.save();
+          if (dirty) {
+            await existing.save();
+            claimsCache.delete(existing.email);
+          }
         }
       }
       return true;
@@ -140,7 +143,7 @@ export const authOptions: NextAuthOptions = {
           token.id = claims.id;
           token.role = claims.role;
           token.plan = claims.plan;
-          if (claims.image) token.picture = claims.image;
+          token.picture = claims.image || undefined;
         }
         token.claimsAt = Date.now();
       }
@@ -152,6 +155,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id ?? "";
         session.user.role = token.role ?? "free";
         session.user.plan = (token.plan as Plan | undefined) ?? "free";
+        session.user.image = token.picture ?? null;
       }
       return session;
     },

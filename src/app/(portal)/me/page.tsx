@@ -10,6 +10,8 @@ import {
 import type { Application } from "@/types/application";
 import StatsModal from "@/components/applications/StatsModal";
 import { computeDuplicateIds } from "@/lib/applicationFlags";
+import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
+import { ROLE_LABELS, type Role } from "@/lib/permissions";
 
 type Profile = { name: string; email: string; role: string; plan: string; bio: string };
 
@@ -162,25 +164,20 @@ export default function MePage() {
 
       {/* ── Welcome ── */}
       <div className="flex items-center gap-4">
-        {session?.user?.image ? (
-          <img
-            src={session.user.image}
-            alt={displayName}
-            referrerPolicy="no-referrer"
-            className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-[var(--primary)]/20"
-          />
-        ) : (
-          <div
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white"
-            style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))" }}
-          >
-            {displayName[0]?.toUpperCase()}
-          </div>
-        )}
+        <RoleAvatar
+          name={displayName}
+          image={session?.user?.image ?? ""}
+          role={role}
+          plan={profile?.plan}
+          size={56}
+        />
         <div>
           <h1 className="text-2xl font-bold">Welcome back, {displayName}!</h1>
           <p className="text-muted flex flex-wrap items-center gap-2 text-sm">
-            <span className={`role-badge role-${role}`}>{role}</span>
+            <span className={`role-badge role-${role} inline-flex items-center gap-1`}>
+              <RoleIcon role={role} plan={profile?.plan} size={11} />
+              {ROLE_LABELS[role as Role] ?? role}
+            </span>
             {profile?.plan && (
               <span className={`role-badge plan-${profile.plan}`}>
                 {profile.plan === "premium" ? "Premium" : "Free"}

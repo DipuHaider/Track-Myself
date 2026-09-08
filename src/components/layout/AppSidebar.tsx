@@ -4,7 +4,8 @@ import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { ChevronLeft, ChevronRight, LogOut, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import RoleAvatar from "@/components/shared/RoleAvatar";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 
 export type AppNavItem = {
@@ -47,8 +48,9 @@ export default function AppSidebar({
 }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const sessionUser = session?.user as { role?: string; plan?: string; image?: string | null } | undefined;
   const name = session?.user?.name ?? "";
-  const role = (session?.user as { role?: string } | undefined)?.role ?? "";
+  const role = sessionUser?.role ?? "";
 
   const collapsed = useSyncExternalStore(
     subscribeCollapse,
@@ -91,13 +93,13 @@ export default function AppSidebar({
 
         {/* User */}
         <div className={`flex items-center gap-3 border-b px-3 py-3 ${collapsed ? "justify-center" : ""}`}>
-          <div
-            aria-hidden="true"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-            style={{ background: "var(--primary)" }}
-          >
-            {name[0]?.toUpperCase() ?? <User size={14} />}
-          </div>
+          <RoleAvatar
+            name={name}
+            image={sessionUser?.image ?? ""}
+            role={role}
+            plan={sessionUser?.plan}
+            size={32}
+          />
           {!collapsed && (
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{name}</p>

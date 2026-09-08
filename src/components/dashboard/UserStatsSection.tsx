@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
+import { RoleIcon } from "@/components/shared/RoleAvatar";
 
 type UserRecord = {
   _id: string;
@@ -82,7 +83,8 @@ export default function UserStatsSection() {
                     <td className="px-4 py-3 font-medium">{user.name}</td>
                     <td className="text-muted px-4 py-3">{user.email}</td>
                     <td className="px-4 py-3">
-                      <span className={`role-badge role-${user.role}`}>
+                      <span className={`role-badge role-${user.role} inline-flex items-center gap-1`}>
+                        <RoleIcon role={user.role} plan={user.plan} size={11} />
                         {ROLE_LABELS[user.role as Role] ?? user.role}
                       </span>
                     </td>
