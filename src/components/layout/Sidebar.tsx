@@ -36,6 +36,7 @@ export default function Sidebar() {
   return (
     <AppSidebar
       items={items}
+      title="Dashboard"
       storageKey="dashboard-sidebar"
       ariaLabel="Dashboard navigation"
       signOutTo="/login"

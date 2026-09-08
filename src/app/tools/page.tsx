@@ -1,7 +1,25 @@
 import Link from "next/link";
-import { ImageIcon, Scissors, ScanText, ArrowRight } from "lucide-react";
+import { ImageIcon, Scissors, ScanText, ArrowRight, Eraser, Sparkles } from "lucide-react";
 
 const TOOLS = [
+  {
+    href: "/tools/bg-remover",
+    icon: Eraser,
+    color: "#8b5cf6",
+    title: "Background Remover",
+    description:
+      "Cut the background out of any photo with on-device AI, drop in a colour of your choice, and download an optimised image. Premium unlocks full resolution and every format.",
+    badge: "Client-side AI",
+  },
+  {
+    href: "/tools/profile-image",
+    icon: Sparkles,
+    color: "#0ea5e9",
+    title: "Profile Image Generator",
+    description:
+      "Turn a photo into a clean headshot — background removed, lighting auto-corrected, cropped to circle, rounded or square at the exact size LinkedIn, GitHub and your CV expect.",
+    badge: "Client-side AI",
+  },
   {
     href: "/tools/image-optimizer",
     icon: ImageIcon,

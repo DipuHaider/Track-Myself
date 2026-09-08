@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { ChevronLeft, ChevronRight, LogOut, User } from "lucide-react";
-import { Logo } from "@/components/shared/Logo";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 
 export type AppNavItem = {
@@ -38,9 +37,10 @@ function readCollapsed(storageKey: string) {
 }
 
 export default function AppSidebar({
-  items, storageKey, ariaLabel, signOutTo = "/",
+  items, title, storageKey, ariaLabel, signOutTo = "/",
 }: {
   items: AppNavItem[];
+  title: string;
   storageKey: string;
   ariaLabel: string;
   signOutTo?: string;
@@ -77,9 +77,7 @@ export default function AppSidebar({
         {/* Header */}
         <div className="flex h-14 items-center border-b px-3">
           {!collapsed && (
-            <span className="flex-1 overflow-hidden">
-              <Logo size={22} textSize="text-sm" />
-            </span>
+            <span className="flex-1 truncate text-sm font-semibold">{title}</span>
           )}
           <button
             type="button"

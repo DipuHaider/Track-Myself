@@ -29,6 +29,7 @@ export default function PortalSidebar() {
   return (
     <AppSidebar
       items={items}
+      title="My Profile"
       storageKey="portal-sidebar"
       ariaLabel="Portal navigation"
     />

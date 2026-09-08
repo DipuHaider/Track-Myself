@@ -77,6 +77,16 @@ export const SEARCH_PAGES: SearchPage[] = [
     group: "tools", visibility: { type: "public" },
   },
   {
+    title: "Background Remover", subtitle: "Cut out the background with on-device AI", href: "/tools/bg-remover",
+    keywords: ["tool", "tools", "background", "remove", "bg", "cutout", "transparent", "png", "eraser", "remover"],
+    group: "tools", visibility: { type: "public" },
+  },
+  {
+    title: "Profile Image Generator", subtitle: "Headshots for LinkedIn, GitHub and your CV", href: "/tools/profile-image",
+    keywords: ["tool", "tools", "profile", "picture", "avatar", "headshot", "photo", "linkedin", "github", "crop", "circle", "passport"],
+    group: "tools", visibility: { type: "public" },
+  },
+  {
     title: "Image Optimizer", subtitle: "Compress and resize images", href: "/tools/image-optimizer",
     keywords: ["tool", "tools", "image", "photo", "compress", "resize", "optimise", "optimize"],
     group: "tools", visibility: { type: "public" },
