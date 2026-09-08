@@ -31,9 +31,11 @@ type Node = {
   pulse: number;
 };
 
+type Segment = { x1: number; y1: number; x2: number; y2: number; depth: number };
+
 type Bolt = {
   preset: BoltPreset;
-  arms: { x: number; y: number }[][];
+  segments: Segment[];
   age: number;
   delay: number;
   life: number;
@@ -111,57 +113,62 @@ export default function PipelineCanvas() {
       );
     }
 
-    function buildArm(preset: BoltPreset, ox: number, oy: number, angle: number) {
-      const pts: { x: number; y: number }[] = [{ x: ox, y: oy }];
-      const step = preset.reach / preset.segments;
+    function clampToReach(ox: number, oy: number, x: number, y: number) {
+      const dx = x - ox;
+      const dy = y - oy;
+      const d = Math.hypot(dx, dy);
+      if (d <= BOLT_MAX_RADIUS) return { x, y };
+      return { x: ox + (dx / d) * BOLT_MAX_RADIUS, y: oy + (dy / d) * BOLT_MAX_RADIUS };
+    }
 
-      for (let i = 1; i <= preset.segments; i++) {
-        const p = i / preset.segments;
-        let a = angle;
-        let r = step * i;
+    function buildArc(preset: BoltPreset, ox: number, oy: number, angle: number): Segment[] {
+      const tip = clampToReach(
+        ox, oy,
+        ox + Math.cos(angle) * preset.reach,
+        oy + Math.sin(angle) * preset.reach,
+      );
 
-        switch (preset.shape) {
-          case "spiral":
-            a = angle + p * Math.PI * 2.4 * preset.spread;
-            r = step * i * 0.8;
-            break;
-          case "helix":
-            a = angle + Math.sin(p * Math.PI * 4) * 0.5;
-            break;
-          case "arc":
-            a = angle + Math.sin(p * Math.PI) * 0.85 * preset.spread;
-            break;
-          case "zigzag":
-            a = angle + (i % 2 === 0 ? 0.55 : -0.55) * preset.spread;
-            break;
-          case "ring":
-          case "star":
-            r = preset.reach * p;
-            break;
-          case "crackle":
-            r = preset.reach * rand(0.45, 1) * p;
-            break;
-          case "filament":
-            a = angle + Math.sin(p * Math.PI * 3 + preset.spread) * 0.35;
-            break;
-          default:
-            break;
+      let segments: Segment[] = [{ x1: ox, y1: oy, x2: tip.x, y2: tip.y, depth: 0 }];
+      let offset = preset.displace;
+
+      for (let g = 0; g < preset.generations; g++) {
+        const next: Segment[] = [];
+
+        for (const seg of segments) {
+          const dx = seg.x2 - seg.x1;
+          const dy = seg.y2 - seg.y1;
+          const len = Math.hypot(dx, dy) || 1;
+          const nx = -dy / len;
+          const ny = dx / len;
+          const push = rand(-offset, offset) * (1 - seg.depth * 0.25);
+
+          const mid = clampToReach(
+            ox, oy,
+            (seg.x1 + seg.x2) / 2 + nx * push,
+            (seg.y1 + seg.y2) / 2 + ny * push,
+          );
+
+          next.push({ x1: seg.x1, y1: seg.y1, x2: mid.x, y2: mid.y, depth: seg.depth });
+          next.push({ x1: mid.x, y1: mid.y, x2: seg.x2, y2: seg.y2, depth: seg.depth });
+
+          if (seg.depth < preset.maxDepth && Math.random() < preset.branchChance) {
+            const heading = Math.atan2(seg.y2 - mid.y, seg.x2 - mid.x);
+            const swing = heading + (Math.random() < 0.5 ? -1 : 1) * preset.branchAngle * rand(0.7, 1.3);
+            const reach = Math.hypot(seg.x2 - mid.x, seg.y2 - mid.y) * preset.branchDecay;
+            const tipB = clampToReach(
+              ox, oy,
+              mid.x + Math.cos(swing) * reach,
+              mid.y + Math.sin(swing) * reach,
+            );
+            next.push({ x1: mid.x, y1: mid.y, x2: tipB.x, y2: tipB.y, depth: seg.depth + 1 });
+          }
         }
 
-        const jitter = preset.jitter * (1 - p * 0.35);
-        let dx = Math.cos(a) * r + rand(-jitter, jitter);
-        let dy = Math.sin(a) * r + rand(-jitter, jitter);
-
-        const reach = Math.hypot(dx, dy);
-        if (reach > BOLT_MAX_RADIUS) {
-          dx = (dx / reach) * BOLT_MAX_RADIUS;
-          dy = (dy / reach) * BOLT_MAX_RADIUS;
-        }
-
-        pts.push({ x: ox + dx, y: oy + dy });
+        segments = next;
+        offset *= preset.roughness;
       }
 
-      return pts;
+      return segments;
     }
 
     function spawnBoltSequence(
@@ -176,22 +183,18 @@ export default function PipelineCanvas() {
       for (let i = 0; i < count; i++) {
         const preset = BOLT_PRESETS[Math.floor(Math.random() * BOLT_PRESETS.length)];
         const base = Math.random() * Math.PI * 2;
-        const arms: { x: number; y: number }[][] = [];
-        const radial = preset.shape === "ring" || preset.shape === "star" || preset.shape === "crackle";
+        const ox = x + rand(-3, 3);
+        const oy = y + rand(-3, 3);
 
-        const ox = x + rand(-4, 4);
-        const oy = y + rand(-4, 4);
-
+        const segments: Segment[] = [];
         for (let a = 0; a < preset.arms; a++) {
-          const angle = radial
-            ? base + (a / preset.arms) * Math.PI * 2
-            : base + rand(-0.9, 0.9) * preset.spread;
-          arms.push(buildArm(preset, ox, oy, angle));
+          const angle = base + (a / preset.arms) * Math.PI * 2 + rand(-0.35, 0.35);
+          segments.push(...buildArc(preset, ox, oy, angle));
         }
 
         bolts.push({
           preset,
-          arms,
+          segments,
           age: 0,
           delay: Math.round(slot * i * 0.82),
           life: Math.round(slot * rand(1.15, 1.5)),
@@ -291,25 +294,45 @@ export default function PipelineCanvas() {
         const t = (bolt.age - bolt.delay) / bolt.life;
         if (t >= 1) continue;
 
-        const alpha = Math.sin((1 - t) * Math.PI * 0.85);
         const { preset } = bolt;
+        const envelope = Math.sin((1 - t) * Math.PI * 0.85);
+        const flicker = 1 - preset.flicker * Math.random();
+        const alpha = envelope * flicker;
 
-        for (const arm of bolt.arms) {
+        ctx!.lineCap = "round";
+        ctx!.lineJoin = "round";
+        ctx!.globalCompositeOperation = "lighter";
+
+        ctx!.beginPath();
+        for (const seg of bolt.segments) {
+          ctx!.moveTo(seg.x1, seg.y1);
+          ctx!.lineTo(seg.x2, seg.y2);
+        }
+        ctx!.strokeStyle = boltColor(bolt.intensity, alpha * 0.22);
+        ctx!.lineWidth = preset.width + preset.glow * 0.34;
+        ctx!.shadowBlur = preset.glow;
+        ctx!.shadowColor = boltColor(bolt.intensity, 0.9);
+        ctx!.stroke();
+        ctx!.shadowBlur = 0;
+
+        for (let depth = preset.maxDepth; depth >= 0; depth--) {
+          const taper = Math.pow(0.62, depth);
           ctx!.beginPath();
-          ctx!.moveTo(arm[0].x, arm[0].y);
-          for (let i = 1; i < arm.length; i++) ctx!.lineTo(arm[i].x, arm[i].y);
+          let drawn = false;
+          for (const seg of bolt.segments) {
+            if (seg.depth !== depth) continue;
+            ctx!.moveTo(seg.x1, seg.y1);
+            ctx!.lineTo(seg.x2, seg.y2);
+            drawn = true;
+          }
+          if (!drawn) continue;
 
-          ctx!.strokeStyle = boltColor(bolt.intensity, alpha * 0.3);
-          ctx!.lineWidth = preset.width + preset.glow * 0.3;
-          ctx!.shadowBlur = preset.glow;
-          ctx!.shadowColor = boltColor(bolt.intensity, 0.85);
-          ctx!.stroke();
-
-          ctx!.strokeStyle = boltColor(Math.max(0, bolt.intensity - 0.35), alpha);
-          ctx!.lineWidth = preset.width;
-          ctx!.shadowBlur = 0;
+          ctx!.strokeStyle = boltColor(Math.max(0, bolt.intensity - 0.4), alpha * (depth === 0 ? 1 : 0.7));
+          ctx!.lineWidth = Math.max(0.4, preset.width * taper);
           ctx!.stroke();
         }
+
+        ctx!.globalCompositeOperation = "source-over";
       }
 
       bolts = bolts.filter((b) => b.age < b.delay + b.life);
