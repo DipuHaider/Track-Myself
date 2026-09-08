@@ -6,22 +6,13 @@ import ApplicationTable, { type QuickField } from "@/components/applications/App
 import ApplicationFormModal from "@/components/applications/ApplicationFormModal";
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
 import PermissionGate from "@/components/dashboard/PermissionGate";
+import Loading, { InlineSpinner } from "@/components/shared/Spinner";
+import Pagination, { PAGE_SIZE, usePagination } from "@/components/shared/Pagination";
 import { useAllApplications, type AdminApplication } from "@/hooks/useAllApplications";
 import { usePermissions } from "@/hooks/usePermissions";
 import { computeDuplicateIds } from "@/lib/applicationFlags";
 import type { Application } from "@/types/application";
 
-const PAGE_SIZE = 10;
-
-function pageNumbers(current: number, total: number): (number | "…")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: (number | "…")[] = [1];
-  if (current > 3) pages.push("…");
-  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
-  if (current < total - 2) pages.push("…");
-  pages.push(total);
-  return pages;
-}
 
 function ApplicationsContent() {
   const initialQuery = useSearchParams().get("q") ?? "";
@@ -41,7 +32,6 @@ function ApplicationsContent() {
 
   const [search, setSearch] = useState(initialQuery);
   const [ownerFilter, setOwnerFilter] = useState("");
-  const [page, setPage] = useState(1);
 
   const owners = useMemo(() => {
     const map = new Map<string, { id: string; label: string; count: number }>();
@@ -75,12 +65,11 @@ function ApplicationsContent() {
 
   const duplicateIds = useMemo(() => computeDuplicateIds(filtered), [filtered]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const { page: safePage, setPage: goToPage, totalPages, pageItems, startIndex } =
+    usePagination(filtered, PAGE_SIZE);
 
-  const onSearch = (v: string) => { setSearch(v); setPage(1); };
-  const onOwner = (v: string) => { setOwnerFilter(v); setPage(1); };
+  const onSearch = (v: string) => { setSearch(v); goToPage(1); };
+  const onOwner = (v: string) => { setOwnerFilter(v); goToPage(1); };
 
   async function handleQuickUpdate(id: string, field: QuickField, value: string | boolean) {
     setError("");
@@ -124,7 +113,7 @@ function ApplicationsContent() {
           </p>
         </div>
         <p className="text-muted text-sm">
-          {loading ? "Loading…" : `${applications.length} total · ${owners.length} user${owners.length === 1 ? "" : "s"}`}
+          {loading ? <InlineSpinner /> : `${applications.length} total · ${owners.length} user${owners.length === 1 ? "" : "s"}`}
         </p>
       </div>
 
@@ -168,14 +157,14 @@ function ApplicationsContent() {
 
         <p className="text-muted ml-auto text-sm">
           {loading
-            ? "Loading…"
+            ? <InlineSpinner />
             : `${filtered.length} result${filtered.length !== 1 ? "s" : ""}`}
         </p>
       </div>
 
       <ApplicationTable
         applications={deletingId ? pageItems.filter((a) => a._id !== deletingId) : pageItems}
-        startIndex={(safePage - 1) * PAGE_SIZE}
+        startIndex={startIndex}
         showOwner
         duplicateIds={duplicateIds}
         onView={(app) => setViewTarget(app as AdminApplication)}
@@ -184,46 +173,15 @@ function ApplicationsContent() {
         onQuickUpdate={canEdit ? handleQuickUpdate : undefined}
       />
 
-      {!loading && totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-muted text-sm">
-            Page {safePage} of {totalPages} · {pageItems.length} of {filtered.length} shown
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={safePage === 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="rounded-md border px-3 py-1.5 text-sm transition hover:bg-[var(--surface-2)] disabled:opacity-40"
-            >
-              ← Prev
-            </button>
-            {pageNumbers(safePage, totalPages).map((p, i) =>
-              p === "…" ? (
-                <span key={`e${i}`} className="text-muted px-2 text-sm">…</span>
-              ) : (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPage(p)}
-                  className={`min-w-[2rem] rounded-md border px-2 py-1.5 text-sm transition ${
-                    p === safePage ? "btn-primary border-transparent" : "hover:bg-[var(--surface-2)]"
-                  }`}
-                >
-                  {p}
-                </button>
-              ),
-            )}
-            <button
-              type="button"
-              disabled={safePage === totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded-md border px-3 py-1.5 text-sm transition hover:bg-[var(--surface-2)] disabled:opacity-40"
-            >
-              Next →
-            </button>
-          </div>
-        </div>
+      {!loading && (
+        <Pagination
+          page={safePage}
+          totalPages={totalPages}
+          onChange={goToPage}
+          total={filtered.length}
+          shown={pageItems.length}
+          noun="applications"
+        />
       )}
 
       <ApplicationFormModal
@@ -250,7 +208,7 @@ function ApplicationsContent() {
 export default function ApplicationsPage() {
   return (
     <PermissionGate action="view:applications">
-      <Suspense fallback={<p className="text-muted text-sm">Loading…</p>}>
+      <Suspense fallback={<Loading />}>
         <ApplicationsContent />
       </Suspense>
     </PermissionGate>

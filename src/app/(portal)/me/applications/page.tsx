@@ -10,18 +10,9 @@ import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 import type { QuickField } from "@/components/applications/ApplicationTable";
 import { computeDuplicateIds, isPossibleGhost } from "@/lib/applicationFlags";
+import Loading, { InlineSpinner } from "@/components/shared/Spinner";
+import Pagination, { PAGE_SIZE, usePagination } from "@/components/shared/Pagination";
 
-const PAGE_SIZE = 10;
-
-function pageNumbers(current: number, total: number): (number | "…")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: (number | "…")[] = [1];
-  if (current > 3) pages.push("…");
-  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
-  if (current < total - 2) pages.push("…");
-  pages.push(total);
-  return pages;
-}
 
 function PortalApplicationsContent() {
   const initialQuery = useSearchParams().get("q") ?? "";
@@ -37,7 +28,6 @@ function PortalApplicationsContent() {
   const [filterPriority, setFilterPriority] = useState("");
   const [filterGhost, setFilterGhost] = useState<"" | "auto" | "manual">("");
   const [filterDuplicates, setFilterDuplicates] = useState(false);
-  const [page, setPage] = useState(1);
 
   const duplicateIds = useMemo(() => computeDuplicateIds(applications), [applications]);
 
@@ -60,11 +50,10 @@ function PortalApplicationsContent() {
     return result;
   }, [applications, search, filterStatus, filterPriority, filterGhost, filterDuplicates, duplicateIds]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const { page: safePage, setPage: goToPage, totalPages, pageItems, startIndex } =
+    usePagination(filtered, PAGE_SIZE);
 
-  const resetPage = () => setPage(1);
+  const resetPage = () => goToPage(1);
   const onSearch = (v: string) => { setSearch(v); resetPage(); };
   const onFilterStatus = (v: string) => { setFilterStatus(v); resetPage(); };
   const onFilterPriority = (v: string) => { setFilterPriority(v); resetPage(); };
@@ -192,7 +181,7 @@ function PortalApplicationsContent() {
 
         <p className="text-muted ml-auto text-sm">
           {loading
-            ? "Loading…"
+            ? <InlineSpinner />
             : `${filtered.length} result${filtered.length !== 1 ? "s" : ""}${
                 search || activeFilters > 0 ? " (filtered)" : ""
               }`}
@@ -202,7 +191,7 @@ function PortalApplicationsContent() {
       {/* Table */}
       <ApplicationTable
         applications={deletingId ? pageItems.filter((a) => a._id !== deletingId) : pageItems}
-        startIndex={(safePage - 1) * PAGE_SIZE}
+        startIndex={startIndex}
         onView={(app) => setViewTarget(app)}
         onEdit={(app) => setEditTarget(app)}
         onDelete={handleDelete}
@@ -211,46 +200,15 @@ function PortalApplicationsContent() {
       />
 
       {/* Pagination */}
-      {!loading && totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-muted text-sm">
-            Page {safePage} of {totalPages} · {pageItems.length} of {filtered.length} shown
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={safePage === 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="rounded-md border px-3 py-1.5 text-sm transition hover:bg-[var(--surface-2)] disabled:opacity-40"
-            >
-              ← Prev
-            </button>
-            {pageNumbers(safePage, totalPages).map((p, i) =>
-              p === "…" ? (
-                <span key={`e${i}`} className="text-muted px-2 text-sm">…</span>
-              ) : (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPage(p)}
-                  className={`min-w-[2rem] rounded-md border px-2 py-1.5 text-sm transition ${
-                    p === safePage ? "btn-primary border-transparent" : "hover:bg-[var(--surface-2)]"
-                  }`}
-                >
-                  {p}
-                </button>
-              ),
-            )}
-            <button
-              type="button"
-              disabled={safePage === totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded-md border px-3 py-1.5 text-sm transition hover:bg-[var(--surface-2)] disabled:opacity-40"
-            >
-              Next →
-            </button>
-          </div>
-        </div>
+      {!loading && (
+        <Pagination
+          page={safePage}
+          totalPages={totalPages}
+          onChange={goToPage}
+          total={filtered.length}
+          shown={pageItems.length}
+          noun="applications"
+        />
       )}
 
       {/* Modals */}
@@ -278,7 +236,7 @@ function PortalApplicationsContent() {
 
 export default function PortalApplicationsPage() {
   return (
-    <Suspense fallback={<p className="text-muted text-sm">Loading…</p>}>
+    <Suspense fallback={<Loading />}>
       <PortalApplicationsContent />
     </Suspense>
   );

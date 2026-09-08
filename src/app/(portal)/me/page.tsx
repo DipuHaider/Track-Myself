@@ -11,6 +11,7 @@ import type { Application } from "@/types/application";
 import StatsModal from "@/components/applications/StatsModal";
 import { computeDuplicateIds } from "@/lib/applicationFlags";
 import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
+import Loading from "@/components/shared/Spinner";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 
 type Profile = { name: string; email: string; role: string; plan: string; bio: string };
@@ -281,7 +282,7 @@ export default function MePage() {
       <section className="surface rounded-xl border p-5">
         <h2 className="mb-4 font-semibold">Edit Profile</h2>
         {profLoading ? (
-          <p className="text-muted text-sm">Loading…</p>
+          <Loading padded={false} className="py-6" />
         ) : (
           <form onSubmit={saveProfile} className="space-y-3">
             <div>

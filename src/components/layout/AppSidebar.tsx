@@ -19,6 +19,7 @@ export type AppNavItem = {
 };
 
 const COLLAPSE_EVENT = "app-sidebar-collapse";
+const MOBILE_NAV_MAX = 5;
 
 function subscribeCollapse(onChange: () => void) {
   window.addEventListener(COLLAPSE_EVENT, onChange);
@@ -167,7 +168,7 @@ export default function AppSidebar({
         aria-label={ariaLabel}
         className="surface fixed bottom-0 left-0 right-0 z-40 flex border-t md:hidden"
       >
-        {items.filter((n) => !n.hideMobile).map((item) => {
+        {items.filter((n) => !n.hideMobile).slice(0, MOBILE_NAV_MAX).map((item) => {
           const { href, icon: Icon, mobileLabel } = item;
           const active = isActive(item);
           return (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 import { RoleIcon } from "@/components/shared/RoleAvatar";
+import Loading from "@/components/shared/Spinner";
 
 type UserRecord = {
   _id: string;
@@ -53,7 +54,7 @@ export default function UserStatsSection() {
       </div>
 
       {loading ? (
-        <p className="text-muted text-sm">Loading user stats…</p>
+        <Loading label="Loading user stats" />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

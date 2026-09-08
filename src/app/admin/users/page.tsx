@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Loading from "@/components/shared/Spinner";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/permissions";
 
 type UserRecord = {
@@ -70,6 +72,8 @@ export default function AdminUsersPage() {
     setUsers((prev) => prev.filter((u) => u._id !== userId));
   }
 
+  const { page, setPage, totalPages, pageItems, total } = usePagination(users);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -80,7 +84,7 @@ export default function AdminUsersPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <p className="text-muted text-sm">Loading...</p>
+        <Loading />
       ) : (
         <div className="surface overflow-hidden rounded-lg border">
           <table className="w-full text-left text-sm">
@@ -95,7 +99,7 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {pageItems.map((user) => (
                 <tr key={user._id} className="border-t">
                   <td className="px-4 py-3 font-medium">{user.name}</td>
                   <td className="text-muted px-4 py-3">{user.email}</td>
@@ -150,6 +154,15 @@ export default function AdminUsersPage() {
           </table>
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onChange={setPage}
+        total={total}
+        shown={pageItems.length}
+        noun="users"
+      />
     </div>
   );
 }

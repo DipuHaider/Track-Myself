@@ -5,6 +5,7 @@ import { FileText, ImageIcon, Loader2, Star, Users } from "lucide-react";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 import PermissionGate from "@/components/dashboard/PermissionGate";
 import { RoleIcon } from "@/components/shared/RoleAvatar";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 
 type CVRow = {
   _id: string;
@@ -88,6 +89,7 @@ function DashboardCVContent() {
 
   const rows = (data?.rows ?? []).filter((r) => !onlyWithCV || r.hasProfile || r.fileCount > 0);
   const totals = data?.totals;
+  const { page, setPage, totalPages, pageItems, total } = usePagination(rows);
 
   return (
     <div className="space-y-6">
@@ -169,7 +171,7 @@ function DashboardCVContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {pageItems.map((r) => (
                     <tr key={r._id} className="border-t">
                       <td className="px-4 py-3">
                         <p className="font-medium">{r.name}</p>
@@ -222,7 +224,7 @@ function DashboardCVContent() {
                       </td>
                     </tr>
                   ))}
-                  {rows.length === 0 && (
+                  {pageItems.length === 0 && (
                     <tr>
                       <td className="text-muted px-4 py-8" colSpan={7}>
                         No users match this filter.
@@ -231,6 +233,18 @@ function DashboardCVContent() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="border-t px-5 py-3">
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onChange={setPage}
+                total={total}
+                shown={pageItems.length}
+                noun="users"
+                compact
+              />
             </div>
           </section>
         </>

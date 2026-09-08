@@ -17,9 +17,9 @@ const NAV_ITEMS: DashboardNavItem[] = [
   { href: "/analytics",       icon: BarChart2,       label: "Analytics",        mobileLabel: "Stats",  action: "view:analytics" },
   { href: "/dashboard/cv",    icon: ScrollText,      label: "CV Overview",      mobileLabel: "CV",     action: "view:cv" },
   { href: "/dashboard/users", icon: Users,           label: "Users",            mobileLabel: "Users",  action: "view:users" },
-  { href: "/dashboard/rbac",  icon: ShieldCheck,     label: "Access Control",   mobileLabel: "Access", adminOnly: true },
-  { href: "/settings",        icon: Settings,        label: "Settings",         mobileLabel: "Setup",  action: "view:settings" },
-  { href: "/me",              icon: UserCircle,      label: "My Profile",       mobileLabel: "Me",     exact: true },
+  { href: "/dashboard/rbac",  icon: ShieldCheck,     label: "Access Control",   mobileLabel: "Access", adminOnly: true, hideMobile: true },
+  { href: "/settings",        icon: Settings,        label: "Settings",         mobileLabel: "Setup",  action: "view:settings", hideMobile: true },
+  { href: "/me",              icon: UserCircle,      label: "My Profile",       mobileLabel: "Me",     exact: true, hideMobile: true },
   { href: "/",                icon: Home,            label: "Home",             mobileLabel: "Home",   exact: true, hideMobile: true },
 ];
 

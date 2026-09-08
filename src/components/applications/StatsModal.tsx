@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 import Link from "next/link";
 import { X } from "lucide-react";
 import type { Application } from "@/types/application";
@@ -45,6 +46,8 @@ export default function StatsModal({
 
   const rows = applications.slice(0, 10);
 
+  const { page, setPage, totalPages, pageItems, startIndex, total } = usePagination(rows);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -87,9 +90,9 @@ export default function StatsModal({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((app, i) => (
+                {pageItems.map((app, i) => (
                   <tr key={app._id} className="border-t transition hover:bg-[var(--surface-2)]">
-                    <td className="px-4 py-2.5 text-center text-xs text-muted tabular-nums">{i + 1}</td>
+                    <td className="px-4 py-2.5 text-center text-xs text-muted tabular-nums">{startIndex + i + 1}</td>
                     <td className="px-4 py-2.5 font-medium">{app.companyName}</td>
                     <td className="text-muted px-4 py-2.5">{app.jobTitle}</td>
                     <td className="px-4 py-2.5">
@@ -115,6 +118,20 @@ export default function StatsModal({
             </table>
           )}
         </div>
+
+        {totalPages > 1 && (
+          <div className="border-t px-5 py-2.5">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onChange={setPage}
+              total={total}
+              shown={pageItems.length}
+              noun="applications"
+              compact
+            />
+          </div>
+        )}
 
         {/* Footer */}
         <div className="border-t px-5 py-3 text-right">

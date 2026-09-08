@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { getSession, signIn } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Spinner } from "@/components/shared/Spinner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,13 +28,7 @@ export default function LoginPage() {
     setIsSubmitting(false);
 
     if (result?.ok) {
-      const session = await getSession();
-      const role = (session?.user as { role?: string } | undefined)?.role;
-      if (role === "superadmin" || role === "admin" || role === "editor") {
-        router.push("/dashboard");
-      } else {
-        router.push("/me");
-      }
+      router.push("/me");
       return;
     }
     setError("Invalid email or password");
@@ -41,7 +36,7 @@ export default function LoginPage() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    await signIn("google", { callbackUrl: "/redirect" });
+    await signIn("google", { callbackUrl: "/me" });
   };
 
   return (
@@ -57,8 +52,14 @@ export default function LoginPage() {
           disabled={googleLoading}
           className="mt-5 flex w-full items-center justify-center gap-3 rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-[var(--surface-2)] disabled:opacity-60"
         >
-          <GoogleIcon />
-          {googleLoading ? "Redirecting…" : "Continue with Google"}
+          {googleLoading ? (
+            <Spinner size={17} label="Redirecting to Google" />
+          ) : (
+            <>
+              <GoogleIcon />
+              Continue with Google
+            </>
+          )}
         </button>
 
         <div className="my-4 flex items-center gap-3">
@@ -93,7 +94,11 @@ export default function LoginPage() {
           disabled={isSubmitting}
           className="btn-primary mt-4 w-full rounded-md px-3 py-2 disabled:opacity-60"
         >
-          {isSubmitting ? "Signing in…" : "Sign in"}
+          {isSubmitting ? (
+            <span className="flex items-center justify-center">
+              <Spinner size={17} label="Signing in" />
+            </span>
+          ) : "Sign in"}
         </button>
 
         <p className="text-muted mt-4 text-center text-sm">

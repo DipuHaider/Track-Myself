@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Spinner } from "@/components/shared/Spinner";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function RegisterPage() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    await signIn("google", { callbackUrl: "/redirect" });
+    await signIn("google", { callbackUrl: "/me" });
   };
 
   return (
@@ -62,8 +63,14 @@ export default function RegisterPage() {
           disabled={googleLoading}
           className="mt-5 flex w-full items-center justify-center gap-3 rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-[var(--surface-2)] disabled:opacity-60"
         >
-          <GoogleIcon />
-          {googleLoading ? "Redirecting…" : "Continue with Google"}
+          {googleLoading ? (
+            <Spinner size={17} label="Redirecting to Google" />
+          ) : (
+            <>
+              <GoogleIcon />
+              Continue with Google
+            </>
+          )}
         </button>
 
         <div className="my-4 flex items-center gap-3">
@@ -105,7 +112,11 @@ export default function RegisterPage() {
           disabled={isSubmitting}
           className="btn-primary mt-4 w-full rounded-md px-3 py-2 disabled:opacity-60"
         >
-          {isSubmitting ? "Creating account…" : "Create account"}
+          {isSubmitting ? (
+            <span className="flex items-center justify-center">
+              <Spinner size={17} label="Creating account" />
+            </span>
+          ) : "Create account"}
         </button>
 
         <p className="text-muted mt-4 text-center text-sm">

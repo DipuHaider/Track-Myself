@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
+import Loading from "@/components/shared/Spinner";
 
 type UserRecord = {
   _id: string;
@@ -40,7 +41,7 @@ export default function AdminDashboard() {
       <h2 className="text-2xl font-semibold">Overview</h2>
 
       {loading ? (
-        <p className="text-muted text-sm">Loading...</p>
+        <Loading />
       ) : (
         <>
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

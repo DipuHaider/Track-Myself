@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { ROLES, ROLE_LABELS, isPremiumRole, type Role } from "@/lib/permissions";
 import { usePermissions } from "@/hooks/usePermissions";
 import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
+import Loading from "@/components/shared/Spinner";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 import PermissionGate from "@/components/dashboard/PermissionGate";
 
 type UserRecord = {
@@ -76,6 +78,8 @@ function UsersContent() {
     return canEdit && (can("assign:superadmin") || user.role !== "superadmin");
   }
 
+  const { page, setPage, totalPages, pageItems, total } = usePagination(users);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -98,7 +102,7 @@ function UsersContent() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <p className="text-muted text-sm">Loading…</p>
+        <Loading />
       ) : (
         <div className="surface overflow-hidden rounded-lg border">
           <table className="w-full text-left text-sm">
@@ -113,7 +117,7 @@ function UsersContent() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => {
+              {pageItems.map((user) => {
                 const editable = rowCanEdit(user);
                 return (
                   <tr key={user._id} className="border-t transition hover:bg-[var(--surface-2)]">
@@ -199,7 +203,7 @@ function UsersContent() {
                   </tr>
                 );
               })}
-              {users.length === 0 && (
+              {pageItems.length === 0 && (
                 <tr>
                   <td
                     className="text-muted px-4 py-8"
@@ -213,6 +217,15 @@ function UsersContent() {
           </table>
         </div>
       )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onChange={setPage}
+        total={total}
+        shown={pageItems.length}
+        noun="users"
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   Pencil, Star, Trash2, Upload, X,
 } from "lucide-react";
 import type { CVFileCategory, CVFileMeta } from "@/types/cv";
+import Pagination, { usePagination } from "@/components/shared/Pagination";
 
 export type SectionSpec = {
   category: CVFileCategory;
@@ -58,6 +59,7 @@ export default function DocumentSection({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isImage = spec.kind === "image";
+  const { page, setPage, totalPages, pageItems, total } = usePagination(files);
 
   async function upload(file: File) {
     setError("");
@@ -213,7 +215,7 @@ export default function DocumentSection({
           <p className="text-muted py-1 text-center text-xs">Nothing uploaded yet.</p>
         ) : (
           <ul className="space-y-2" role="list">
-            {files.map((file) => {
+            {pageItems.map((file) => {
               const isPrimary = primaryId === file._id;
               const busy = busyId === file._id;
               return (
@@ -344,6 +346,16 @@ export default function DocumentSection({
             })}
           </ul>
         )}
+
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onChange={setPage}
+          total={total}
+          shown={pageItems.length}
+          noun="files"
+          compact
+        />
       </div>
     </section>
   );
