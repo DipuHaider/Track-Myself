@@ -29,7 +29,7 @@ export default function HeroSection() {
       <PipelineCanvas />
 
       <p className="pointer-events-none absolute bottom-4 right-6 z-10 hidden font-mono text-[10px] uppercase tracking-wider text-white/25 lg:block">
-        Click a node to advance its stage
+        Click empty space to seed · click a cell to divide it
       </p>
 
       <div

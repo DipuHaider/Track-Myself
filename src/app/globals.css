@@ -25,6 +25,12 @@
   --glass-hairline: rgba(15, 23, 41, 0.08);
   --glass-shadow: 0 8px 32px rgba(15, 23, 41, 0.08);
   --glass-blur: 16px;
+
+  /* Nav chrome reads denser than panel glass so it stays legible
+     while content scrolls underneath it. */
+  --glass-nav-bg: rgba(255, 255, 255, 0.86);
+  --glass-nav-border: rgba(15, 23, 41, 0.12);
+  --glass-nav-shadow: 0 1px 0 rgba(15, 23, 41, 0.04), 0 10px 28px rgba(15, 23, 41, 0.07);
 }
 
 :root[data-theme="dark"] {
@@ -45,6 +51,10 @@
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-hairline: rgba(255, 255, 255, 0.07);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.42);
+
+  --glass-nav-bg: rgba(14, 19, 32, 0.86);
+  --glass-nav-border: rgba(255, 255, 255, 0.12);
+  --glass-nav-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 28px rgba(0, 0, 0, 0.55);
 }
 
 @theme inline {
@@ -82,21 +92,24 @@ body {
 }
 
 .glass-nav {
-  background: var(--glass-bg);
-  backdrop-filter: blur(18px) saturate(1.5);
-  -webkit-backdrop-filter: blur(18px) saturate(1.5);
-  border-color: var(--glass-hairline);
+  background: var(--glass-nav-bg);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-color: var(--glass-nav-border);
+  box-shadow: var(--glass-nav-shadow);
 }
 
 /* Inner rules inside glass stay faint; :where() keeps specificity at 0
    so a component can still override them. */
-.glass :where(tr, thead, tbody, .border-t, .border-b),
-.glass-nav :where(tr, thead, tbody, .border-t, .border-b) {
+.glass :where(tr, thead, tbody, .border-t, .border-b) {
   border-color: var(--glass-hairline);
 }
 
-.glass :where(.surface-muted),
-.glass-nav :where(.surface-muted) {
+.glass-nav :where(.border-t, .border-b, .border-r) {
+  border-color: var(--glass-nav-border);
+}
+
+.glass :where(.surface-muted) {
   background: var(--glass-bg-soft);
 }
 
