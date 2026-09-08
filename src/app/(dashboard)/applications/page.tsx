@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import ApplicationTable, { type QuickField } from "@/components/applications/ApplicationTable";
 import ApplicationFormModal from "@/components/applications/ApplicationFormModal";
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
@@ -23,6 +24,7 @@ function pageNumbers(current: number, total: number): (number | "…")[] {
 }
 
 function ApplicationsContent() {
+  const initialQuery = useSearchParams().get("q") ?? "";
   const {
     applications, loading, failed,
     updateApplication, patchApplication, removeApplication,
@@ -37,7 +39,7 @@ function ApplicationsContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialQuery);
   const [ownerFilter, setOwnerFilter] = useState("");
   const [page, setPage] = useState(1);
 
@@ -248,7 +250,9 @@ function ApplicationsContent() {
 export default function ApplicationsPage() {
   return (
     <PermissionGate action="view:applications">
-      <ApplicationsContent />
+      <Suspense fallback={<p className="text-muted text-sm">Loading…</p>}>
+        <ApplicationsContent />
+      </Suspense>
     </PermissionGate>
   );
 }

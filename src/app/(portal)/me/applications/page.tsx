@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import ApplicationFormModal from "@/components/applications/ApplicationFormModal";
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
 import ApplicationTable from "@/components/applications/ApplicationTable";
@@ -22,7 +23,8 @@ function pageNumbers(current: number, total: number): (number | "…")[] {
   return pages;
 }
 
-export default function PortalApplicationsPage() {
+function PortalApplicationsContent() {
+  const initialQuery = useSearchParams().get("q") ?? "";
   const { applications, loading, addApplication, updateApplication, removeApplication } =
     useApplications();
 
@@ -30,7 +32,7 @@ export default function PortalApplicationsPage() {
   const [editTarget, setEditTarget] = useState<Application | null>(null);
   const [viewTarget, setViewTarget] = useState<Application | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialQuery);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
   const [filterGhost, setFilterGhost] = useState<"" | "auto" | "manual">("");
@@ -271,5 +273,13 @@ export default function PortalApplicationsPage() {
         application={viewTarget}
       />
     </div>
+  );
+}
+
+export default function PortalApplicationsPage() {
+  return (
+    <Suspense fallback={<p className="text-muted text-sm">Loading…</p>}>
+      <PortalApplicationsContent />
+    </Suspense>
   );
 }

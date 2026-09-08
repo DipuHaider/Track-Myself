@@ -1,15 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, X, Briefcase } from "lucide-react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import {
+  BarChart3, Briefcase, FileText, Globe, Search,
+  Shield, User, Wrench, X,
+} from "lucide-react";
+import { GROUP_LABELS, GROUP_ORDER, type SearchGroupKey } from "@/lib/searchIndex";
 
-type AppResult = {
-  _id: string;
-  companyName: string;
-  jobTitle: string;
-  applicationStatus: string;
+type SearchHit = {
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+  badge?: string;
+  group: SearchGroupKey;
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -21,23 +27,40 @@ const STATUS_COLOR: Record<string, string> = {
   "Rejected": "status-rejected",
 };
 
-function statusClass(s: string) {
-  if (s.startsWith("Active")) return "status-active";
-  return STATUS_COLOR[s] ?? "status-wishlist";
+const GROUP_ICON: Record<SearchGroupKey, React.ReactNode> = {
+  applications: <Briefcase size={15} />,
+  documents: <FileText size={15} />,
+  users: <User size={15} />,
+  portal: <User size={15} />,
+  dashboard: <BarChart3 size={15} />,
+  tools: <Wrench size={15} />,
+  pages: <Globe size={15} />,
+};
+
+const ROLE_BADGES = new Set(["superadmin", "admin", "editor", "paid", "free"]);
+
+function badgeClass(group: SearchGroupKey, badge: string) {
+  if (group === "users") return ROLE_BADGES.has(badge) ? `role-${badge}` : "status-wishlist";
+  if (badge.startsWith("Active")) return "status-active";
+  return STATUS_COLOR[badge] ?? "status-wishlist";
 }
+
+const SCOPE_HINT: Record<string, string> = {
+  public: "Searching pages and tools. Sign in to search your applications and documents.",
+  account: "Searching pages, your applications and your documents.",
+  platform: "Searching pages, every user's applications, users and your documents.",
+};
 
 export default function SiteSearch() {
   const { data: session } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const isBackend = role === "superadmin" || role === "admin" || role === "editor";
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<AppResult[]>([]);
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [scope, setScope] = useState<string>(session ? "account" : "public");
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Ctrl+K / Cmd+K shortcut
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -54,48 +77,51 @@ export default function SiteSearch() {
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
 
-  // Debounced search
   useEffect(() => {
-    if (!query.trim()) { setResults([]); return; }
-    const t = setTimeout(async () => {
+    const term = query.trim();
+    const timer = setTimeout(async () => {
+      if (!term) {
+        setHits([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
-        const res = await fetch(`/api/applications?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
         if (res.ok) {
-          const data: AppResult[] = await res.json();
-          setResults(data.slice(0, 6));
+          const data = await res.json();
+          setHits(Array.isArray(data.hits) ? data.hits : []);
+          if (data.scope && data.scope !== "empty") setScope(data.scope);
         }
+      } catch {
+        setHits([]);
       } finally {
         setLoading(false);
       }
-    }, 280);
-    return () => clearTimeout(t);
+    }, 240);
+
+    return () => clearTimeout(timer);
   }, [query]);
 
-  const close = () => { setOpen(false); setQuery(""); setResults([]); };
+  const close = () => { setOpen(false); setQuery(""); setHits([]); };
 
-  // Link target depends on role
-  const appHref = (id: string) =>
-    isBackend ? `/applications/${id}` : `/me`;
-
-  if (!session) return null;
+  const grouped = GROUP_ORDER
+    .map((group) => ({ group, items: hits.filter((h) => h.group === group) }))
+    .filter((g) => g.items.length > 0);
 
   return (
     <>
-      {/* Trigger button */}
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm text-muted transition hover:bg-[var(--surface-2)]"
-        aria-label="Search"
+        className="text-muted flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition hover:bg-[var(--surface-2)]"
+        aria-label="Search the site"
       >
-        <Search size={14} />
+        <Search size={14} aria-hidden="true" />
         <span className="hidden md:block">Search…</span>
-        <kbd className="hidden rounded border px-1 py-0.5 font-mono text-[10px] md:block">
-          ⌘K
-        </kbd>
+        <kbd className="hidden rounded border px-1 py-0.5 font-mono text-[10px] md:block">⌘K</kbd>
       </button>
 
-      {/* Modal overlay */}
       {open && (
         <div
           className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-20"
@@ -103,61 +129,75 @@ export default function SiteSearch() {
           onClick={(e) => e.target === e.currentTarget && close()}
         >
           <div className="surface w-full max-w-lg overflow-hidden rounded-xl border shadow-2xl">
-            {/* Input */}
             <div className="flex items-center gap-3 border-b px-4 py-3">
-              <Search size={15} className="text-muted shrink-0" />
+              <Search size={15} className="text-muted shrink-0" aria-hidden="true" />
               <input
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search applications…"
+                placeholder={session ? "Search pages, applications, documents…" : "Search pages and tools…"}
                 className="flex-1 bg-transparent text-sm outline-none"
+                aria-label="Search query"
               />
-              {loading && (
-                <span className="text-muted text-xs">Searching…</span>
-              )}
-              <button onClick={close} className="text-muted hover:text-foreground transition">
+              {loading && <span className="text-muted text-xs">Searching…</span>}
+              <button
+                type="button"
+                onClick={close}
+                className="text-muted transition hover:text-foreground"
+                aria-label="Close search"
+              >
                 <X size={15} />
               </button>
             </div>
 
-            {/* Results */}
-            {results.length > 0 && (
-              <ul className="max-h-72 overflow-y-auto p-2">
-                {results.map((app) => (
-                  <li key={app._id}>
-                    <Link
-                      href={appHref(app._id)}
-                      onClick={close}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition hover:bg-[var(--surface-2)]"
-                    >
-                      <Briefcase size={15} className="text-muted shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{app.companyName}</p>
-                        <p className="text-muted truncate text-xs">{app.jobTitle}</p>
-                      </div>
-                      <span className={`role-badge shrink-0 text-xs ${statusClass(app.applicationStatus)}`}>
-                        {app.applicationStatus}
-                      </span>
-                    </Link>
-                  </li>
+            {grouped.length > 0 && (
+              <div className="max-h-96 overflow-y-auto p-2">
+                {grouped.map(({ group, items }) => (
+                  <div key={group} className="mb-1 last:mb-0">
+                    <p className="text-muted px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide">
+                      {GROUP_LABELS[group]}
+                    </p>
+                    <ul role="list">
+                      {items.map((hit) => (
+                        <li key={`${hit.group}-${hit.id}`}>
+                          <Link
+                            href={hit.href}
+                            onClick={close}
+                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition hover:bg-[var(--surface-2)]"
+                          >
+                            <span className="text-muted shrink-0" aria-hidden="true">
+                              {GROUP_ICON[hit.group]}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">{hit.title}</span>
+                              <span className="text-muted block truncate text-xs">{hit.subtitle}</span>
+                            </span>
+                            {hit.badge && (
+                              <span className={`role-badge shrink-0 text-xs ${badgeClass(hit.group, hit.badge)}`}>
+                                {hit.badge}
+                              </span>
+                            )}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
 
-            {/* Empty state */}
-            {query.trim() && !loading && results.length === 0 && (
+            {query.trim() && !loading && grouped.length === 0 && (
               <p className="text-muted px-4 py-8 text-center text-sm">
                 No results for &ldquo;{query}&rdquo;
               </p>
             )}
 
-            {/* Hint when empty */}
-            {!query.trim() && (
-              <p className="text-muted px-4 py-6 text-center text-xs">
-                Type to search your applications…
+            <div className="surface-muted flex items-center gap-2 border-t px-4 py-2.5">
+              <Shield size={11} className="text-muted shrink-0" aria-hidden="true" />
+              <p className="text-muted text-[11px] leading-snug">
+                {SCOPE_HINT[scope] ?? SCOPE_HINT.public}
               </p>
-            )}
+            </div>
           </div>
         </div>
       )}

@@ -1,96 +1,44 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import {
-  LayoutDashboard, BarChart2, FolderOpen, Users,
-  UserCircle, Settings, LogOut, ScrollText, ShieldCheck,
+  BarChart2, FolderOpen, Home, LayoutDashboard,
+  ScrollText, Settings, ShieldCheck, UserCircle, Users,
 } from "lucide-react";
-import { isAdmin, ROLE_LABELS, type Role, type DashboardAction } from "@/lib/permissions";
+import AppSidebar, { type AppNavItem } from "@/components/layout/AppSidebar";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Logo } from "@/components/shared/Logo";
+import { isAdmin, type DashboardAction } from "@/lib/permissions";
 
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-  action?: DashboardAction;
-  adminOnly?: boolean;
-  exact?: boolean;
-};
+type DashboardNavItem = AppNavItem & { action?: DashboardAction; adminOnly?: boolean };
 
-const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard",       label: "Dashboard",    icon: <LayoutDashboard size={16} />, exact: true },
-  { href: "/applications",    label: "All Applications", icon: <FolderOpen size={16} />,  action: "view:applications" },
-  { href: "/analytics",       label: "Analytics",    icon: <BarChart2 size={16} />,        action: "view:analytics" },
-  { href: "/dashboard/cv",    label: "CV Overview",  icon: <ScrollText size={16} />,       action: "view:cv" },
-  { href: "/dashboard/users", label: "Users",        icon: <Users size={16} />,            action: "view:users" },
-  { href: "/dashboard/rbac",  label: "Access Control", icon: <ShieldCheck size={16} />,    adminOnly: true },
-  { href: "/me",              label: "My Profile",   icon: <UserCircle size={16} />,       exact: true },
-  { href: "/settings",        label: "Settings",     icon: <Settings size={16} />,         action: "view:settings" },
+const NAV_ITEMS: DashboardNavItem[] = [
+  { href: "/dashboard",       icon: LayoutDashboard, label: "Dashboard",        mobileLabel: "Home",   exact: true },
+  { href: "/applications",    icon: FolderOpen,      label: "All Applications", mobileLabel: "Apps",   action: "view:applications" },
+  { href: "/analytics",       icon: BarChart2,       label: "Analytics",        mobileLabel: "Stats",  action: "view:analytics" },
+  { href: "/dashboard/cv",    icon: ScrollText,      label: "CV Overview",      mobileLabel: "CV",     action: "view:cv" },
+  { href: "/dashboard/users", icon: Users,           label: "Users",            mobileLabel: "Users",  action: "view:users" },
+  { href: "/dashboard/rbac",  icon: ShieldCheck,     label: "Access Control",   mobileLabel: "Access", adminOnly: true },
+  { href: "/settings",        icon: Settings,        label: "Settings",         mobileLabel: "Setup",  action: "view:settings" },
+  { href: "/me",              icon: UserCircle,      label: "My Profile",       mobileLabel: "Me",     exact: true },
+  { href: "/",                icon: Home,            label: "Home",             mobileLabel: "Home",   exact: true, hideMobile: true },
 ];
 
 export default function Sidebar() {
   const { data: session } = useSession();
-  const pathname = usePathname();
   const role = (session?.user as { role?: string } | undefined)?.role ?? "";
-  const displayName = session?.user?.name ?? "User";
   const { can } = usePermissions();
 
-  const visibleLinks = NAV_ITEMS.filter((item) => {
+  const items = NAV_ITEMS.filter((item) => {
     if (item.adminOnly && !isAdmin(role)) return false;
     return !item.action || can(item.action);
   });
 
-  function isActive(item: NavItem) {
-    if (item.exact) return pathname === item.href;
-    return pathname === item.href || pathname.startsWith(item.href + "/");
-  }
-
   return (
-    <aside className="surface hidden w-56 shrink-0 flex-col border-r p-4 md:flex">
-      {/* Branding */}
-      <div className="mb-3">
-        <Logo size={26} textSize="text-sm" />
-      </div>
-
-      {/* Current user pill */}
-      <div className="mb-5 flex flex-wrap items-center gap-1.5">
-        <span className={`role-badge role-${role} text-[10px]`}>
-          {ROLE_LABELS[role as Role] ?? role}
-        </span>
-        <span className="text-muted truncate text-xs">{displayName}</span>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 space-y-0.5" aria-label="Dashboard navigation">
-        {visibleLinks.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={isActive(item) ? "page" : undefined}
-            className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition ${
-              isActive(item)
-                ? "bg-[var(--primary)] font-medium text-white"
-                : "hover:bg-[var(--surface-2)]"
-            }`}
-          >
-            <span aria-hidden="true">{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-
-      {/* Sign out */}
-      <button
-        type="button"
-        onClick={() => signOut({ callbackUrl: "/login" })}
-        className="text-muted mt-4 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition hover:bg-[var(--surface-2)] hover:text-red-600"
-      >
-        <LogOut size={16} />
-        Sign out
-      </button>
-    </aside>
+    <AppSidebar
+      items={items}
+      storageKey="dashboard-sidebar"
+      ariaLabel="Dashboard navigation"
+      signOutTo="/login"
+    />
   );
 }

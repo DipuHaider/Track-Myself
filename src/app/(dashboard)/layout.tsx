@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/serverAuth";
 import { isEditor } from "@/lib/permissions";
 import SiteHeader from "@/components/site/SiteHeader";
-import MobileNav from "@/components/layout/MobileNav";
 import Sidebar from "@/components/layout/Sidebar";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
@@ -15,10 +14,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <SiteHeader />
       <div className="flex min-h-screen pt-14">
         <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <MobileNav />
-          <main className="flex-1 p-6">{children}</main>
-        </div>
+        <main className="min-w-0 flex-1 overflow-auto p-6 pb-20 md:pb-6">{children}</main>
       </div>
     </>
   );
