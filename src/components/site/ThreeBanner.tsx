@@ -13,6 +13,8 @@ export default function ThreeBanner() {
   const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
     const container = mountRef.current!;
     let width = container.clientWidth;
     let height = container.clientHeight;

@@ -1,62 +1,17 @@
 import Link from "next/link";
 import { ImageIcon, Scissors, ScanText, ArrowRight, Eraser, Sparkles, Layers } from "lucide-react";
+import { SITE_TOOLS, type SiteTool } from "@/lib/siteTools";
 
-const TOOLS = [
-  {
-    href: "/tools/bg-remover",
-    icon: Eraser,
-    color: "#8b5cf6",
-    title: "Background Remover",
-    description:
-      "Cut the background out of any photo with on-device AI, drop in a colour of your choice, and download an optimised image. Premium unlocks full resolution and every format.",
-    badge: "Client-side AI",
-  },
-  {
-    href: "/tools/profile-image",
-    icon: Sparkles,
-    color: "#0ea5e9",
-    title: "Profile Image Generator",
-    description:
-      "Turn a photo into a clean headshot — background removed, lighting auto-corrected, cropped to circle, rounded or square at the exact size LinkedIn, GitHub and your CV expect.",
-    badge: "Client-side AI",
-  },
-  {
-    href: "/tools/banner-generator",
-    icon: Layers,
-    color: "#f97316",
-    title: "Banner Generator & Resizer",
-    description:
-      "Describe yourself and get a profile banner at the exact size LinkedIn, GitHub and X expect — safe zones drawn on, or resize a photo you already have.",
-    badge: "Client-side",
-  },
-  {
-    href: "/tools/image-optimizer",
-    icon: ImageIcon,
-    color: "#6366f1",
-    title: "Image Optimizer",
-    description:
-      "Compress JPEG, PNG and WebP images right in your browser. Adjust quality, convert formats, and download instantly — no upload to any server.",
-    badge: "Client-side",
-  },
-  {
-    href: "/tools/pdf-splitter",
-    icon: Scissors,
-    color: "#10b981",
-    title: "PDF Splitter",
-    description:
-      "Extract specific pages from a PDF file. Enter a page range like 1-3, 5, 8-10 and download the extracted document — works entirely in your browser.",
-    badge: "Client-side",
-  },
-  {
-    href: "/tools/jd-analyzer",
-    icon: ScanText,
-    color: "#f97316",
-    title: "JD Analyser",
-    description:
-      "Paste any job description and instantly extract technical skills, soft skills, seniority level, work type, and the top keywords to mirror in your CV.",
-    badge: "Client-side",
-  },
-] as const;
+const ICONS: Record<SiteTool["icon"], React.ComponentType<{ size?: number }>> = {
+  image: ImageIcon,
+  scissors: Scissors,
+  scan: ScanText,
+  eraser: Eraser,
+  sparkles: Sparkles,
+  layers: Layers,
+};
+
+const TOOLS = SITE_TOOLS;
 
 export default function ToolsPage() {
   return (
@@ -71,7 +26,9 @@ export default function ToolsPage() {
 
       {/* Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {TOOLS.map(({ href, icon: Icon, color, title, description, badge }) => (
+        {TOOLS.map(({ href, icon, color, title, description, badge }) => {
+          const Icon = ICONS[icon];
+          return (
           <Link
             key={href}
             href={href}
@@ -104,7 +61,8 @@ export default function ToolsPage() {
               Open tool <ArrowRight size={15} />
             </div>
           </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

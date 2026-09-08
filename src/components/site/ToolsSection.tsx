@@ -1,119 +1,91 @@
 import Link from "next/link";
-import { ArrowRight, ImageIcon, Scissors, ScanText, Zap } from "lucide-react";
+import {
+  ArrowRight, Eraser, ImageIcon, Layers, ScanText, Scissors, Sparkles,
+} from "lucide-react";
+import { SITE_TOOLS, type SiteTool } from "@/lib/siteTools";
 
-const TOOLS = [
-  {
-    href: "/tools/image-optimizer",
-    icon: ImageIcon,
-    color: "#6366f1",
-    gradient: "from-indigo-500/10 to-purple-500/5",
-    title: "Image Optimizer",
-    description:
-      "Compress JPEG, PNG and WebP images right in your browser. Adjust quality, pick output format, and download — nothing ever leaves your device.",
-    tags: ["JPEG", "PNG", "WebP"],
-  },
-  {
-    href: "/tools/pdf-splitter",
-    icon: Scissors,
-    color: "#10b981",
-    gradient: "from-emerald-500/10 to-teal-500/5",
-    title: "PDF Splitter",
-    description:
-      "Extract any pages from a PDF by entering a range like 1-3, 5, 8-10. Or split every page into its own file. Pure browser — no server involved.",
-    tags: ["Extract pages", "Split", "PDF"],
-  },
-  {
-    href: "/tools/jd-analyzer",
-    icon: ScanText,
-    color: "#f97316",
-    gradient: "from-orange-500/10 to-amber-500/5",
-    title: "JD Analyser",
-    description:
-      "Paste a job description and instantly see every technical skill, soft skill, seniority signal, and keyword you should mirror in your CV and cover letter.",
-    tags: ["Skills", "Keywords", "ATS"],
-  },
-] as const;
+const ICONS: Record<SiteTool["icon"], React.ComponentType<{ size?: number }>> = {
+  image: ImageIcon,
+  scissors: Scissors,
+  scan: ScanText,
+  eraser: Eraser,
+  sparkles: Sparkles,
+  layers: Layers,
+};
 
 export default function ToolsSection() {
   return (
-    <section id="tools" className="mx-auto max-w-6xl px-6 py-20">
-      {/* Heading */}
-      <div className="mb-12 text-center">
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium"
-          style={{ color: "var(--primary)", borderColor: "var(--primary)" }}
-        >
-          <Zap size={11} />
-          Free Utilities
-        </span>
-        <h2 className="mt-3 text-3xl font-bold">Built-in Tools</h2>
-        <p className="text-muted mt-2 text-sm">
-          Browser-based utilities — your files never leave your device
-        </p>
-      </div>
+    <section id="tools" className="surface-muted border-y">
+      <div className="mx-auto max-w-6xl px-6 py-24">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+              Six tools · no account
+            </p>
+            <h2 className="mt-3 text-3xl font-bold" style={{ textWrap: "balance" }}>
+              The bits of a job hunt<br />nobody warns you about.
+            </h2>
+          </div>
+          <p className="text-muted max-w-sm text-sm leading-relaxed">
+            Every one of these runs inside your browser. The background remover and profile
+            generator load an on-device model — your photos are never uploaded anywhere.
+          </p>
+        </div>
 
-      {/* Tool cards */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {TOOLS.map(({ href, icon: Icon, color, gradient, title, description, tags }) => (
-          <Link
-            key={href}
-            href={href}
-            className={`surface group relative overflow-hidden rounded-2xl border p-7 transition hover:-translate-y-0.5 hover:shadow-lg`}
-          >
-            {/* Subtle gradient blob */}
-            <div
-              className={`absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gradient-to-br ${gradient} blur-2xl transition group-hover:scale-125`}
-            />
-
-            <div className="relative">
-              {/* Icon */}
-              <div
-                className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl"
-                style={{ background: color + "20", color }}
+        <div className="mt-12 grid gap-px overflow-hidden rounded-xl border sm:grid-cols-2 lg:grid-cols-3"
+          style={{ background: "var(--border)" }}>
+          {SITE_TOOLS.map((tool) => {
+            const Icon = ICONS[tool.icon];
+            return (
+              <Link
+                key={tool.href}
+                href={tool.href}
+                className="surface group flex flex-col gap-3 p-7 transition hover:bg-[var(--surface-2)]"
               >
-                <Icon size={22} />
-              </div>
-
-              {/* Title */}
-              <h3 className="mb-2 text-xl font-semibold">{title}</h3>
-
-              {/* Description */}
-              <p className="text-muted text-sm leading-relaxed">{description}</p>
-
-              {/* Tags */}
-              <div className="mt-4 flex flex-wrap gap-2">
-                {tags.map((tag) => (
+                <div className="flex items-start justify-between gap-3">
                   <span
-                    key={tag}
-                    className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                    style={{ background: color + "15", color }}
+                    aria-hidden="true"
+                    className="flex h-10 w-10 items-center justify-center rounded-lg"
+                    style={{ background: `${tool.color}1a`, color: tool.color }}
                   >
-                    {tag}
+                    <Icon size={19} />
                   </span>
-                ))}
-              </div>
+                  <span
+                    className="font-mono text-[10px] uppercase tracking-wider"
+                    style={{ color: tool.badge === "AI" ? tool.color : "var(--muted-foreground)" }}
+                  >
+                    {tool.badge}
+                  </span>
+                </div>
 
-              {/* CTA */}
-              <div
-                className="mt-6 flex items-center gap-1.5 text-sm font-semibold transition-all group-hover:gap-3"
-                style={{ color }}
-              >
-                Try it free <ArrowRight size={14} />
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+                <div>
+                  <h3 className="font-semibold">{tool.title}</h3>
+                  <p className="text-muted mt-0.5 text-xs">{tool.short}</p>
+                </div>
 
-      {/* View all link */}
-      <div className="mt-8 text-center">
-        <Link
-          href="/tools"
-          className="inline-flex items-center gap-1.5 text-sm font-medium transition hover:underline"
-          style={{ color: "var(--primary)" }}
-        >
-          View all tools <ArrowRight size={13} />
-        </Link>
+                <p className="text-muted flex-1 text-sm leading-relaxed">{tool.description}</p>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {tool.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-muted rounded border px-1.5 py-0.5 font-mono text-[10px]"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <span
+                  className="mt-1 flex items-center gap-1.5 text-sm font-semibold transition-all group-hover:gap-2.5"
+                  style={{ color: tool.color }}
+                >
+                  Open <ArrowRight size={14} aria-hidden="true" />
+                </span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

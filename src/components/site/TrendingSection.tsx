@@ -1,87 +1,106 @@
-import { TrendingUp, Layers } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Copy, Ghost, Sparkles } from "lucide-react";
 
-const JOB_ROLES = [
-  { title: "Software Engineer", count: 1240, pct: 100 },
-  { title: "Product Manager", count: 870, pct: 70 },
-  { title: "Data Analyst", count: 720, pct: 58 },
-  { title: "UX Designer", count: 610, pct: 49 },
-  { title: "DevOps Engineer", count: 540, pct: 44 },
-  { title: "Marketing Specialist", count: 430, pct: 35 },
+const PIPELINE = [
+  { status: "Wishlist",            cls: "status-wishlist",  note: "Roles worth a look, before you commit an evening to the application." },
+  { status: "Submitted",           cls: "status-submitted", note: "Sent. The clock starts here — this is what most spreadsheets stop tracking." },
+  { status: "No Response",         cls: "status-no-resp",   note: "Silence. Flagged automatically once it passes 45 days." },
+  { status: "Interview Scheduled", cls: "status-interview", note: "A date in the calendar, with the job ad and your CV attached to it." },
+  { status: "Active",              cls: "status-active",    note: "Written, HR, technical, cultural fit — each round tracked separately." },
+  { status: "Offer Received",      cls: "status-offer",     note: "The number that matters, next to the four that did not work out." },
+  { status: "Rejected",            cls: "status-rejected",  note: "Closed, but kept. Patterns only show up across the whole history." },
 ];
 
-const PLATFORMS = [
-  { name: "LinkedIn", pct: 62, color: "#0a66c2" },
-  { name: "Company Website", pct: 48, color: "#7c3aed" },
-  { name: "Indeed", pct: 35, color: "#003a9b" },
-  { name: "Facebook Group", pct: 22, color: "#1877f2" },
-  { name: "Glassdoor", pct: 18, color: "#0caa41" },
-  { name: "Referral", pct: 15, color: "#f97316" },
+const SIGNALS = [
+  {
+    icon: Ghost,
+    tint: "#f59e0b",
+    title: "Ghost listings, flagged",
+    body: "An application sitting in Submitted or No Response for 45 days is marked automatically. You stop waiting on roles that were never going to answer.",
+  },
+  {
+    icon: Copy,
+    tint: "#e11d48",
+    title: "Duplicates, caught on entry",
+    body: "Applying twice to the same company and title is embarrassing and common. Matching entries are flagged before you send.",
+  },
+  {
+    icon: Sparkles,
+    tint: "#7c3aed",
+    title: "One CV, every format",
+    body: "Fill in your details once and export ATS, Europass, Designer and a tailored resume — as real Word files, not HTML wearing a .doc extension.",
+  },
 ];
 
 export default function TrendingSection() {
   return (
-    <section id="trending" className="mx-auto max-w-6xl px-6 py-20">
-      <div className="mb-12 text-center">
-        <span className="rounded-full border px-3 py-1 text-xs font-medium" style={{ color: "var(--primary)", borderColor: "var(--primary)" }}>
-          Live Insights
-        </span>
-        <h2 className="mt-3 text-3xl font-bold">What&apos;s Trending</h2>
-        <p className="text-muted mt-2 text-sm">Based on applications tracked across the platform</p>
-      </div>
+    <section id="trending" className="mx-auto max-w-6xl px-6 py-24">
+      <div className="grid gap-14 lg:grid-cols-[1fr_1.15fr] lg:gap-16">
+        {/* ── Pipeline ── */}
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+            The pipeline
+          </p>
+          <h2 className="mt-3 text-3xl font-bold" style={{ textWrap: "balance" }}>
+            Ten stages, because
+            <br />
+            &ldquo;applied&rdquo; is not a status.
+          </h2>
+          <p className="text-muted mt-4 max-w-md text-sm leading-relaxed">
+            A job hunt is not a to-do list. It is a pipeline with stalls, silences and
+            second rounds, and the useful information lives in the gaps between stages.
+          </p>
 
-      <div className="grid gap-8 md:grid-cols-2">
-        {/* Trending Job Roles */}
-        <div className="surface rounded-2xl border p-6">
-          <div className="mb-5 flex items-center gap-2">
-            <TrendingUp size={18} style={{ color: "var(--primary)" }} />
-            <h3 className="font-semibold">Top Job Roles Being Tracked</h3>
-          </div>
-          <ul className="space-y-3">
-            {JOB_ROLES.map((role, i) => (
-              <li key={role.title}>
-                <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    <span className="text-muted w-4 text-xs font-bold">#{i + 1}</span>
-                    {role.title}
-                  </span>
-                  <span className="text-muted text-xs">{role.count.toLocaleString()} apps</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${role.pct}%`,
-                      background: "linear-gradient(90deg, var(--primary), var(--accent))",
-                    }}
-                  />
-                </div>
+          <ol className="mt-8 space-y-0">
+            {PIPELINE.map((step, i) => (
+              <li
+                key={step.status}
+                className="grid grid-cols-[2.5rem_9.5rem_1fr] items-baseline gap-3 border-t py-3.5"
+              >
+                <span className="text-muted font-mono text-[11px] tabular-nums">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className={`role-badge ${step.cls} justify-self-start whitespace-nowrap`}>
+                  {step.status}
+                </span>
+                <span className="text-muted text-xs leading-relaxed">{step.note}</span>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
 
-        {/* Top Platforms */}
-        <div className="surface rounded-2xl border p-6">
-          <div className="mb-5 flex items-center gap-2">
-            <Layers size={18} style={{ color: "var(--accent)" }} />
-            <h3 className="font-semibold">Most Used Platforms</h3>
-          </div>
-          <ul className="space-y-3">
-            {PLATFORMS.map((p) => (
-              <li key={p.name}>
-                <div className="mb-1 flex items-center justify-between text-sm">
-                  <span>{p.name}</span>
-                  <span className="text-muted text-xs font-medium">{p.pct}%</span>
+        {/* ── What it catches ── */}
+        <div className="lg:pt-14">
+          <div className="space-y-4">
+            {SIGNALS.map(({ icon: Icon, tint, title, body }) => (
+              <article
+                key={title}
+                className="surface flex gap-4 rounded-xl border p-6"
+                style={{ borderLeft: `3px solid ${tint}` }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                  style={{ background: `${tint}1a`, color: tint }}
+                >
+                  <Icon size={17} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold">{title}</h3>
+                  <p className="text-muted mt-1.5 text-sm leading-relaxed">{body}</p>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${p.pct}%`, background: p.color }}
-                  />
-                </div>
-              </li>
+              </article>
             ))}
-          </ul>
+          </div>
+
+          <Link
+            href="/register"
+            className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold transition hover:gap-2.5"
+            style={{ color: "var(--primary)" }}
+          >
+            Track your first application
+            <ArrowRight size={14} aria-hidden="true" />
+          </Link>
         </div>
       </div>
     </section>
