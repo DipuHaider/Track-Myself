@@ -9,7 +9,7 @@ import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 
 export default function UserMenu({
-  name, email, image, role, plan, isBackendUser,
+  name, email, image, role, plan, isBackendUser, navLinks = [],
 }: {
   name: string;
   email: string;
@@ -17,6 +17,7 @@ export default function UserMenu({
   role: string;
   plan: string;
   isBackendUser: boolean;
+  navLinks?: { label: string; href: string }[];
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -69,6 +70,22 @@ export default function UserMenu({
               <p className="text-muted truncate text-[11px]">{email}</p>
             </div>
           </div>
+
+          {navLinks.length > 0 && (
+            <div className="border-b p-1.5 md:hidden">
+              {navLinks.map(({ label, href }) => (
+                <a
+                  key={label}
+                  href={href}
+                  role="menuitem"
+                  onClick={close}
+                  className="block rounded-md px-3 py-2 text-sm transition hover:bg-[var(--surface-2)]"
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+          )}
 
           <div className="p-1.5">
             {isBackendUser && (

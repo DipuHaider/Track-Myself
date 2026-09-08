@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
-import { LayoutDashboard, LogOut, Menu, UserCircle, X } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Menu, X } from "lucide-react";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import SiteSearch from "@/components/site/SiteSearch";
 import UserMenu from "@/components/site/UserMenu";
@@ -52,6 +52,7 @@ export default function SiteHeader() {
               image={user?.image ?? ""}
               role={role ?? ""}
               plan={user?.plan ?? "free"}
+              navLinks={SITE_NAV}
               isBackendUser={isBackendUser}
             />
           ) : (
@@ -59,32 +60,37 @@ export default function SiteHeader() {
               <ThemeToggle />
               <Link
                 href="/login"
-                className="hidden rounded-md border px-4 py-1.5 text-sm transition hover:bg-[var(--surface-2)] sm:inline-flex"
+                className="hidden rounded-md border px-4 py-1.5 text-sm transition hover:bg-[var(--surface-2)] md:inline-flex"
               >
                 Login
               </Link>
-              <Link href="/register" className="btn-primary rounded-md px-4 py-1.5 text-sm font-medium">
+              <Link
+                href="/register"
+                className="btn-primary hidden rounded-md px-4 py-1.5 text-sm font-medium md:inline-flex"
+              >
                 Register
               </Link>
             </>
           )}
 
           {/* Mobile hamburger */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            aria-controls="site-mobile-menu"
-            className="flex h-8 w-8 items-center justify-center rounded-md transition hover:bg-[var(--surface-2)] md:hidden"
-          >
-            {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
-          </button>
+          {!session && (
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-controls="site-mobile-menu"
+              className="flex h-8 w-8 items-center justify-center rounded-md transition hover:bg-[var(--surface-2)] md:hidden"
+            >
+              {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── Mobile nav panel ── */}
-      {menuOpen && (
+      {/* ── Mobile nav panel (signed-out only; signed-in users get the account menu) ── */}
+      {menuOpen && !session && (
         <div id="site-mobile-menu" className="surface border-t md:hidden">
           <nav aria-label="Mobile site navigation" className="px-6 py-4">
             <ul className="space-y-0.5" role="list">
@@ -103,57 +109,22 @@ export default function SiteHeader() {
 
             <hr className="my-3" style={{ borderColor: "var(--border)" }} />
 
-            {session ? (
-              <ul className="space-y-0.5" role="list">
-                <li><ThemeToggle variant="menu" onToggled={close} /></li>
-                {isBackendUser && (
-                  <li>
-                    <Link
-                      href="/dashboard"
-                      onClick={close}
-                      className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm transition hover:bg-[var(--surface-2)]"
-                    >
-                      <LayoutDashboard size={15} aria-hidden="true" /> Dashboard
-                    </Link>
-                  </li>
-                )}
-                <li>
-                  <Link
-                    href="/me"
-                    onClick={close}
-                    className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm transition hover:bg-[var(--surface-2)]"
-                  >
-                    <UserCircle size={15} aria-hidden="true" /> My Profile
-                  </Link>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => { signOut({ callbackUrl: "/" }); close(); }}
-                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-sm text-red-500 transition hover:bg-red-50"
-                  >
-                    <LogOut size={15} aria-hidden="true" /> Sign out
-                  </button>
-                </li>
-              </ul>
-            ) : (
-              <div className="flex gap-2">
-                <Link
-                  href="/login"
-                  onClick={close}
-                  className="flex-1 rounded-md border px-4 py-2 text-center text-sm transition hover:bg-[var(--surface-2)]"
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/register"
-                  onClick={close}
-                  className="btn-primary flex-1 rounded-md px-4 py-2 text-center text-sm font-medium"
-                >
-                  Register
-                </Link>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <Link
+                href="/login"
+                onClick={close}
+                className="flex-1 rounded-md border px-4 py-2 text-center text-sm transition hover:bg-[var(--surface-2)]"
+              >
+                Login
+              </Link>
+              <Link
+                href="/register"
+                onClick={close}
+                className="btn-primary flex-1 rounded-md px-4 py-2 text-center text-sm font-medium"
+              >
+                Register
+              </Link>
+            </div>
           </nav>
         </div>
       )}

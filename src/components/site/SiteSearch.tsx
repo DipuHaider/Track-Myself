@@ -114,12 +114,12 @@ export default function SiteSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-muted flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition hover:bg-[var(--surface-2)]"
+        className="text-muted flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm transition hover:bg-[var(--surface-2)] md:min-w-[17rem]"
         aria-label="Search the site"
       >
-        <Search size={14} aria-hidden="true" />
+        <Search size={18} aria-hidden="true" />
         <span className="hidden md:block">Search…</span>
-        <kbd className="hidden rounded border px-1 py-0.5 font-mono text-[10px] md:block">⌘K</kbd>
+        <kbd className="ml-auto hidden rounded border px-1.5 py-0.5 font-mono text-[11px] md:block">⌘K</kbd>
       </button>
 
       {open && (
@@ -128,7 +128,7 @@ export default function SiteSearch() {
           style={{ background: "rgba(0,0,0,0.55)" }}
           onClick={(e) => e.target === e.currentTarget && close()}
         >
-          <div className="surface w-full max-w-lg overflow-hidden rounded-xl border shadow-2xl">
+          <div className="surface w-full max-w-2xl overflow-hidden rounded-xl border shadow-2xl">
             <div className="flex items-center gap-3 border-b px-4 py-3">
               <Search size={15} className="text-muted shrink-0" aria-hidden="true" />
               <input
