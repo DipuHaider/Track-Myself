@@ -74,7 +74,7 @@ export default function AppSidebar({
       {/* ── Desktop sidebar (hidden on mobile) ── */}
       <aside
         aria-label={ariaLabel}
-        className="surface relative hidden shrink-0 flex-col border-r transition-[width] duration-300 md:flex"
+        className="glass-nav relative hidden shrink-0 flex-col border-r transition-[width] duration-300 md:flex"
         style={{ width: collapsed ? "3.5rem" : "14rem" }}
       >
         {/* Header */}
@@ -166,7 +166,7 @@ export default function AppSidebar({
       {/* ── Mobile bottom nav (visible only on mobile) ── */}
       <nav
         aria-label={ariaLabel}
-        className="surface fixed bottom-0 left-0 right-0 z-40 flex border-t md:hidden"
+        className="glass-nav fixed bottom-0 left-0 right-0 z-40 flex border-t md:hidden"
       >
         {items.filter((n) => !n.hideMobile).slice(0, MOBILE_NAV_MAX).map((item) => {
           const { href, icon: Icon, mobileLabel } = item;

@@ -64,7 +64,7 @@ export default function UserStatsSection() {
             <StatPill label="Free Members" value={byRole("free")} />
           </div>
 
-          <div className="surface rounded-lg border">
+          <div className="glass overflow-hidden rounded-lg">
             <div className="border-b px-5 py-3">
               <h3 className="font-semibold">Recent Signups</h3>
             </div>

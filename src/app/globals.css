@@ -1,25 +1,50 @@
 @import "tailwindcss";
 
+/* ── Palette: Cobalt & Iris on cool paper ──────────────────────────────
+   ink #0f1729 · paper #eceff7 · cobalt #3457d5 · iris #7c5cf0 · slate #55617a
+   Light is the default; dark is opt-in via [data-theme="dark"].
+   ------------------------------------------------------------------- */
 :root {
-  --background: #f4f6ff;
+  --background: #eceff7;
   --surface: #ffffff;
-  --surface-2: #eef1ff;
-  --foreground: #111827;
-  --muted-foreground: #4b5563;
-  --primary: #4169e1;
-  --accent: #7c3aed;
-  --border: #cfd8ff;
+  --surface-2: #e4e9f5;
+  --foreground: #0f1729;
+  --muted-foreground: #55617a;
+  --primary: #3457d5;
+  --accent: #7c5cf0;
+  --border: #d3dbef;
+
+  /* Ambient wash — gives backdrop-filter something to sample */
+  --wash-1: rgba(52, 87, 213, 0.13);
+  --wash-2: rgba(124, 92, 240, 0.11);
+
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-soft: rgba(255, 255, 255, 0.42);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-hairline: rgba(15, 23, 41, 0.08);
+  --glass-shadow: 0 8px 32px rgba(15, 23, 41, 0.08);
+  --glass-blur: 16px;
 }
 
 :root[data-theme="dark"] {
-  --background: #111317;
-  --surface: #1b1f2a;
-  --surface-2: #242a38;
-  --foreground: #f3f4f6;
-  --muted-foreground: #c3cad6;
-  --primary: #5f83ff;
+  --background: #0a0e17;
+  --surface: #141a28;
+  --surface-2: #1d2536;
+  --foreground: #e9edf8;
+  --muted-foreground: #9aa6bf;
+  --primary: #6d8cff;
   --accent: #a78bfa;
-  --border: #333a4c;
+  --border: #28324a;
+
+  --wash-1: rgba(109, 140, 255, 0.10);
+  --wash-2: rgba(167, 139, 250, 0.08);
+
+  --glass-bg: rgba(20, 26, 40, 0.58);
+  --glass-bg-soft: rgba(20, 26, 40, 0.38);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-hairline: rgba(255, 255, 255, 0.07);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.42);
 }
 
 @theme inline {
@@ -30,9 +55,57 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(900px 520px at 8% -8%, var(--wash-1), transparent 62%),
+    radial-gradient(760px 460px at 98% 4%, var(--wash-2), transparent 58%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* ── Glass surfaces ── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-soft {
+  background: var(--glass-bg-soft);
+  backdrop-filter: blur(10px) saturate(1.25);
+  -webkit-backdrop-filter: blur(10px) saturate(1.25);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-nav {
+  background: var(--glass-bg);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  border-color: var(--glass-hairline);
+}
+
+/* Inner rules inside glass stay faint; :where() keeps specificity at 0
+   so a component can still override them. */
+.glass :where(tr, thead, tbody, .border-t, .border-b),
+.glass-nav :where(tr, thead, tbody, .border-t, .border-b) {
+  border-color: var(--glass-hairline);
+}
+
+.glass :where(.surface-muted),
+.glass-nav :where(.surface-muted) {
+  background: var(--glass-bg-soft);
+}
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .glass,
+  .glass-soft,
+  .glass-nav {
+    background: var(--surface);
+  }
 }
 
 * {

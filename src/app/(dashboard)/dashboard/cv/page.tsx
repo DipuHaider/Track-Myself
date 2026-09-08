@@ -141,7 +141,7 @@ function DashboardCVContent() {
             <StatPill label="Storage used" value={fmtBytes(totals?.storageBytes ?? 0)} />
           </section>
 
-          <section className="surface rounded-lg border">
+          <section className="glass overflow-hidden rounded-lg">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
               <h3 className="flex items-center gap-2 font-semibold">
                 <Users size={16} aria-hidden="true" />

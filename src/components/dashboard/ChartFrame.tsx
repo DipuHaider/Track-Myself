@@ -14,7 +14,7 @@ export default function ChartFrame({
   children: React.ReactNode;
 }) {
   return (
-    <section className="surface rounded-lg border p-4">
+    <section className="glass rounded-lg p-4">
       <div className="mb-3">
         <h3 className="font-semibold">{title}</h3>
         {caption && <p className="text-muted mt-0.5 text-xs">{caption}</p>}

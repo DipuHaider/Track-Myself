@@ -128,7 +128,7 @@ export default function SiteSearch() {
           style={{ background: "rgba(0,0,0,0.55)" }}
           onClick={(e) => e.target === e.currentTarget && close()}
         >
-          <div className="surface w-full max-w-2xl overflow-hidden rounded-xl border shadow-2xl">
+          <div className="glass w-full max-w-2xl overflow-hidden rounded-xl">
             <div className="flex items-center gap-3 border-b px-4 py-3">
               <Search size={15} className="text-muted shrink-0" aria-hidden="true" />
               <input

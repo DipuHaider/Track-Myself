@@ -86,7 +86,7 @@ export default function AdminUsersPage() {
       {loading ? (
         <Loading />
       ) : (
-        <div className="surface overflow-hidden rounded-lg border">
+        <div className="glass overflow-hidden rounded-lg">
           <table className="w-full text-left text-sm">
             <thead className="surface-muted">
               <tr>

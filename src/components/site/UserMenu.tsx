@@ -61,7 +61,7 @@ export default function UserMenu({
         <div
           role="menu"
           aria-label="Account"
-          className="surface absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border shadow-xl"
+          className="glass absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl"
         >
           <div className="flex items-center gap-3 border-b px-3 py-3">
             <RoleAvatar name={name} image={image} role={role} plan={plan} size={38} />

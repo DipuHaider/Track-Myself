@@ -27,7 +27,7 @@ export default function SiteHeader() {
   const close = () => setMenuOpen(false);
 
   return (
-    <header className="surface fixed top-0 right-0 left-0 z-50 border-b">
+    <header className="glass-nav fixed top-0 right-0 left-0 z-50 border-b">
       {/* ── Main bar ── */}
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
         <Logo size={30} textSize="text-base" />
@@ -91,7 +91,7 @@ export default function SiteHeader() {
 
       {/* ── Mobile nav panel (signed-out only; signed-in users get the account menu) ── */}
       {menuOpen && !session && (
-        <div id="site-mobile-menu" className="surface border-t md:hidden">
+        <div id="site-mobile-menu" className="glass-nav border-t md:hidden">
           <nav aria-label="Mobile site navigation" className="px-6 py-4">
             <ul className="space-y-0.5" role="list">
               {SITE_NAV.map(({ label, href }) => (

@@ -84,7 +84,7 @@ export default function ApplicationTable({
     saving?.id === id && saving?.field === field;
 
   return (
-    <div className="surface overflow-hidden rounded-lg border">
+    <div className="glass overflow-hidden rounded-lg">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="surface-muted">

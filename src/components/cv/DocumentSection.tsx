@@ -149,7 +149,7 @@ export default function DocumentSection({
   }
 
   return (
-    <section className="surface overflow-hidden rounded-xl border">
+    <section className="glass overflow-hidden rounded-xl">
       <div className="surface-muted flex flex-wrap items-center justify-between gap-2 border-b px-5 py-3.5">
         <div className="flex items-center gap-2.5">
           <span style={{ color: "var(--primary)" }} aria-hidden="true">

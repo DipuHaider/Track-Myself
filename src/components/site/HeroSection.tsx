@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 
-const ThreeBanner = dynamic(() => import("@/components/site/ThreeBanner"), {
+const PipelineCanvas = dynamic(() => import("@/components/site/PipelineCanvas"), {
   ssr: false,
 });
 
@@ -26,18 +26,17 @@ const FACTS = [
 export default function HeroSection() {
   return (
     <section className="relative overflow-hidden pt-14" style={{ background: "#0a0f1e" }}>
-      <ThreeBanner />
+      <PipelineCanvas />
+
+      <p className="pointer-events-none absolute bottom-4 right-6 z-10 hidden font-mono text-[10px] uppercase tracking-wider text-white/25 lg:block">
+        Click a node to advance its stage
+      </p>
 
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-40 -top-24 h-[34rem] w-[34rem] rounded-full opacity-[0.18] blur-3xl"
         style={{ background: "radial-gradient(circle, #4169e1 0%, transparent 70%)" }}
       />
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-background to-transparent"
-      />
-
       <div className="relative z-10 mx-auto grid max-w-6xl gap-14 px-6 pb-24 pt-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12">
         {/* ── Thesis ── */}
         <div>
@@ -98,27 +97,32 @@ export default function HeroSection() {
         {/* ── Product preview ── */}
         <div className="relative">
           <div
-            className="overflow-hidden rounded-xl border border-white/10 shadow-2xl"
-            style={{ background: "var(--surface)" }}
+            className="overflow-hidden rounded-xl border shadow-2xl"
+            style={{
+              background: "rgba(255,255,255,0.08)",
+              borderColor: "rgba(255,255,255,0.14)",
+              backdropFilter: "blur(18px) saturate(1.4)",
+              WebkitBackdropFilter: "blur(18px) saturate(1.4)",
+            }}
           >
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <p className="text-sm font-semibold">My Applications</p>
-              <span className="font-mono text-[11px] text-muted tabular-nums">5 tracked</span>
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <p className="text-sm font-semibold text-white">My Applications</p>
+              <span className="font-mono text-[11px] text-white/45 tabular-nums">5 tracked</span>
             </div>
 
             <table className="w-full text-left text-sm">
               <caption className="sr-only">Example of the application tracker</caption>
               <tbody>
                 {PREVIEW_ROWS.map((row) => (
-                  <tr key={row.company} className="border-t">
+                  <tr key={row.company} className="border-t border-white/[0.07]">
                     <td className="px-4 py-3">
-                      <p className="font-medium leading-tight">{row.company}</p>
-                      <p className="text-muted text-xs leading-tight">{row.role}</p>
+                      <p className="font-medium leading-tight text-white">{row.company}</p>
+                      <p className="text-xs leading-tight text-white/45">{row.role}</p>
                     </td>
                     <td className="px-2 py-3">
                       <span className={`role-badge ${row.cls} whitespace-nowrap`}>{row.status}</span>
                     </td>
-                    <td className="text-muted whitespace-nowrap px-4 py-3 text-right font-mono text-[11px] tabular-nums">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-[11px] tabular-nums text-white/40">
                       {row.day}
                     </td>
                   </tr>
@@ -126,9 +130,9 @@ export default function HeroSection() {
               </tbody>
             </table>
 
-            <div className="surface-muted flex items-center gap-2 border-t px-4 py-2.5">
+            <div className="flex items-center gap-2 border-t border-white/10 bg-white/[0.04] px-4 py-2.5">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "#f59e0b" }} />
-              <p className="text-muted text-[11px]">
+              <p className="text-[11px] text-white/50">
                 Trivago has been quiet for 45 days — flagged as a possible ghost listing.
               </p>
             </div>

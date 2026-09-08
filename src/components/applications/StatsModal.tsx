@@ -53,7 +53,7 @@ export default function StatsModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="surface w-full max-w-2xl rounded-xl border shadow-xl">
+      <div className="glass w-full max-w-2xl overflow-hidden rounded-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-5 py-4">
           <div>

@@ -132,7 +132,7 @@ export default function AppDocDropdown({ info }: { info: AppInfo }) {
           ref={dropdownRef}
           role="menu"
           style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, minWidth: "16rem" }}
-          className="surface overflow-hidden rounded-lg border shadow-xl"
+          className="glass overflow-hidden rounded-lg"
         >
           {cvEmpty && (
             <div className="flex items-start gap-2 border-b px-3 py-2.5">

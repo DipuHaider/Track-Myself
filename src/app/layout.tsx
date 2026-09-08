@@ -22,9 +22,7 @@ export default function RootLayout({
     (function() {
       try {
         var saved = localStorage.getItem("theme");
-        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        var theme = saved || (prefersDark ? "dark" : "light");
-        document.documentElement.setAttribute("data-theme", theme);
+        document.documentElement.setAttribute("data-theme", saved === "dark" ? "dark" : "light");
       } catch (e) {}
     })();
   `;
