@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import {
-  BOLT_PRESETS, MITOSIS_SPEC, MITOSIS_TYPES,
+  BIRTH_BOLT_FRAMES, BOLT_MAX_RADIUS, BOLT_PRESETS, MITOSIS_SPEC, MITOSIS_TYPES,
+  SPLIT_BOLT_FRAMES, boltColor,
   type BoltPreset, type MitosisType,
 } from "@/lib/tools/boltPresets";
 
@@ -16,7 +17,8 @@ const CURSOR_RADIUS = 190;
 const DRIFT = 0.019;
 const DAMPING = 0.982;
 const MAX_SPEED = 0.42;
-const HIT_RADIUS_SQ = 26 * 26;
+const HIT_RADIUS_SQ = 34 * 34;
+const CHARGE_MS = 1100;
 
 type Node = {
   x: number; y: number;
@@ -27,23 +29,27 @@ type Node = {
   wobble: number;
   scale: number;
   pulse: number;
-  born: number;
 };
 
 type Bolt = {
   preset: BoltPreset;
   arms: { x: number; y: number }[][];
   age: number;
+  delay: number;
+  life: number;
+  intensity: number;
 };
 
 type Mitosis = {
   type: MitosisType;
+  node: Node | null;
   x: number; y: number;
   radius: number;
   color: string;
   angle: number;
   age: number;
   duration: number;
+  reach: number;
 };
 
 function rand(min: number, max: number) {
@@ -64,11 +70,12 @@ export default function PipelineCanvas() {
     let width = 0;
     let height = 0;
     let frame = 0;
-    let tick = 0;
     let nodes: Node[] = [];
     let bolts: Bolt[] = [];
     let splits: Mitosis[] = [];
+
     const pointer = { x: -9999, y: -9999, active: false };
+    const press = { active: false, x: 0, y: 0, start: 0, target: null as Node | null };
 
     function makeNode(x: number, y: number, stage?: number): Node {
       const weighted = Math.random();
@@ -82,14 +89,12 @@ export default function PipelineCanvas() {
         wobble: rand(0.004, 0.013),
         scale: 1,
         pulse: 0,
-        born: tick,
       };
     }
 
     function resize() {
       width = host.clientWidth || window.innerWidth;
       height = host.clientHeight || 640;
-
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas!.width = Math.round(width * dpr);
       canvas!.height = Math.round(height * dpr);
@@ -131,8 +136,10 @@ export default function PipelineCanvas() {
             break;
           case "ring":
           case "star":
+            r = preset.reach * p;
+            break;
           case "crackle":
-            r = preset.reach * (preset.shape === "crackle" ? rand(0.45, 1) : 1) * p;
+            r = preset.reach * rand(0.45, 1) * p;
             break;
           case "filament":
             a = angle + Math.sin(p * Math.PI * 3 + preset.spread) * 0.35;
@@ -142,114 +149,170 @@ export default function PipelineCanvas() {
         }
 
         const jitter = preset.jitter * (1 - p * 0.35);
-        pts.push({
-          x: ox + Math.cos(a) * r + rand(-jitter, jitter),
-          y: oy + Math.sin(a) * r + rand(-jitter, jitter),
-        });
+        let dx = Math.cos(a) * r + rand(-jitter, jitter);
+        let dy = Math.sin(a) * r + rand(-jitter, jitter);
+
+        const reach = Math.hypot(dx, dy);
+        if (reach > BOLT_MAX_RADIUS) {
+          dx = (dx / reach) * BOLT_MAX_RADIUS;
+          dy = (dy / reach) * BOLT_MAX_RADIUS;
+        }
+
+        pts.push({ x: ox + dx, y: oy + dy });
       }
 
       return pts;
     }
 
-    function spawnBolt(x: number, y: number, presetIndex?: number) {
-      const preset = BOLT_PRESETS[presetIndex ?? Math.floor(Math.random() * BOLT_PRESETS.length)];
-      const base = Math.random() * Math.PI * 2;
-      const arms: { x: number; y: number }[][] = [];
+    function spawnBoltSequence(
+      x: number,
+      y: number,
+      totalFrames: number,
+      intensity: number,
+    ) {
+      const count = 2 + Math.floor(Math.random() * 3);
+      const slot = totalFrames / count;
 
-      for (let i = 0; i < preset.arms; i++) {
-        const angle =
-          preset.shape === "ring" || preset.shape === "star" || preset.shape === "crackle"
-            ? base + (i / preset.arms) * Math.PI * 2
+      for (let i = 0; i < count; i++) {
+        const preset = BOLT_PRESETS[Math.floor(Math.random() * BOLT_PRESETS.length)];
+        const base = Math.random() * Math.PI * 2;
+        const arms: { x: number; y: number }[][] = [];
+        const radial = preset.shape === "ring" || preset.shape === "star" || preset.shape === "crackle";
+
+        const ox = x + rand(-4, 4);
+        const oy = y + rand(-4, 4);
+
+        for (let a = 0; a < preset.arms; a++) {
+          const angle = radial
+            ? base + (a / preset.arms) * Math.PI * 2
             : base + rand(-0.9, 0.9) * preset.spread;
-        arms.push(buildArm(preset, x, y, angle));
+          arms.push(buildArm(preset, ox, oy, angle));
+        }
+
+        bolts.push({
+          preset,
+          arms,
+          age: 0,
+          delay: Math.round(slot * i * 0.82),
+          life: Math.round(slot * rand(1.15, 1.5)),
+          intensity,
+        });
       }
 
-      bolts.push({ preset, arms, age: 0 });
-      if (bolts.length > 26) bolts.shift();
+      while (bolts.length > 40) bolts.shift();
     }
 
-    function divide(node: Node) {
+    function divide(node: Node, intensity: number) {
       const type = MITOSIS_TYPES[Math.floor(Math.random() * MITOSIS_TYPES.length)];
       const spec = MITOSIS_SPEC[type];
       const angle = Math.random() * Math.PI * 2;
-      const color = STAGE_COLORS[node.stage];
 
       splits.push({
         type,
+        node,
         x: node.x, y: node.y,
-        radius: node.radius,
-        color,
+        radius: Math.max(node.radius, 4),
+        color: STAGE_COLORS[node.stage],
         angle,
         age: 0,
         duration: spec.duration,
+        reach: spec.reach,
       });
 
-      for (let i = 0; i < spec.bolts; i++) spawnBolt(node.x, node.y);
+      spawnBoltSequence(
+        node.x, node.y,
+        Math.round(rand(SPLIT_BOLT_FRAMES[0], SPLIT_BOLT_FRAMES[1])),
+        intensity,
+      );
 
       node.pulse = 1;
       node.vx += Math.cos(angle) * spec.separation;
       node.vy += Math.sin(angle) * spec.separation;
 
       for (let i = 0; i < spec.children; i++) {
-        if (nodes.length >= MAX_NODES) break;
+        if (nodes.length >= MAX_NODES) nodes.shift();
         const spin = angle + Math.PI + (i - (spec.children - 1) / 2) * 0.9;
         const child = makeNode(node.x, node.y, node.stage);
-        child.radius = Math.max(1.3, node.radius * rand(0.68, 0.92));
+        child.radius = Math.max(1.4, node.radius * rand(0.7, 0.95));
         child.scale = 0;
         child.vx = Math.cos(spin) * spec.separation;
         child.vy = Math.sin(spin) * spec.separation;
         nodes.push(child);
       }
-
-      while (nodes.length > MAX_NODES) nodes.shift();
     }
 
-    function seedAt(x: number, y: number) {
-      const born = Math.round(rand(2, 4));
+    function seedAt(x: number, y: number, intensity: number) {
+      const born = 2 + Math.round(intensity * 3);
       for (let i = 0; i < born; i++) {
         if (nodes.length >= MAX_NODES) nodes.shift();
         const a = Math.random() * Math.PI * 2;
-        const d = rand(4, 30);
+        const d = rand(4, 22);
         const node = makeNode(x + Math.cos(a) * d, y + Math.sin(a) * d);
         node.scale = 0;
         node.vx = Math.cos(a) * 0.7;
         node.vy = Math.sin(a) * 0.7;
         nodes.push(node);
       }
-      spawnBolt(x, y);
+
+      spawnBoltSequence(
+        x, y,
+        Math.round(rand(BIRTH_BOLT_FRAMES[0], BIRTH_BOLT_FRAMES[1])),
+        intensity,
+      );
+    }
+
+    function chargeIntensity() {
+      return Math.min(1, (performance.now() - press.start) / CHARGE_MS);
+    }
+
+    function drawCharge() {
+      if (!press.active) return;
+      const t = chargeIntensity();
+      const r = 5 + t * 20;
+
+      ctx!.beginPath();
+      ctx!.arc(press.x, press.y, r, 0, Math.PI * 2);
+      ctx!.strokeStyle = boltColor(t, 0.75);
+      ctx!.lineWidth = 1.4;
+      ctx!.shadowBlur = 10 * t;
+      ctx!.shadowColor = boltColor(t, 0.8);
+      ctx!.stroke();
+      ctx!.shadowBlur = 0;
+
+      ctx!.beginPath();
+      ctx!.arc(press.x, press.y, r * 0.35, 0, Math.PI * 2);
+      ctx!.fillStyle = boltColor(t, 0.35 + t * 0.4);
+      ctx!.fill();
     }
 
     function drawBolts() {
       for (const bolt of bolts) {
-        const { preset } = bolt;
-        const life = bolt.age / preset.life;
-        if (life >= 1) continue;
+        if (bolt.age < bolt.delay) continue;
+        const t = (bolt.age - bolt.delay) / bolt.life;
+        if (t >= 1) continue;
 
-        const fade = 1 - life;
-        const alpha = Math.sin(fade * Math.PI * 0.9);
+        const alpha = Math.sin((1 - t) * Math.PI * 0.85);
+        const { preset } = bolt;
 
         for (const arm of bolt.arms) {
           ctx!.beginPath();
           ctx!.moveTo(arm[0].x, arm[0].y);
           for (let i = 1; i < arm.length; i++) ctx!.lineTo(arm[i].x, arm[i].y);
 
-          ctx!.strokeStyle = preset.color;
-          ctx!.globalAlpha = alpha * 0.28;
-          ctx!.lineWidth = preset.width + preset.glow * 0.35;
+          ctx!.strokeStyle = boltColor(bolt.intensity, alpha * 0.3);
+          ctx!.lineWidth = preset.width + preset.glow * 0.3;
           ctx!.shadowBlur = preset.glow;
-          ctx!.shadowColor = preset.color;
+          ctx!.shadowColor = boltColor(bolt.intensity, 0.85);
           ctx!.stroke();
 
-          ctx!.globalAlpha = alpha;
+          ctx!.strokeStyle = boltColor(Math.max(0, bolt.intensity - 0.35), alpha);
           ctx!.lineWidth = preset.width;
           ctx!.shadowBlur = 0;
           ctx!.stroke();
         }
-
-        ctx!.globalAlpha = 1;
       }
 
-      bolts = bolts.filter((b) => b.age < b.preset.life);
+      bolts = bolts.filter((b) => b.age < b.delay + b.life);
     }
 
     function drawSplits() {
@@ -258,77 +321,84 @@ export default function PipelineCanvas() {
         if (t >= 1) continue;
 
         const ease = 1 - Math.pow(1 - t, 3);
-        const fade = 1 - t;
-        ctx!.globalAlpha = fade;
+        const fade = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88;
+        const r = s.radius;
+        const reach = s.reach;
+
         ctx!.strokeStyle = s.color;
         ctx!.fillStyle = s.color;
+        ctx!.globalAlpha = fade;
 
         if (s.type === "fission") {
-          const gap = ease * s.radius * 6;
-          const r = s.radius * (1 - t * 0.25);
+          const gap = ease * reach * 0.5;
           for (const dir of [-1, 1]) {
+            ctx!.globalAlpha = fade * 0.55;
             ctx!.beginPath();
-            ctx!.arc(s.x + Math.cos(s.angle) * gap * dir, s.y + Math.sin(s.angle) * gap * dir, r, 0, Math.PI * 2);
-            ctx!.globalAlpha = fade * 0.5;
+            ctx!.arc(s.x + Math.cos(s.angle) * gap * dir, s.y + Math.sin(s.angle) * gap * dir, r * 2.1, 0, Math.PI * 2);
             ctx!.fill();
           }
-          ctx!.globalAlpha = fade * (1 - ease);
-          ctx!.lineWidth = Math.max(0.4, r * (1 - ease));
+          ctx!.globalAlpha = fade * (1 - ease) * 0.9;
+          ctx!.lineWidth = Math.max(0.6, r * 2 * (1 - ease));
           ctx!.beginPath();
           ctx!.moveTo(s.x - Math.cos(s.angle) * gap, s.y - Math.sin(s.angle) * gap);
           ctx!.lineTo(s.x + Math.cos(s.angle) * gap, s.y + Math.sin(s.angle) * gap);
           ctx!.stroke();
         } else if (s.type === "budding") {
-          const d = ease * s.radius * 5;
-          ctx!.globalAlpha = fade * 0.55;
+          const d = ease * reach * 0.55;
+          ctx!.globalAlpha = fade * 0.6;
           ctx!.beginPath();
-          ctx!.arc(s.x + Math.cos(s.angle) * d, s.y + Math.sin(s.angle) * d, s.radius * (0.3 + ease * 0.6), 0, Math.PI * 2);
+          ctx!.arc(s.x + Math.cos(s.angle) * d, s.y + Math.sin(s.angle) * d, r * (0.7 + ease * 1.4), 0, Math.PI * 2);
           ctx!.fill();
-          ctx!.globalAlpha = fade * 0.35;
-          ctx!.lineWidth = 0.8;
+          ctx!.globalAlpha = fade * 0.45;
+          ctx!.lineWidth = 1.1;
           ctx!.beginPath();
-          ctx!.arc(s.x, s.y, s.radius + ease * 4, 0, Math.PI * 2);
+          ctx!.arc(s.x, s.y, r * 1.6 + ease * 8, 0, Math.PI * 2);
           ctx!.stroke();
         } else if (s.type === "burst") {
-          ctx!.lineWidth = 1.2 * fade;
+          ctx!.lineWidth = 1.6;
+          ctx!.globalAlpha = fade * 0.85;
           ctx!.beginPath();
-          ctx!.arc(s.x, s.y, ease * 34, 0, Math.PI * 2);
+          ctx!.arc(s.x, s.y, ease * reach, 0, Math.PI * 2);
           ctx!.stroke();
-          ctx!.globalAlpha = fade * 0.5;
+          ctx!.globalAlpha = fade * 0.45;
           ctx!.beginPath();
-          ctx!.arc(s.x, s.y, ease * 20, 0, Math.PI * 2);
+          ctx!.arc(s.x, s.y, ease * reach * 0.6, 0, Math.PI * 2);
           ctx!.stroke();
+          ctx!.globalAlpha = fade * 0.7;
+          ctx!.beginPath();
+          ctx!.arc(s.x, s.y, r * 2.4 * (1 - ease * 0.5), 0, Math.PI * 2);
+          ctx!.fill();
         } else if (s.type === "pinch") {
-          const gap = ease * s.radius * 4.2;
-          const waist = Math.max(0.3, s.radius * (1 - ease) * 0.9);
-          ctx!.globalAlpha = fade * 0.5;
+          const gap = ease * reach * 0.45;
+          const waist = Math.max(0.4, r * 1.8 * (1 - ease));
+          ctx!.globalAlpha = fade * 0.55;
           for (const dir of [-1, 1]) {
             ctx!.beginPath();
             ctx!.ellipse(
               s.x + Math.cos(s.angle) * gap * dir,
               s.y + Math.sin(s.angle) * gap * dir,
-              s.radius * (1 + ease * 0.2), s.radius * (1 - ease * 0.15),
+              r * 2.2 * (1 + ease * 0.25), r * 1.9 * (1 - ease * 0.15),
               s.angle, 0, Math.PI * 2,
             );
             ctx!.fill();
           }
-          ctx!.globalAlpha = fade * 0.8;
+          ctx!.globalAlpha = fade * 0.9;
           ctx!.beginPath();
           ctx!.arc(s.x, s.y, waist, 0, Math.PI * 2);
           ctx!.fill();
         } else {
           const petals = 5;
-          ctx!.lineWidth = 1.1;
+          ctx!.lineWidth = 1.5;
           for (let i = 0; i < petals; i++) {
-            const a = s.angle + (i / petals) * Math.PI * 2;
-            ctx!.globalAlpha = fade * 0.6;
+            const a = s.angle + (i / petals) * Math.PI * 2 + ease * 0.6;
+            ctx!.globalAlpha = fade * 0.7;
             ctx!.beginPath();
-            ctx!.arc(s.x, s.y, s.radius + ease * 26, a, a + 0.7);
+            ctx!.arc(s.x, s.y, r * 2 + ease * reach * 0.55, a, a + 0.72);
             ctx!.stroke();
           }
-          ctx!.globalAlpha = fade * 0.3;
+          ctx!.globalAlpha = fade * 0.35;
           ctx!.beginPath();
-          ctx!.arc(s.x, s.y, ease * 40, 0, Math.PI * 2);
+          ctx!.arc(s.x, s.y, ease * reach, 0, Math.PI * 2);
           ctx!.stroke();
         }
 
@@ -339,7 +409,6 @@ export default function PipelineCanvas() {
     }
 
     function step() {
-      tick++;
       ctx!.clearRect(0, 0, width, height);
 
       for (const node of nodes) {
@@ -376,8 +445,8 @@ export default function PipelineCanvas() {
         if (node.y < -pad) node.y = height + pad;
         if (node.y > height + pad) node.y = -pad;
 
-        if (node.scale < 1) node.scale = Math.min(1, node.scale + 0.05);
-        if (node.pulse > 0) node.pulse = Math.max(0, node.pulse - 0.02);
+        if (node.scale < 1) node.scale = Math.min(1, node.scale + 0.022);
+        if (node.pulse > 0) node.pulse = Math.max(0, node.pulse - 0.012);
       }
 
       for (let i = 0; i < nodes.length; i++) {
@@ -403,6 +472,13 @@ export default function PipelineCanvas() {
         }
       }
 
+      for (const s of splits) {
+        if (s.node) {
+          s.x = s.node.x;
+          s.y = s.node.y;
+        }
+      }
+
       drawSplits();
 
       for (const node of nodes) {
@@ -412,7 +488,7 @@ export default function PipelineCanvas() {
 
         if (node.pulse > 0) {
           ctx!.beginPath();
-          ctx!.arc(node.x, node.y, r + (1 - node.pulse) * 24, 0, Math.PI * 2);
+          ctx!.arc(node.x, node.y, r + (1 - node.pulse) * 30, 0, Math.PI * 2);
           ctx!.strokeStyle = color;
           ctx!.globalAlpha = node.pulse * 0.5;
           ctx!.lineWidth = 1.3;
@@ -437,6 +513,7 @@ export default function PipelineCanvas() {
       }
 
       drawBolts();
+      drawCharge();
 
       for (const b of bolts) b.age++;
       for (const s of splits) s.age++;
@@ -449,42 +526,62 @@ export default function PipelineCanvas() {
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
 
-    function onMove(e: PointerEvent) {
-      const p = localPoint(e);
-      pointer.x = p.x;
-      pointer.y = p.y;
-      pointer.active = true;
-    }
-
-    function onLeave() {
-      pointer.active = false;
-      pointer.x = -9999;
-      pointer.y = -9999;
-    }
-
-    function onDown(e: PointerEvent) {
-      const p = localPoint(e);
+    function nodeAt(x: number, y: number) {
       let hit: Node | null = null;
       let bestSq = HIT_RADIUS_SQ;
-
       for (const node of nodes) {
-        const dx = node.x - p.x;
-        const dy = node.y - p.y;
+        const dx = node.x - x;
+        const dy = node.y - y;
         const dsq = dx * dx + dy * dy;
         if (dsq < bestSq) {
           bestSq = dsq;
           hit = node;
         }
       }
+      return hit;
+    }
 
-      if (hit) divide(hit);
-      else seedAt(p.x, p.y);
+    function onMove(e: PointerEvent) {
+      const p = localPoint(e);
+      pointer.x = p.x;
+      pointer.y = p.y;
+      pointer.active = true;
+      if (press.active) {
+        press.x = p.x;
+        press.y = p.y;
+      }
+    }
+
+    function onLeave() {
+      pointer.active = false;
+      pointer.x = -9999;
+      pointer.y = -9999;
+      press.active = false;
+    }
+
+    function onDown(e: PointerEvent) {
+      const p = localPoint(e);
+      press.active = true;
+      press.x = p.x;
+      press.y = p.y;
+      press.start = performance.now();
+      press.target = nodeAt(p.x, p.y);
+    }
+
+    function onUp() {
+      if (!press.active) return;
+      const intensity = chargeIntensity();
+      press.active = false;
+
+      if (press.target && nodes.includes(press.target)) divide(press.target, intensity);
+      else seedAt(press.x, press.y, intensity);
+
+      press.target = null;
     }
 
     seed();
 
     if (reduced) {
-      ctx.clearRect(0, 0, width, height);
       step();
       cancelAnimationFrame(frame);
       window.addEventListener("resize", seed);
@@ -495,6 +592,8 @@ export default function PipelineCanvas() {
     host.addEventListener("pointermove", onMove);
     host.addEventListener("pointerleave", onLeave);
     host.addEventListener("pointerdown", onDown);
+    host.addEventListener("pointerup", onUp);
+    host.addEventListener("pointercancel", onLeave);
     window.addEventListener("resize", resize);
 
     return () => {
@@ -502,6 +601,8 @@ export default function PipelineCanvas() {
       host.removeEventListener("pointermove", onMove);
       host.removeEventListener("pointerleave", onLeave);
       host.removeEventListener("pointerdown", onDown);
+      host.removeEventListener("pointerup", onUp);
+      host.removeEventListener("pointercancel", onLeave);
       window.removeEventListener("resize", resize);
     };
   }, []);
