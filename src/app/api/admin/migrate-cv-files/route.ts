@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireSuperAdminAuth } from "@/lib/serverAuth";
+import { requireSuperAdminAuth, requireActiveSuperAdminAuth } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import CVFile from "@/models/CVFile";
 import CVProfile from "@/models/CVProfile";
@@ -59,7 +59,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  const auth = await requireSuperAdminAuth();
+  const auth = await requireActiveSuperAdminAuth();
   if (auth instanceof NextResponse) return auth;
   return NextResponse.json(await runMigration());
 }

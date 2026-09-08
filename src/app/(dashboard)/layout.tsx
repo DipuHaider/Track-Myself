@@ -4,6 +4,9 @@ import { getSessionUser } from "@/lib/serverAuth";
 import { isEditor } from "@/lib/permissions";
 import SiteHeader from "@/components/site/SiteHeader";
 import Sidebar from "@/components/layout/Sidebar";
+import { NOINDEX } from "@/lib/seo";
+
+export const metadata = NOINDEX;
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await getSessionUser();

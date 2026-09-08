@@ -12,6 +12,7 @@ import StatsModal from "@/components/applications/StatsModal";
 import { computeDuplicateIds } from "@/lib/applicationFlags";
 import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
 import Loading from "@/components/shared/Spinner";
+import AccountControls from "@/components/portal/AccountControls";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 
 type Profile = { name: string; email: string; role: string; plan: string; bio: string };
@@ -148,7 +149,7 @@ export default function MePage() {
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (newPw.length < 6) { setPwMsg("New password must be at least 6 characters."); return; }
+    if (newPw.length < 8) { setPwMsg("New password must be at least 8 characters."); return; }
     setPwSaving(true); setPwMsg("");
     const res = await fetch("/api/user/profile", {
       method: "PATCH",
@@ -348,7 +349,7 @@ export default function MePage() {
               className="w-full rounded-md border px-3 py-2 text-sm"
               value={newPw}
               onChange={(e) => setNewPw(e.target.value)}
-              required minLength={6}
+              required minLength={8}
             />
           </div>
           {pwMsg && (
@@ -364,6 +365,9 @@ export default function MePage() {
           </button>
         </form>
       </section>
+
+      {/* ── Account ── */}
+      <AccountControls />
 
       {/* ── Stats modal ── */}
       {modal && (

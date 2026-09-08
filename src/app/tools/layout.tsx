@@ -1,6 +1,10 @@
 import SiteHeader from "@/components/site/SiteHeader";
 
-export const metadata = { title: "Tools – TrackMyself" };
+export const metadata = {
+  title: { default: "Tools", template: "%s · TrackMyself" },
+  description: "Six free browser tools for job hunting: background remover, profile image generator, banner generator, JD analyser, image optimizer and PDF splitter. Your files never leave your device.",
+  alternates: { canonical: "/tools" },
+};
 
 export default function ToolsLayout({ children }: { children: React.ReactNode }) {
   return (

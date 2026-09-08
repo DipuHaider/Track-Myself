@@ -11,6 +11,9 @@ export const ROLE_LABELS: Record<Role, string> = {
   free: "Free",
 };
 
+export const ACCOUNT_STATUSES = ["active", "paused"] as const;
+export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
+
 export const PLANS = ["free", "premium"] as const;
 export type Plan = (typeof PLANS)[number];
 

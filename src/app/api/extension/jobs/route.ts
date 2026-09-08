@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
+import { liveStatus } from "@/lib/serverAuth";
 
 async function getExtensionUser(req: Request) {
   const auth = req.headers.get("authorization");
@@ -45,6 +46,15 @@ export async function POST(req: Request) {
   }
 
   await dbConnect();
+
+  const status = await liveStatus(user.id);
+  if (!status) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (status === "paused") {
+    return NextResponse.json(
+      { error: "Your account is paused. Resume it from your profile to save jobs.", status: "paused" },
+      { status: 423 },
+    );
+  }
 
   const existing = await Application.findOne({
     userId:      user.id,

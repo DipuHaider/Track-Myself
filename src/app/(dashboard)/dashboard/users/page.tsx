@@ -14,6 +14,7 @@ type UserRecord = {
   email: string;
   role: string;
   plan: string;
+  status?: string;
   createdAt: string;
 };
 
@@ -64,8 +65,24 @@ function UsersContent() {
     setUsers((prev) => prev.map((u) => (u._id === userId ? { ...u, plan } : u)));
   }
 
+  async function updateStatus(userId: string, status: string) {
+    setSaving(userId + "-status"); setError("");
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setSaving(null);
+    if (!res.ok) { const d = await res.json(); setError(d.error ?? "Failed to update status."); return; }
+    setUsers((prev) => prev.map((u) => (u._id === userId ? { ...u, status } : u)));
+  }
+
   async function deleteUser(userId: string, name: string) {
-    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+    if (!confirm(
+      `Delete user "${name}"?
+
+This erases their account and every application, interview, reminder, CV profile and uploaded document. It cannot be undone.`,
+    )) return;
     setSaving(userId + "-del");
     const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
     setSaving(null);
@@ -112,6 +129,7 @@ function UsersContent() {
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Plan</th>
+                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Joined</th>
                 {(canEdit || canDelete) && <th className="px-4 py-3" />}
               </tr>
@@ -182,6 +200,35 @@ function UsersContent() {
                       )}
                     </td>
 
+                    {/* Status cell */}
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const paused = user.status === "paused";
+                        const badge = (
+                          <span
+                            className="role-badge"
+                            style={paused
+                              ? { background: "#f59e0b22", color: "#b45309" }
+                              : { background: "#10b98122", color: "#047857" }}
+                          >
+                            {paused ? "Paused" : "Active"}
+                          </span>
+                        );
+                        if (!editable) return badge;
+                        return (
+                          <button
+                            type="button"
+                            disabled={saving === user._id + "-status"}
+                            onClick={() => updateStatus(user._id, paused ? "active" : "paused")}
+                            title={paused ? "Resume this account" : "Pause this account"}
+                            className="disabled:opacity-50"
+                          >
+                            {badge}
+                          </button>
+                        );
+                      })()}
+                    </td>
+
                     <td className="text-muted px-4 py-3">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
@@ -207,7 +254,7 @@ function UsersContent() {
                 <tr>
                   <td
                     className="text-muted px-4 py-8"
-                    colSpan={(canEdit || canDelete) ? 6 : 5}
+                    colSpan={(canEdit || canDelete) ? 7 : 6}
                   >
                     No users found.
                   </td>

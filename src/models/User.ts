@@ -16,6 +16,13 @@ const UserSchema = new Schema(
       enum: ["free", "premium"],
       default: "free",
     },
+    status: {
+      type: String,
+      enum: ["active", "paused"],
+      default: "active",
+      index: true,
+    },
+    pausedAt: { type: Date, default: null },
     bio: { type: String, default: "" },
     image: { type: String, default: "" },
   },

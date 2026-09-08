@@ -33,6 +33,12 @@ export async function PATCH(req: Request) {
   if (typeof bio === "string") update.bio = bio;
 
   if (newPassword) {
+    if (typeof newPassword !== "string" || newPassword.length < 8 || newPassword.length > 200) {
+      return NextResponse.json(
+        { error: "New password must be at least 8 characters" },
+        { status: 400 },
+      );
+    }
     if (!currentPassword) {
       return NextResponse.json({ error: "Current password is required" }, { status: 400 });
     }

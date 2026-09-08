@@ -1,10 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { authOptions } from "@/lib/auth";
+import { requireActiveAdminAuth } from "@/lib/serverAuth";
 import { SUPERADMIN_EMAILS } from "@/lib/permissions";
 
 async function runMigration() {
@@ -27,23 +26,20 @@ async function runMigration() {
 }
 
 async function authorize() {
-  const session = await getServerSession(authOptions as any);
-  const role = (session as { user?: { role?: string } } | null)?.user?.role;
-  return role === "superadmin" || role === "admin";
+  const auth = await requireActiveAdminAuth();
+  return auth instanceof NextResponse ? auth : null;
 }
 
 // One-time migration: rename old roles and promote superadmin emails.
 // Only callable by superadmin or admin.
 export async function GET() {
-  if (!(await authorize())) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = await authorize();
+  if (denied) return denied;
   return NextResponse.json(await runMigration());
 }
 
 export async function POST() {
-  if (!(await authorize())) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = await authorize();
+  if (denied) return denied;
   return NextResponse.json(await runMigration());
 }

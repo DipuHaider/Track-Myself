@@ -103,6 +103,21 @@ export const SEARCH_PAGES: SearchPage[] = [
   },
 
   {
+    title: "FAQ", subtitle: "Answers about tracking, CVs, tools, Premium and privacy", href: "/faq",
+    keywords: ["faq", "help", "support", "question", "answers", "how", "troubleshoot", "problem"],
+    group: "pages", visibility: { type: "public" },
+  },
+  {
+    title: "Terms & Conditions", subtitle: "The agreement covering your use of TrackMyself", href: "/terms",
+    keywords: ["terms", "conditions", "legal", "agreement", "tos", "acceptable use"],
+    group: "pages", visibility: { type: "public" },
+  },
+  {
+    title: "Privacy Policy", subtitle: "What we collect, why, and how to delete it", href: "/privacy",
+    keywords: ["privacy", "policy", "gdpr", "data", "cookies", "delete", "legal"],
+    group: "pages", visibility: { type: "public" },
+  },
+  {
     title: "Login", subtitle: "Sign in to your account", href: "/login",
     keywords: ["login", "sign in", "signin"],
     group: "pages", visibility: { type: "guest" },

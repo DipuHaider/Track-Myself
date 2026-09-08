@@ -5,6 +5,11 @@ import { getServerSession } from "next-auth/next";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { authOptions } from "@/lib/auth";
+import { requireActiveAuth } from "@/lib/serverAuth";
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions as any);
@@ -20,10 +25,11 @@ export async function GET(req: Request) {
 
   const filter: Record<string, unknown> = { userId };
   if (q) {
+    const rx = { $regex: escapeRegex(q.slice(0, 120)), $options: "i" };
     filter.$or = [
-      { companyName: { $regex: q, $options: "i" } },
-      { jobTitle: { $regex: q, $options: "i" } },
-      { notes: { $regex: q, $options: "i" } },
+      { companyName: rx },
+      { jobTitle: rx },
+      { notes: rx },
     ];
   }
 
@@ -31,16 +37,10 @@ export async function GET(req: Request) {
   return NextResponse.json(applications);
 }
 
-function escapeRegex(s: string) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions as any);
-  const userId = (session as { user?: { id?: string } } | null)?.user?.id;
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveAuth();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.id;
 
   await dbConnect();
   const body = await req.json();
@@ -58,6 +58,7 @@ export async function POST(req: Request) {
   }
 
   const { force: _force, ...data } = body;
+  for (const key of ["_id", "userId", "createdAt", "updatedAt"]) delete data[key];
   const application = await Application.create({ ...data, userId });
   return NextResponse.json(application, { status: 201 });
 }

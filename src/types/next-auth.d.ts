@@ -1,5 +1,5 @@
 import type { DefaultSession } from "next-auth";
-import type { Plan } from "@/lib/permissions";
+import type { AccountStatus, Plan } from "@/lib/permissions";
 
 declare module "next-auth" {
   interface Session {
@@ -7,6 +7,7 @@ declare module "next-auth" {
       id: string;
       role: string;
       plan: Plan;
+      status: AccountStatus;
     } & DefaultSession["user"];
   }
 
@@ -14,6 +15,7 @@ declare module "next-auth" {
     id: string;
     role: string;
     plan?: Plan;
+    status?: AccountStatus;
   }
 }
 
@@ -22,6 +24,7 @@ declare module "next-auth/jwt" {
     id?:        string;
     role?:      string;
     plan?:      Plan;
+    status?:    AccountStatus;
     claimsAt?:  number;
     picture?:   string;
     iat?:       number;

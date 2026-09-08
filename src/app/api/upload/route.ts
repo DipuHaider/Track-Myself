@@ -1,18 +1,24 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-import { authOptions } from "@/lib/auth";
+import { requireActiveAuth } from "@/lib/serverAuth";
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB per file
 
+const ALLOWED: Record<string, string> = {
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions as any);
-  if (!(session as { user?: unknown } | null)?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveAuth();
+  if (auth instanceof NextResponse) return auth;
 
   try {
     const formData = await req.formData();
@@ -26,6 +32,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `File exceeds 10 MB limit` }, { status: 400 });
     }
 
+    const safeExt = ALLOWED[file.type];
+    if (!safeExt) {
+      return NextResponse.json(
+        { error: "Only PDF, DOC, DOCX, PNG, JPG and WebP files are accepted" },
+        { status: 400 },
+      );
+    }
+
     const now = new Date();
     const year = now.getFullYear().toString();
     const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -36,14 +50,13 @@ export async function POST(req: Request) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "unknown";
 
-    const ext = path.extname(file.name);
     const baseName = path
-      .basename(file.name, ext)
+      .basename(file.name, path.extname(file.name))
       .replace(/[^a-z0-9]+/gi, "-")
       .toLowerCase()
-      .slice(0, 40);
+      .slice(0, 40) || "file";
 
-    const fileName = `${safeCompany}-${baseName}-${Date.now()}${ext}`;
+    const fileName = `${safeCompany}-${baseName}-${Date.now()}.${safeExt}`;
     const uploadDir = path.join(process.cwd(), "public", "uploads", year, month, day);
 
     await mkdir(uploadDir, { recursive: true });

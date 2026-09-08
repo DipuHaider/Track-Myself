@@ -5,8 +5,21 @@ import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { registerSchema } from "@/schemas/authSchema";
+import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
+  const gate = checkRateLimit({
+    key: `register:${clientIp(req)}`,
+    limit: 5,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: "Too many accounts created from this address. Try again later." },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfterSeconds) } },
+    );
+  }
+
   try {
     await dbConnect();
 

@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
+import Interview from "@/models/Interview";
+import Reminder from "@/models/Reminder";
 import { requireAction } from "@/lib/serverAuth";
 
 type Params = { params: Promise<{ id: string }> };
@@ -46,6 +48,11 @@ export async function DELETE(_req: Request, { params }: Params) {
 
   const deleted = await Application.findByIdAndDelete(id);
   if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await Promise.all([
+    Interview.deleteMany({ applicationId: id }),
+    Reminder.deleteMany({ applicationId: id }),
+  ]);
 
   return NextResponse.json({ success: true });
 }

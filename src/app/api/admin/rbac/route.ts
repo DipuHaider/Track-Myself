@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireAdminAuth } from "@/lib/serverAuth";
+import { requireAdminAuth, requireActiveAdminAuth } from "@/lib/serverAuth";
 import {
   ACTION_DESCRIPTIONS,
   ACTION_LABELS,
@@ -40,7 +40,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const auth = await requireAdminAuth();
+  const auth = await requireActiveAdminAuth();
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json();
@@ -53,7 +53,7 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE() {
-  const auth = await requireAdminAuth();
+  const auth = await requireActiveAdminAuth();
   if (auth instanceof NextResponse) return auth;
 
   const state = await resetAccessMatrix(auth);

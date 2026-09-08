@@ -8,6 +8,7 @@ const LINKS = [
       { label: "How it works", href: "/#trending" },
       { label: "Job sites", href: "/#job-sites" },
       { label: "CV builder", href: "/#cv-builder" },
+      { label: "FAQ", href: "/faq" },
     ],
   },
   {
@@ -26,13 +27,20 @@ const LINKS = [
       { label: "Create account", href: "/register" },
     ],
   },
+  {
+    heading: "Legal",
+    items: [
+      { label: "Terms & Conditions", href: "/terms" },
+      { label: "Privacy Policy", href: "/privacy" },
+    ],
+  },
 ];
 
 export default function SiteFooter() {
   return (
     <footer className="surface border-t">
       <div className="mx-auto max-w-6xl px-6 py-12">
-        <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
+        <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
           {/* Brand */}
           <div>
             <Logo size={28} textSize="text-base" />
@@ -60,7 +68,11 @@ export default function SiteFooter() {
 
         <div className="text-muted mt-10 flex flex-col items-center justify-between gap-3 border-t pt-6 text-xs sm:flex-row">
           <p>© {new Date().getFullYear()} TrackMyself. All rights reserved.</p>
-          <p>Built for job seekers everywhere. Tools run in your browser.</p>
+          <nav aria-label="Legal" className="flex items-center gap-4">
+            <Link href="/terms" className="hover:text-foreground transition">Terms</Link>
+            <Link href="/privacy" className="hover:text-foreground transition">Privacy</Link>
+            <span>Tools run in your browser.</span>
+          </nav>
         </div>
       </div>
     </footer>
