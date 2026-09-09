@@ -93,7 +93,7 @@ jobs:
           echo "manifest=$m package=$p"
           test "$m" = "$p"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: trackmyself-extension
           path: ext-package
