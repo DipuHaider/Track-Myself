@@ -122,7 +122,8 @@ This erases their account and every application, interview, reminder, CV profile
         <Loading />
       ) : (
         <div className="glass overflow-hidden rounded-lg">
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="surface-muted">
               <tr>
                 <th className="px-4 py-3">Name</th>
@@ -262,6 +263,7 @@ This erases their account and every application, interview, reminder, CV profile
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Types, lint, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install (locked)
+        run: npm ci
+
+      # next.config.ts sets typescript.ignoreBuildErrors, so `next build` skips type
+      # validation entirely. This is the only thing that type-checks the project.
+      - name: Type check
+        run: npm run typecheck
+
+      # `next build` does not run ESLint either (the integration was removed in Next 16).
+      - name: Lint
+        run: npm run lint
+
+      - name: Every env var the code reads is documented
+        run: npm run check:env
+
+      # Placeholders only. db.ts throws at import time if MONGODB_URI is unset, but the
+      # build never opens a connection, so no real credentials are needed here.
+      - name: Build
+        run: npm run build
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/ci-placeholder
+          NEXTAUTH_SECRET: ci-placeholder-value-not-a-real-secret
+          NEXTAUTH_URL: http://localhost:3000
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+  extension:
+    name: Browser extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: browser-extension
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: browser-extension/package-lock.json
+
+      - run: npm ci
+
+      # No type check here: browser-extension/tsconfig.json declares types: ["chrome"]
+      # but @types/chrome is not installed, so `tsc --noEmit` cannot run. esbuild strips
+      # the types without checking them, so this source is currently unchecked.
+      # Install @types/chrome and add a typecheck step to close that gap.
+      - name: Build
+        run: npm run build
+
+      # manifest.json points at dist/*.js and icons/*, so the extension root is
+      # browser-extension/ — the zip must contain the manifest, dist and icons.
+      - name: Package loadable extension
+        run: |
+          test -f dist/content.js
+          test -f dist/background.js
+          mkdir -p ../ext-package
+          cp -r manifest.json dist icons ../ext-package/
+
+      - name: Manifest and package versions agree
+        run: |
+          m=$(node -p "require('./manifest.json').version")
+          p=$(node -p "require('./package.json').version")
+          echo "manifest=$m package=$p"
+          test "$m" = "$p"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trackmyself-extension
+          path: ext-package
+          if-no-files-found: error
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # Blocks only on critical. The 4 standing "high" advisories are transitive under
+      # @huggingface/transformers with no upstream fix and are browser-only; they are
+      # reported here rather than blocking every build.
+      - name: Fail on critical advisories
+        run: npm audit --audit-level=critical
+
+      - name: Report high and below
+        if: always()
+        run: npm audit || true

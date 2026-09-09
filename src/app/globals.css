@@ -14,6 +14,10 @@
   --accent: #7c5cf0;
   --border: #d3dbef;
 
+  /* Brand mark — the bolt reads deeper on paper than it does lit */
+  --logo-bolt: #1f3ad4;
+  --logo-glow: rgba(31, 58, 212, 0.55);
+
   /* Ambient wash — gives backdrop-filter something to sample */
   --wash-1: rgba(52, 87, 213, 0.13);
   --wash-2: rgba(124, 92, 240, 0.11);
@@ -43,6 +47,9 @@
   --accent: #a78bfa;
   --border: #28324a;
 
+  --logo-bolt: #6d8cff;
+  --logo-glow: rgba(109, 140, 255, 0.75);
+
   --wash-1: rgba(109, 140, 255, 0.10);
   --wash-2: rgba(167, 139, 250, 0.08);
 
@@ -62,6 +69,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-josefin);
 }
 
 body {
@@ -208,3 +216,59 @@ body {
 :root[data-theme="dark"] .ghost-auto   { background: #431407; color: #fb923c; }
 :root[data-theme="dark"] .ghost-manual { background: #3b0d1a; color: #fda4af; }
 :root[data-theme="dark"] .badge-dup   { background: #431407; color: #fdba74; }
+
+.pb-mobile-nav {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .pb-mobile-nav {
+    padding-bottom: 1.5rem;
+  }
+}
+
+/* ── Brand wordmark ──
+   Josefin Sans, tracked open, in caps. The second half carries at 62% rather
+   than a lighter weight so the lockup holds together at every size. */
+.wordmark {
+  font-family: var(--font-josefin), var(--font-geist-sans), sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.wordmark-tail {
+  opacity: 0.62;
+}
+
+/* Tracked caps are wider than the old mixed-case mark. Below 360px the header
+   cannot hold the lockup plus search, theme toggle and menu, so the name drops
+   and the bolt carries it. Every current phone is 360px or wider. */
+@media (max-width: 359px) {
+  .wordmark {
+    display: none;
+  }
+}
+
+/* Pinned to the dark-ground palette regardless of the active theme — for sections
+   that are always dark, like the hero, where inheriting light-theme ink would make
+   the wordmark invisible. */
+.logo-on-dark {
+  --logo-bolt: #6d8cff;
+  --logo-glow: rgba(109, 140, 255, 0.75);
+  color: #ffffff;
+}
+
+/* Lit variant — hero, auth screens, anywhere on a dark ground */
+.logo-lit .logo-bolt {
+  filter:
+    drop-shadow(0 0 3px var(--logo-glow))
+    drop-shadow(0 0 10px var(--logo-glow));
+}
+
+.logo-lit .wordmark {
+  font-weight: 300;
+  text-shadow: 0 0 14px var(--logo-glow), 0 0 34px var(--logo-glow);
+}

@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Spinner } from "@/components/shared/Spinner";
+import { Logo } from "@/components/shared/Logo";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -52,7 +53,12 @@ export default function RegisterPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
-      <form onSubmit={onSubmit} className="surface w-full max-w-md rounded-xl border p-6">
+      <div className="w-full max-w-md">
+        <div className="mb-6 flex justify-center">
+          <Logo size={36} textSize="text-lg" lit />
+        </div>
+
+        <form onSubmit={onSubmit} className="surface w-full rounded-xl border p-6">
         <h1 className="text-2xl font-semibold">Register</h1>
         <p className="text-muted mt-1 text-sm">Create an account to start tracking jobs.</p>
 
@@ -125,7 +131,8 @@ export default function RegisterPage() {
             Sign in
           </Link>
         </p>
-      </form>
+        </form>
+      </div>
     </main>
   );
 }

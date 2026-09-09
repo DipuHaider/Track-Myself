@@ -68,7 +68,8 @@ export default function UserStatsSection() {
             <div className="border-b px-5 py-3">
               <h3 className="font-semibold">Recent Signups</h3>
             </div>
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[620px] text-left text-sm">
               <thead className="surface-muted">
                 <tr>
                   <th className="px-4 py-3">Name</th>
@@ -108,6 +109,7 @@ export default function UserStatsSection() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

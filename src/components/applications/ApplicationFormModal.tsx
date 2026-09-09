@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, PLATFORMS } from "@/constants/applicationStatus";
@@ -167,7 +167,10 @@ export default function ApplicationFormModal({
   const [serverDuplicate, setServerDuplicate] = useState<ServerDuplicate | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  const session = open ? (application?._id ?? "new") : null;
+  const [lastSession, setLastSession] = useState<string | null>(session);
+  if (session !== lastSession) {
+    setLastSession(session);
     if (open) {
       setForm(application ? toForm(application) : EMPTY);
       setExistingAttachments(application?.attachments ?? []);
@@ -175,7 +178,7 @@ export default function ApplicationFormModal({
       setError("");
       setServerDuplicate(null);
     }
-  }, [open, application]);
+  }
 
   const duplicateWarnings = useMemo(() => {
     if (!applications || !form.companyName || !form.jobTitle) return [];

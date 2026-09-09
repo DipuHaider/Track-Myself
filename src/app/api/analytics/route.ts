@@ -7,7 +7,7 @@ import Application from "@/models/Application";
 import { authOptions } from "@/lib/auth";
 
 export async function GET() {
-  const session = await getServerSession(authOptions as any);
+  const session = await getServerSession(authOptions);
   const userId = (session as { user?: { id?: string } } | null)?.user?.id;
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

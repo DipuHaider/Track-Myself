@@ -55,7 +55,7 @@ export default function TrendingSection() {
             {PIPELINE.map((step, i) => (
               <li
                 key={step.status}
-                className="grid grid-cols-[2.5rem_9.5rem_1fr] items-baseline gap-3 border-t py-3.5"
+                className="grid grid-cols-[2rem_1fr] items-baseline gap-x-3 gap-y-1 border-t py-3.5 sm:grid-cols-[2.5rem_9.5rem_1fr] sm:gap-3"
               >
                 <span className="text-muted font-mono text-[11px] tabular-nums">
                   {String(i + 1).padStart(2, "0")}
@@ -63,7 +63,9 @@ export default function TrendingSection() {
                 <span className={`role-badge ${step.cls} justify-self-start whitespace-nowrap`}>
                   {step.status}
                 </span>
-                <span className="text-muted text-xs leading-relaxed">{step.note}</span>
+                <span className="text-muted col-start-2 min-w-0 text-xs leading-relaxed sm:col-start-3">
+                  {step.note}
+                </span>
               </li>
             ))}
           </ol>

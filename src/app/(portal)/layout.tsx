@@ -17,7 +17,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
       <SiteHeader />
       <div className="flex min-h-screen pt-14">
         <PortalSidebar />
-        <main className="min-w-0 flex-1 overflow-auto p-6 pb-20 md:pb-6">
+        <main className="pb-mobile-nav min-w-0 flex-1 overflow-auto p-6">
           <PausedBanner />
           {children}
         </main>

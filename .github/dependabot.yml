@@ -1,0 +1,29 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the routine patch churn; majors still come through alone.
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Pinned deliberately: 4 standing high advisories live under this tree with no
+      # upstream fix, and it is browser-only. Upgrade it as a considered decision.
+      - dependency-name: "@huggingface/transformers"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: npm
+    directory: /browser-extension
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

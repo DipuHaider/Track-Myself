@@ -574,7 +574,7 @@ export default function CVBuilderPage() {
       {/* AI adapt modal */}
       {showAdapt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
-          <div className="surface w-full max-w-lg rounded-2xl border p-6 shadow-xl">
+          <div className="surface max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles size={18} style={{ color: "#d97706" }} aria-hidden="true" />
@@ -596,8 +596,8 @@ export default function CVBuilderPage() {
 
             <textarea
               className={`${inputCls} leading-relaxed`}
-              style={inputStyle}
               rows={10}
+              style={{ ...inputStyle, maxHeight: "40dvh" }}
               placeholder="Paste the full job description here…"
               value={jobDesc}
               onChange={(e) => setJobDesc(e.target.value)}

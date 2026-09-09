@@ -38,15 +38,17 @@ Then open <http://localhost:3000>.
 ### Scripts
 
 ```bash
-npm run dev     # dev server
-npm run build   # production build (raises the Node heap to 4 GB)
-npm start       # serve the build
-npm run lint    # eslint
+npm run dev        # dev server
+npm run build      # production build (raises the Node heap to 4 GB)
+npm start          # serve the build
+npm run verify     # typecheck + lint + env check — what CI runs
+npm run typecheck  # tsc --noEmit
+npm run lint       # eslint src
+npm run check:env  # every process.env read is documented in .env.example
 ```
 
-There is no test suite. `typescript.ignoreBuildErrors` is set in `next.config.ts` only to
-keep Windows builds inside memory limits — types are still expected to be correct, so run
-`npx tsc --noEmit` before committing.
+Run `npm run verify` before pushing. `next build` checks neither types nor lint — see
+[CI/CD](#cicd). There is no test suite.
 
 ---
 
@@ -153,9 +155,87 @@ npm install
 npm run build        # or: npm run watch
 ```
 
-Load `browser-extension/dist` as an unpacked extension. It authenticates against
-`/api/extension/auth` and posts to `/api/extension/jobs`, which honours the pause state and
-returns 423 with a readable message.
+Load **`browser-extension/`** as the unpacked extension — not `dist/`. `manifest.json` lives
+at that root and points at `dist/*.js` and `icons/*`, and `build.js` does not copy it, so
+`dist/` on its own is not loadable.
+
+It authenticates against `/api/extension/auth` and posts to `/api/extension/jobs`, which
+honours the pause state and returns 423 with a readable message. The API host is hard-coded
+to `https://track-myself.vercel.app` in `src/background.ts` and `src/content.ts`; change it
+there to point a local build at `localhost:3000`.
+
+CI builds the extension on every push and uploads a `trackmyself-extension` artifact
+containing exactly `manifest.json`, `dist/` and `icons/` — that folder is what you upload to
+the Chrome Web Store.
+
+---
+
+## CI/CD
+
+### What runs, and where
+
+Pushes and pull requests trigger `.github/workflows/ci.yml`, which has three jobs:
+
+| Job | Does | Blocks on |
+|---|---|---|
+| `verify` | `npm ci` → typecheck → lint → env check → build | any failure |
+| `extension` | builds the browser extension, checks manifest/package versions agree, uploads the loadable folder as an artifact | build or version mismatch |
+| `audit` | `npm audit` | **critical** only |
+
+Deployment is separate: Vercel builds and deploys from the GitHub integration. **CI does not
+gate the deploy** — a red CI run does not stop Vercel from shipping. Turn on branch
+protection for `main` (require the `verify` job, disallow direct pushes) if you want the
+check to actually mean something.
+
+### Why CI is the only type check
+
+`next.config.ts` sets `typescript.ignoreBuildErrors: true`, so `next build` prints
+*"Skipping validation of types"* and ships regardless. Next 16 also removed the built-in
+ESLint integration, so the build lints nothing either. That is a deliberate split — the
+Vercel build stays fast, and correctness is gated in CI — but it only holds while CI runs.
+Never rely on a green `next build` as evidence the types are sound.
+
+Locally, `npm run verify` runs the same typecheck, lint and env check that CI does.
+
+### Builds need no secrets
+
+`src/lib/db.ts` throws at import time when `MONGODB_URI` is unset, and Next imports every
+API route while collecting page data — so a build with no env vars fails. It never opens a
+connection though, so placeholders are enough, which is what CI uses. Nothing in the build
+touches the database, and `sitemap.ts`, `robots.ts` and the OG image are all static.
+
+### Vercel environment variables
+
+Set these per environment (Production, Preview, Development) in the Vercel dashboard —
+there is no `vercel.json`, so everything comes from project settings:
+
+- `MONGODB_URI` — **point Preview at a separate database.** Preview deployments run the same
+  destructive code paths as production, including account deletion.
+- `NEXTAUTH_URL` — must match the deployment origin, so Preview needs its own value.
+- `NEXTAUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`, and optionally `GOOGLE_CLIENT_ID` /
+  `GOOGLE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`, `EXTENSION_ORIGIN`.
+
+Node is pinned to 22 by `.nvmrc` and the `engines` field; Vercel reads `.nvmrc`.
+
+### Database migrations
+
+There is no migration framework. The two migrations that exist are HTTP endpoints an admin
+calls by hand — `POST /api/migrate-roles` and `POST /api/admin/migrate-cv-files` (also
+reachable from Settings → Maintenance). They are idempotent, but nothing records that they
+ran, and nothing runs them on deploy. Schema changes are additive-only in practice.
+
+### Known gaps
+
+- **No tests.** Nothing verifies behaviour; CI proves the project compiles, lints and builds.
+- **The extension source is never type-checked** — `browser-extension/tsconfig.json` declares
+  `types: ["chrome"]` but `@types/chrome` is not installed, and esbuild strips types without
+  checking them.
+- **Rate limits are per-process.** `src/lib/rateLimit.ts` keeps counters in a module-level
+  `Map`, so on Vercel each serverless instance has its own. The login throttle and the
+  account-deletion limit are weaker in production than the numbers suggest; a shared store
+  is needed for them to hold.
+- **No preview-environment isolation is enforced** — it depends entirely on the Vercel env
+  vars being set correctly.
 
 ---
 
@@ -213,7 +293,7 @@ and admin delete paths use it.
 
 ## Not implemented
 
-- Test suite
+- Test suite (CI checks types, lint and build only)
 - PDF export — documents are `.docx`; convert in Word or LibreOffice
 - Email and reminder notifications
 - Payments. `User.plan` is a manual admin toggle; a webhook would only need to write that field

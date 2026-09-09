@@ -330,7 +330,7 @@ export default function JDAnalyzerPage() {
             <p className="font-medium">How to use these results</p>
             <ul className="text-muted mt-2 list-inside list-disc space-y-1">
               <li>Add missing technical skills to your CV if you genuinely have them.</li>
-              <li>Mirror the exact keywords (e.g. "Node.js" not "NodeJS") — ATS systems match literally.</li>
+              <li>Mirror the exact keywords (e.g. &ldquo;Node.js&rdquo; not &ldquo;NodeJS&rdquo;) — ATS systems match literally.</li>
               <li>Use the top keywords in your cover letter opening paragraph.</li>
               <li>Soft skills signal what to emphasise in the interview, not just on paper.</li>
             </ul>

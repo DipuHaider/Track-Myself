@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
+import { Logo } from "@/components/shared/Logo";
 
 const PipelineCanvas = dynamic(() => import("@/components/site/PipelineCanvas"), {
   ssr: false,
@@ -40,7 +41,9 @@ export default function HeroSection() {
       <div className="relative z-10 mx-auto grid max-w-6xl gap-14 px-6 pb-24 pt-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12">
         {/* ── Thesis ── */}
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
+          <Logo size={34} textSize="text-base" href={null} lit onDark />
+
+          <p className="mt-7 font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
             Job application tracker
           </p>
 

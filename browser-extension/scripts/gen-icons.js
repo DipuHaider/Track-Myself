@@ -1,6 +1,6 @@
 /**
- * Generates solid-color PNG icons for the Chrome extension without any native dependencies.
- * Produces icon16.png, icon48.png, icon128.png in the icons/ directory.
+ * Rasterises the TrackMyself bolt into icon16/48/128.png with no native dependencies.
+ * The shape here must stay in sync with icons/icon.svg and public/favicon.svg.
  * Run: node scripts/gen-icons.js
  */
 import { deflateSync } from "zlib";
@@ -10,66 +10,105 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Brand colours: indigo gradient approximated as solid #4f46e5 (R79 G70 B229)
-const BG  = [0x4f, 0x46, 0xe5]; // indigo background
-const FG  = [0xff, 0xff, 0xff]; // white for the icon marks
+// Brand: bolt on a dark plate, matching icons/icon.svg
+const PLATE = [0x10, 0x15, 0x28];
+const BOLT  = [0x6d, 0x8c, 0xff];
+
+// Bolt outline in a 128x128 box — same geometry as icon.svg
+const BOLT_PATH = [
+  [72, 20], [38, 70], [60, 70], [56, 108], [90, 60], [68, 60],
+];
+const PLATE_RADIUS = 28; // of 128
+
+function inPolygon(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function inRoundedRect(px, py, side, radius) {
+  if (px < 0 || py < 0 || px > side || py > side) return false;
+  const cx = Math.min(Math.max(px, radius), side - radius);
+  const cy = Math.min(Math.max(py, radius), side - radius);
+  const dx = px - cx;
+  const dy = py - cy;
+  return dx * dx + dy * dy <= radius * radius;
+}
 
 function makePng(size) {
-  // Build raw image: each row = filter-byte(0) + size*3 bytes (RGB)
   const rowSize = 1 + size * 3;
-  const raw     = Buffer.alloc(rowSize * size, 0);
+  const raw = Buffer.alloc(rowSize * size, 0);
+  const scale = size / 128;
+  const poly = BOLT_PATH.map(([x, y]) => [x * scale, y * scale]);
+  const radius = PLATE_RADIUS * scale;
+
+  // stroke width from the SVG (8 units), so small icons keep a readable bolt
+  const halfStroke = (8 * scale) / 2;
 
   for (let y = 0; y < size; y++) {
-    raw[y * rowSize] = 0; // filter type none
+    raw[y * rowSize] = 0; // filter: none
     for (let x = 0; x < size; x++) {
-      const off = y * rowSize + 1 + x * 3;
-      // rounded-rect: corners outside radius get BG colour (they look close enough at small sizes)
-      raw[off]     = BG[0];
-      raw[off + 1] = BG[1];
-      raw[off + 2] = BG[2];
-    }
-  }
+      const px = x + 0.5;
+      const py = y + 0.5;
+      let rgb = PLATE;
 
-  // Draw a simple "TM" cross (white plus sign) in the centre as a visual hint
-  const mid  = Math.floor(size / 2);
-  const arm  = Math.max(1, Math.floor(size * 0.28));
-  const thick = Math.max(1, Math.floor(size * 0.08));
+      if (!inRoundedRect(px, py, size, radius)) {
+        // outside the plate — PNG here is opaque RGB, so match the plate to avoid a halo
+        rgb = PLATE;
+      } else if (inPolygon(px, py, poly) || nearEdge(px, py, poly, halfStroke)) {
+        rgb = BOLT;
+      }
 
-  for (let i = -arm; i <= arm; i++) {
-    for (let t = -thick; t <= thick; t++) {
-      // horizontal bar
-      setPixel(raw, rowSize, size, mid + i, mid + t, FG);
-      // vertical bar
-      setPixel(raw, rowSize, size, mid + t, mid + i, FG);
+      setPixel(raw, rowSize, size, x, y, rgb);
     }
   }
 
   const compressed = deflateSync(raw);
 
-  // PNG helpers
   function u32be(n) {
     const b = Buffer.alloc(4);
     b.writeUInt32BE(n);
     return b;
   }
   function chunk(type, data) {
-    const len  = Buffer.byteLength(data) === 0 ? Buffer.alloc(0) : Buffer.from(data);
+    const len = Buffer.byteLength(data) === 0 ? Buffer.alloc(0) : Buffer.from(data);
     const typeB = Buffer.from(type, "ascii");
-    const crc  = crc32(Buffer.concat([typeB, len]));
+    const crc = crc32(Buffer.concat([typeB, len]));
     return Buffer.concat([u32be(len.length), typeB, len, u32be(crc)]);
   }
 
   const ihdr = Buffer.concat([
     u32be(size), u32be(size),
-    Buffer.from([8, 2, 0, 0, 0]), // 8-bit, RGB, no filter, no interlace
+    Buffer.from([8, 2, 0, 0, 0]),
   ]);
 
   return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), // PNG signature
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     chunk("IHDR", ihdr),
     chunk("IDAT", compressed),
     chunk("IEND", Buffer.alloc(0)),
   ]);
+}
+
+// distance from the point to any polygon edge, for the rounded stroke
+function nearEdge(px, py, poly, half) {
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [x1, y1] = poly[j];
+    const [x2, y2] = poly[i];
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const ex = x1 + t * dx - px;
+    const ey = y1 + t * dy - py;
+    if (ex * ex + ey * ey <= half * half) return true;
+  }
+  return false;
 }
 
 function setPixel(raw, rowSize, size, x, y, rgb) {

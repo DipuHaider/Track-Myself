@@ -12,7 +12,7 @@ import { requireActiveAuth } from "@/lib/serverAuth";
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_: Request, { params }: Params) {
-  const session = await getServerSession(authOptions as any);
+  const session = await getServerSession(authOptions);
   const userId = (session as { user?: { id?: string } } | null)?.user?.id;
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -247,7 +247,8 @@ export default function MePage() {
           </div>
         ) : (
           <div className="surface overflow-hidden rounded-xl border">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-sm">
               <thead className="surface-muted">
                 <tr>
                   <th className="px-4 py-3">Company</th>
@@ -275,6 +276,7 @@ export default function MePage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </section>

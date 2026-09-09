@@ -167,6 +167,7 @@ export default function AppSidebar({
       <nav
         aria-label={ariaLabel}
         className="glass-nav fixed bottom-0 left-0 right-0 z-40 flex border-t md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         {items.filter((n) => !n.hideMobile).slice(0, MOBILE_NAV_MAX).map((item) => {
           const { href, icon: Icon, mobileLabel } = item;

@@ -419,13 +419,21 @@ export default function JobSitesSection() {
               {Array.from({ length: totalPages }).map((_, i) => (
                 <button
                   key={i}
+                  type="button"
                   onClick={() => setPage(i)}
-                  className="h-1.5 rounded-full transition-all duration-300"
-                  style={{
-                    width: i === page ? "20px" : "6px",
-                    background: i === page ? "var(--primary)" : "var(--surface-2)",
-                  }}
-                />
+                  aria-label={`Go to page ${i + 1} of ${totalPages}`}
+                  aria-current={i === page ? "true" : undefined}
+                  className="grid h-6 w-6 place-items-center rounded-full"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="block h-1.5 rounded-full transition-all duration-300"
+                    style={{
+                      width: i === page ? "20px" : "6px",
+                      background: i === page ? "var(--primary)" : "var(--surface-2)",
+                    }}
+                  />
+                </button>
               ))}
             </div>
 

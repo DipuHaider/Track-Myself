@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/seo";
 
@@ -5,7 +7,22 @@ export const alt = `${SITE_NAME} — ${SITE_TAGLINE}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OpengraphImage() {
+// Satori needs raw font bytes. Josefin is vendored in _fonts because next/font keeps
+// its copy inaccessible; Geist is read straight from its package so the OG image uses
+// the same file the site does. This route is prerendered, so both are read at build.
+const JOSEFIN = (weight: "Light" | "Regular") =>
+  path.join(process.cwd(), "src/app/_fonts", `JosefinSans-${weight}.ttf`);
+
+const GEIST = (weight: "Regular" | "Bold") =>
+  path.join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans", `Geist-${weight}.ttf`);
+
+export default async function OpengraphImage() {
+  const [josefinRegular, geistRegular, geistBold] = await Promise.all([
+    readFile(JOSEFIN("Regular")),
+    readFile(GEIST("Regular")),
+    readFile(GEIST("Bold")),
+  ]);
+
   return new ImageResponse(
     (
       <div
@@ -17,23 +34,31 @@ export default function OpengraphImage() {
           justifyContent: "center",
           padding: "80px",
           background: "linear-gradient(135deg, #0a0f1e 0%, #131c33 100%)",
-          fontFamily: "sans-serif",
+          fontFamily: "Geist",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 34 }}>
-          <div style={{ width: 14, height: 14, borderRadius: 14, background: "#34d399" }} />
-          <div style={{ width: 14, height: 14, borderRadius: 14, background: "#22d3ee" }} />
-          <div style={{ width: 14, height: 14, borderRadius: 14, background: "#3457d5" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 38 }}>
+          <svg width="56" height="56" viewBox="0 0 64 64">
+            <path
+              d="M36 8 L18 35 L30 35 L28 56 L46 29 L34 29 Z"
+              fill="#6d8cff"
+              stroke="#6d8cff"
+              strokeWidth="5"
+              strokeLinejoin="round"
+            />
+          </svg>
           <div
             style={{
-              marginLeft: 12,
-              color: "rgba(255,255,255,0.5)",
-              fontSize: 22,
-              letterSpacing: 4,
+              display: "flex",
+              fontFamily: "Josefin Sans",
+              fontWeight: 400,
+              fontSize: 30,
+              letterSpacing: 5,
               textTransform: "uppercase",
             }}
           >
-            {SITE_NAME}
+            <span style={{ color: "#ffffff" }}>Track</span>
+            <span style={{ color: "rgba(255,255,255,0.62)" }}>Myself</span>
           </div>
         </div>
 
@@ -57,8 +82,8 @@ export default function OpengraphImage() {
                 padding: "10px 22px",
                 borderRadius: 999,
                 fontSize: 24,
-                color: ["#93c5fd", "#67e8f9", "#6ee7b7"][i],
-                background: ["#0d1f3b", "#042d34", "#052e16"][i],
+                color: ["#93c5fd", "#a5b4fc", "#c4b5fd"][i],
+                background: ["#0d1f3b", "#141a3d", "#1c1740"][i],
               }}
             >
               {label}
@@ -67,6 +92,13 @@ export default function OpengraphImage() {
         </div>
       </div>
     ),
-    size,
+    {
+      ...size,
+      fonts: [
+        { name: "Geist", data: geistRegular, weight: 400, style: "normal" },
+        { name: "Geist", data: geistBold, weight: 700, style: "normal" },
+        { name: "Josefin Sans", data: josefinRegular, weight: 400, style: "normal" },
+      ],
+    },
   );
 }
