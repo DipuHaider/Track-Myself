@@ -6,6 +6,8 @@ import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 import { isPossibleGhost } from "@/lib/applicationFlags";
 import AppDocDropdown from "@/components/applications/AppDocDropdown";
+import { useSession } from "next-auth/react";
+import { canUseAppDocs } from "@/lib/permissions";
 
 const CURRENCY_SYM: Record<string, string> = { EUR: "€", USD: "$", BDT: "৳" };
 
@@ -71,6 +73,11 @@ export default function ApplicationTable({
   onQuickUpdate?: (id: string, field: QuickField, value: string | boolean) => Promise<void>;
   duplicateIds?: Set<string>;
 }) {
+  const { data: session } = useSession();
+  const viewer = session?.user as { role?: string; plan?: string } | undefined;
+  /* Per-application documents are Premium; free accounts do not get the column at all. */
+  const showDocs = !showOwner && canUseAppDocs(viewer?.role, viewer?.plan);
+
   const [saving, setSaving] = useState<{ id: string; field: QuickField } | null>(null);
 
   const handleChange = async (app: Application, field: QuickField, value: string | boolean) => {
@@ -99,7 +106,7 @@ export default function ApplicationTable({
               <th className="px-4 py-3 font-medium">Contact</th>
               <th className="px-4 py-3 font-medium">Priority</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              {!showOwner && <th className="px-4 py-3 font-medium text-center">Docs</th>}
+              {showDocs && <th className="px-4 py-3 font-medium text-center">Docs</th>}
               <th className="px-4 py-3 font-medium text-center">Actions</th>
             </tr>
           </thead>
@@ -197,7 +204,7 @@ export default function ApplicationTable({
                 </td>
 
                 {/* Docs */}
-                {!showOwner && (
+                {showDocs && (
                   <td className="px-4 py-3 text-center">
                     <AppDocDropdown
                       info={{
@@ -288,7 +295,7 @@ export default function ApplicationTable({
             ))}
             {applications.length === 0 && (
               <tr>
-                <td className="text-muted px-4 py-10 text-center" colSpan={11}>
+                <td className="text-muted px-4 py-10 text-center" colSpan={10 + (showOwner ? 1 : 0) + (showDocs ? 1 : 0)}>
                   No applications found.
                 </td>
               </tr>

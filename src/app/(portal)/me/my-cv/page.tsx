@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { ExternalLink, FolderOpen, Loader2 } from "lucide-react";
 import DocumentSection, { type SectionSpec } from "@/components/cv/DocumentSection";
+import GeneratedDocuments from "@/components/cv/GeneratedDocuments";
 import { useCVProfile } from "@/hooks/useCVProfile";
 import type { CVFileCategory, CVFileMeta, CVPrimaryFiles } from "@/types/cv";
 
@@ -58,7 +59,18 @@ const SECTIONS: (SectionSpec & { slot?: keyof CVPrimaryFiles })[] = [
 export default function MyDocumentsPage() {
   const { profile, applyPatch, loading } = useCVProfile();
 
-  const files = profile.uploadedFiles;
+  /* Documents the app produced are listed separately from files the user uploaded —
+     they are output, not source, and the CV Builder never reads them back in. */
+  const files = useMemo(
+    () => profile.uploadedFiles.filter((f) => !f.generated),
+    [profile.uploadedFiles],
+  );
+  const generated = useMemo(
+    () => profile.uploadedFiles
+      .filter((f) => f.generated)
+      .sort((a, b) => String(b.uploadedAt ?? "").localeCompare(String(a.uploadedAt ?? ""))),
+    [profile.uploadedFiles],
+  );
 
   const byCategory = useMemo(() => {
     const map = {} as Record<CVFileCategory, CVFileMeta[]>;
@@ -78,7 +90,7 @@ export default function MyDocumentsPage() {
     );
   }
 
-  const totalFiles = profile.uploadedFiles.length;
+  const totalFiles = files.length;
 
   return (
     <div className="max-w-3xl space-y-5 pb-12">
@@ -95,7 +107,12 @@ export default function MyDocumentsPage() {
 
       <div className="surface flex flex-wrap items-center justify-between gap-3 rounded-xl border px-5 py-3.5">
         <p className="text-sm">
-          <strong>{totalFiles}</strong> file{totalFiles === 1 ? "" : "s"} stored
+          <strong>{totalFiles}</strong> file{totalFiles === 1 ? "" : "s"} uploaded
+          {generated.length > 0 && (
+            <span className="text-muted">
+              {" · "}<strong>{generated.length}</strong> generated
+            </span>
+          )}
         </p>
         <Link
           href="/me/cv"
@@ -128,6 +145,13 @@ export default function MyDocumentsPage() {
           }}
         />
       ))}
+
+      <GeneratedDocuments
+        files={generated}
+        onDeleted={(id) => {
+          applyPatch({ uploadedFiles: profile.uploadedFiles.filter((f) => f._id !== id) });
+        }}
+      />
     </div>
   );
 }

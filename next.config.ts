@@ -52,7 +52,7 @@ const nextConfig: NextConfig = {
       { source: "/api/extension/:path*", headers: EXT_CORS },
     ];
   },
-  serverExternalPackages: ["mongoose", "bcryptjs"],
+  serverExternalPackages: ["mongoose", "bcryptjs", "@react-pdf/renderer", "unpdf", "word-extractor"],
   typescript: { ignoreBuildErrors: true },
   // eslint: { ignoreDuringBuilds: true }, // uncomment if tsc check crashes on Windows
   experimental: {

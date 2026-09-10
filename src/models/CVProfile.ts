@@ -21,6 +21,16 @@ const PrimarySchema = new Schema(
   { _id: false },
 );
 
+/* Premium accounts may keep several structured CV versions, imported as JSON. */
+const JsonImportSchema = new Schema(
+  {
+    label:   { type: String, default: "" },
+    content: { type: Schema.Types.Mixed, default: {} },
+    at:      { type: Date, default: Date.now },
+  },
+  { _id: true },
+);
+
 const CVProfileSchema = new Schema(
   {
     userId:        { type: String, required: true, unique: true },
@@ -44,6 +54,7 @@ const CVProfileSchema = new Schema(
     primary:       { type: PrimarySchema, default: () => ({}) },
     uploadedFiles: [LegacyFileEntrySchema],
     mainFileId:    { type: String, default: "" },
+    jsonImports:   { type: [JsonImportSchema], default: [] },
   },
   { timestamps: true, minimize: false },
 );

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Check, Download, FileText, Loader2 } from "lucide-react";
 import type { CVFormat, CVVariant } from "@/types/cv";
@@ -239,7 +240,7 @@ export default function CVBuilderSection() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = match ? decodeURIComponent(match[1]) : "CV.docx";
+      a.download = match ? decodeURIComponent(match[1]) : "CV.pdf";
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
@@ -268,7 +269,7 @@ export default function CVBuilderSection() {
         </span>
         <h2 className="mt-3 text-3xl font-bold">Build Your CV</h2>
         <p className="text-muted mt-2 text-sm">
-          Pick a format, fill in your details, download a real Word document
+          Pick a format, fill in your details, download a print-ready PDF
         </p>
       </div>
 
@@ -399,7 +400,11 @@ export default function CVBuilderSection() {
         >
           <div>
             <p className="text-muted text-xs">
-              Downloads as a real <strong>.docx</strong> — opens in Microsoft Word, LibreOffice &amp; Google Docs
+              Downloads as a <strong>.pdf</strong> — ready to send.{" "}
+              <Link href="/register" className="underline underline-offset-2" style={{ color: "var(--primary)" }}>
+                Create a free account
+              </Link>{" "}
+              for editable Word versions.
             </p>
             {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
           </div>
@@ -422,7 +427,7 @@ export default function CVBuilderSection() {
             ) : (
               <>
                 <Download size={15} aria-hidden="true" />
-                Download Word
+                Download PDF
               </>
             )}
           </button>

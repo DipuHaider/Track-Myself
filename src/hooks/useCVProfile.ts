@@ -104,6 +104,7 @@ export async function saveCVProfile(patch: {
 export async function downloadCVDocx(payload: {
   format?: CVFormat;
   variant?: CVVariant;
+  output?: "docx" | "pdf";
   docType?: "cv" | "resume" | "cover-letter";
   appInfo?: { companyName: string; jobTitle: string; location?: string; notes?: string };
   content?: CVContent;

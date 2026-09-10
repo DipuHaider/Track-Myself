@@ -2,7 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { importFromLegacy, isContentEmpty } from "@/lib/cv/content";
-import { DOCX_MIME, cvFileName, renderCVDocx } from "@/lib/cv/docx";
+import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+import { PDF_MIME, cvPdfFileName, renderCVPdf } from "@/lib/cv/pdf";
 import type { CVFormat, CVVariant } from "@/types/cv";
 
 const PUBLIC_FORMATS: CVFormat[] = ["ats", "europass", "designer"];
@@ -11,41 +12,21 @@ const TOTAL_MAX = 24000;
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 10;
 
-const hits = new Map<string, number[]>();
-
-function clientKey(req: Request) {
-  const forwarded = req.headers.get("x-forwarded-for") ?? "";
-  return forwarded.split(",")[0].trim() || req.headers.get("x-real-ip") || "anonymous";
-}
-
-function rateLimited(key: string) {
-  const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_PER_WINDOW) {
-    hits.set(key, recent);
-    return true;
-  }
-  recent.push(now);
-  hits.set(key, recent);
-
-  if (hits.size > 5000) {
-    for (const [k, times] of hits) {
-      if (times.every((t) => now - t >= WINDOW_MS)) hits.delete(k);
-    }
-  }
-  return false;
-}
-
 const FIELDS = [
   "name", "title", "email", "phone", "location", "linkedin",
   "website", "summary", "experience", "education", "skills", "languages",
 ] as const;
 
 export async function POST(req: Request) {
-  if (rateLimited(clientKey(req))) {
+  const gate = checkRateLimit({
+    key: `cv-sample:${clientIp(req)}`,
+    limit: MAX_PER_WINDOW,
+    windowMs: WINDOW_MS,
+  });
+  if (!gate.ok) {
     return NextResponse.json(
       { error: "Too many downloads from this address. Please try again in a few minutes." },
-      { status: 429 },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfterSeconds) } },
     );
   }
 
@@ -79,12 +60,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Add your name and some details first." }, { status: 400 });
   }
 
-  const buffer = await renderCVDocx(content, format, variant);
-  const filename = cvFileName(content, format, variant);
+  /* The public builder is PDF-only. Word export is what an account is for. */
+  const buffer = await renderCVPdf(content, format, variant);
+  const filename = cvPdfFileName(content, format, variant);
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
-      "Content-Type": DOCX_MIME,
+      "Content-Type": PDF_MIME,
       "Content-Length": String(buffer.length),
       "Content-Disposition": `attachment; filename="${filename}"`,
     },

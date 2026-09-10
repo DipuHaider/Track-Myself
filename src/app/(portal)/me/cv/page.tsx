@@ -12,7 +12,8 @@ import {
   inputCls, inputStyle, moveItem,
 } from "@/components/cv/fields";
 import { downloadCVDocx, useCVProfile } from "@/hooks/useCVProfile";
-import { canUseLebenslauf, isPremiumUser } from "@/lib/permissions";
+import ImportPanel from "@/components/cv/ImportPanel";
+import { canExportPdf, canUseCVFormat, canUseLebenslauf, isPremiumUser } from "@/lib/permissions";
 import type {
   CVContent, CVEducation, CVExperience, CVFormat,
   CVLanguage, CVProject, CVSkillGroup, CVVariant,
@@ -72,6 +73,7 @@ export default function CVBuilderPage() {
   const sessionUser = session?.user as { role?: string; plan?: string; email?: string } | undefined;
   const isPremium = isPremiumUser(sessionUser?.role, sessionUser?.plan);
   const showLebenslauf = canUseLebenslauf(sessionUser?.role, sessionUser?.email);
+  const canPdf = canExportPdf(sessionUser?.role, sessionUser?.plan);
 
   const { profile, setContent, save, loading, saving, saved, error } = useCVProfile();
   const c = profile.content;
@@ -97,13 +99,13 @@ export default function CVBuilderPage() {
     setContent((prev) => ({ ...prev, personal: { ...prev.personal, [key]: value } }));
   }
 
-  async function handleDownload(card: FormatCard) {
-    const key = `${card.key}-${card.variant}`;
+  async function handleDownload(card: FormatCard, output: "docx" | "pdf") {
+    const key = `${card.key}-${card.variant}-${output}`;
     setBusyFormat(key);
     setDownloadError("");
     try {
       await save();
-      await downloadCVDocx({ format: card.key, variant: card.variant });
+      await downloadCVDocx({ format: card.key, variant: card.variant, output });
     } catch (e) {
       setDownloadError(e instanceof Error ? e.message : "Could not generate that document.");
     } finally {
@@ -153,7 +155,16 @@ export default function CVBuilderPage() {
     );
   }
 
-  const cards = FORMATS.filter((f) => !f.superadminOnly || showLebenslauf);
+  const cards = FORMATS.filter(
+    (f) =>
+      (!f.superadminOnly || showLebenslauf) &&
+      canUseCVFormat(sessionUser?.role, sessionUser?.plan, f.key, f.variant),
+  );
+  const lockedFormats = FORMATS.filter(
+    (f) =>
+      (!f.superadminOnly || showLebenslauf) &&
+      !canUseCVFormat(sessionUser?.role, sessionUser?.plan, f.key, f.variant),
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-12">
@@ -224,10 +235,58 @@ export default function CVBuilderPage() {
       {adaptMsg && <p className="text-sm font-medium" style={{ color: "#047857" }}>{adaptMsg}</p>}
 
       {/* Formats */}
+      {lockedFormats.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border p-4 text-sm"
+          style={{ borderColor: "#f59e0b44", background: "#f59e0b0d" }}
+        >
+          <Lock size={14} aria-hidden="true" style={{ color: "#b45309" }} />
+          <span className="font-medium" style={{ color: "#92400e" }}>
+            {lockedFormats.map((f) => f.name).join(" and ")}{" "}
+            {lockedFormats.length === 1 ? "is" : "are"} on Premium.
+          </span>
+          <span className="text-muted">
+            Your plan includes {cards.map((f) => f.name).join(" and ")} — enough to apply anywhere.
+          </span>
+        </div>
+      )}
+
+      <ImportPanel
+        files={profile.uploadedFiles}
+        isPremium={isPremium}
+        onImported={(imported, from) => {
+          /* fill gaps only — never overwrite what is already typed */
+          setContent((prev) => ({
+            ...prev,
+            name: prev.name || imported.name,
+            positioning: prev.positioning || imported.positioning,
+            summary: prev.summary || imported.summary,
+            contact: {
+              ...prev.contact,
+              email: prev.contact.email || imported.contact.email,
+              phone: prev.contact.phone || imported.contact.phone,
+              city: prev.contact.city || imported.contact.city,
+              linkedin: prev.contact.linkedin || imported.contact.linkedin,
+              github: prev.contact.github || imported.contact.github,
+              portfolio: prev.contact.portfolio || imported.contact.portfolio,
+            },
+            experience: prev.experience.length ? prev.experience : imported.experience,
+            education: prev.education.length ? prev.education : imported.education,
+            skills: prev.skills.length ? prev.skills : imported.skills,
+            languages: prev.languages.length ? prev.languages : imported.languages,
+            certifications: prev.certifications.length ? prev.certifications : imported.certifications,
+            awards: prev.awards.length ? prev.awards : imported.awards,
+          }));
+          setDownloadError("");
+          void from;
+        }}
+      />
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => {
           const key = `${card.key}-${card.variant}`;
-          const busy = busyFormat === key;
+          const busyDocx = busyFormat === `${key}-docx`;
+          const busyPdf = busyFormat === `${key}-pdf`;
           return (
             <div
               key={key}
@@ -247,17 +306,34 @@ export default function CVBuilderPage() {
               </div>
               <p className="text-[11px] font-medium" style={{ color: card.accent }}>{card.tag}</p>
               <p className="text-muted flex-1 text-[11px] leading-relaxed">{card.description}</p>
-              <button
-                type="button"
-                onClick={() => handleDownload(card)}
-                disabled={busy}
-                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition hover:bg-[var(--surface-2)] disabled:opacity-60"
-                style={{ borderColor: card.accent, color: card.accent }}
-              >
-                {busy
-                  ? <><Loader2 size={12} className="animate-spin" aria-hidden="true" /> Generating…</>
-                  : <><Download size={12} aria-hidden="true" /> Download .docx</>}
-              </button>
+              <div className="mt-1 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleDownload(card, "docx")}
+                  disabled={busyDocx || busyPdf}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition hover:bg-[var(--surface-2)] disabled:opacity-60"
+                  style={{ borderColor: card.accent, color: card.accent }}
+                >
+                  {busyDocx
+                    ? <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+                    : <><Download size={12} aria-hidden="true" /> .docx</>}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => (canPdf ? handleDownload(card, "pdf") : undefined)}
+                  disabled={!canPdf || busyDocx || busyPdf}
+                  title={canPdf ? "Download as PDF" : "PDF export is a Premium feature"}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-45"
+                  style={{ borderColor: card.accent, color: card.accent }}
+                >
+                  {busyPdf
+                    ? <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+                    : canPdf
+                      ? <><Download size={12} aria-hidden="true" /> .pdf</>
+                      : <><Lock size={11} aria-hidden="true" /> .pdf</>}
+                </button>
+              </div>
             </div>
           );
         })}

@@ -53,7 +53,8 @@ export async function POST(req: Request) {
 
   await migrateLegacyCVFiles(auth.id);
 
-  const count = await CVFile.countDocuments({ userId: auth.id });
+  /* Documents this app generated do not eat into the user's upload allowance. */
+  const count = await CVFile.countDocuments({ userId: auth.id, generated: { $ne: true } });
   if (count >= MAX_FILES) {
     return NextResponse.json(
       { error: `You can store up to ${MAX_FILES} files. Delete one to upload another.` },

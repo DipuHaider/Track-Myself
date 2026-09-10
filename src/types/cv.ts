@@ -90,6 +90,13 @@ export type CVFileMeta = {
   mimeType: string;
   category: CVFileCategory;
   uploadedAt?: string;
+  /* set on documents this app produced, not files the user uploaded */
+  generated?: boolean;
+  genFormat?: string;
+  genVariant?: string;
+  genDocType?: string;
+  genOutput?: string;
+  genFor?: string;
 };
 
 export type CVPrimaryFiles = {

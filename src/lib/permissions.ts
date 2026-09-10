@@ -110,6 +110,58 @@ export function canUseLebenslauf(role?: string | null, email?: string | null): b
   return SUPERADMIN_EMAILS.includes(email as (typeof SUPERADMIN_EMAILS)[number]);
 }
 
+/* ── CV entitlements ──────────────────────────────────────────────────────
+   One matrix, used by the builder UI, the generate endpoint and the per-application
+   Docs menu, so a format can never be offered that the server will refuse.
+
+   free        ATS Compact and Designer, .docx only
+   premium     every format except Lebenslauf, .docx and .pdf
+   superadmin  everything, no restrictions
+   ---------------------------------------------------------------------- */
+
+export type CVFormatKey = `${string}:${string}`;
+
+export const CV_FORMATS_FREE: CVFormatKey[] = ["ats:compact", "designer:full"];
+
+export const CV_FORMATS_PREMIUM: CVFormatKey[] = [
+  "ats:full", "ats:compact", "europass:full", "designer:full",
+];
+
+export const CV_FORMATS_ALL: CVFormatKey[] = [
+  "ats:full", "ats:compact", "europass:full", "designer:full", "lebenslauf:full",
+];
+
+export function cvFormatsFor(role?: string | null, plan?: string | null): CVFormatKey[] {
+  if (isSuperAdmin(role)) return CV_FORMATS_ALL;
+  if (isPremiumUser(role, plan)) return CV_FORMATS_PREMIUM;
+  return CV_FORMATS_FREE;
+}
+
+export function canUseCVFormat(
+  role: string | null | undefined,
+  plan: string | null | undefined,
+  format: string,
+  variant: string,
+): boolean {
+  return cvFormatsFor(role, plan).includes(`${format}:${variant}` as CVFormatKey);
+}
+
+/** Only premium and above may export PDF; everyone else gets .docx. */
+export function canExportPdf(role?: string | null, plan?: string | null): boolean {
+  return isSuperAdmin(role) || isPremiumUser(role, plan);
+}
+
+/** The per-application Docs menu is hidden from free accounts and logged-out visitors. */
+export function canUseAppDocs(role?: string | null, plan?: string | null): boolean {
+  return isSuperAdmin(role) || isPremiumUser(role, plan);
+}
+
+/** How many stored CV versions an account may keep. */
+export function cvVersionLimit(role?: string | null, plan?: string | null): number {
+  if (isSuperAdmin(role)) return Infinity;
+  return isPremiumUser(role, plan) ? 5 : 1;
+}
+
 export type RoleTier = "superadmin" | "admin" | "editor" | "premium" | "free";
 
 export const TIER_LABELS: Record<RoleTier, string> = {
