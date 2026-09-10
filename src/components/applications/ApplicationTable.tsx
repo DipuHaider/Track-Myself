@@ -5,7 +5,7 @@ import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lu
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 import { isPossibleGhost } from "@/lib/applicationFlags";
-import AppDocDropdown from "@/components/applications/AppDocDropdown";
+import AppDocButton from "@/components/applications/AppDocButton";
 import { useSession } from "next-auth/react";
 import { canUseAppDocs } from "@/lib/permissions";
 
@@ -206,7 +206,7 @@ export default function ApplicationTable({
                 {/* Docs */}
                 {showDocs && (
                   <td className="px-4 py-3 text-center">
-                    <AppDocDropdown
+                    <AppDocButton
                       info={{
                         companyName: app.companyName,
                         jobTitle: app.jobTitle,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileText, Sparkles, Trash2 } from "lucide-react";
+import { Download, FileText, Trash2 } from "lucide-react";
 import type { CVFileMeta } from "@/types/cv";
 
 const FORMAT_NAME: Record<string, string> = {
@@ -53,10 +53,7 @@ export default function GeneratedDocuments({
 
   return (
     <section className="surface rounded-xl border p-5">
-      <div className="mb-1 flex items-center gap-2">
-        <Sparkles size={16} style={{ color: "var(--primary)" }} aria-hidden="true" />
-        <h2 className="font-semibold">Generated documents</h2>
-      </div>
+      {/* The tab above already names this panel — no second heading. */}
       <p className="text-muted mb-4 text-sm">
         Every CV, resume and cover letter TrackMyself has built for you. Re-generating the same
         format replaces its entry rather than adding another. These are never read back into the

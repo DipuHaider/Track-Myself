@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import Link from "next/link";
-import { ExternalLink, FolderOpen, Loader2 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ExternalLink, FolderOpen, Loader2, Sparkles, Upload } from "lucide-react";
 import DocumentSection, { type SectionSpec } from "@/components/cv/DocumentSection";
 import GeneratedDocuments from "@/components/cv/GeneratedDocuments";
 import { useCVProfile } from "@/hooks/useCVProfile";
@@ -56,8 +57,16 @@ const SECTIONS: (SectionSpec & { slot?: keyof CVPrimaryFiles })[] = [
   },
 ];
 
-export default function MyDocumentsPage() {
+function MyDocumentsContent() {
   const { profile, applyPatch, loading } = useCVProfile();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+
+  const tab = params.get("tab") === "generated" ? "generated" : "uploads";
+  const setTab = (next: "uploads" | "generated") => {
+    router.replace(next === "uploads" ? pathname : `${pathname}?tab=generated`, { scroll: false });
+  };
 
   /* Documents the app produced are listed separately from files the user uploaded —
      they are output, not source, and the CV Builder never reads them back in. */
@@ -123,35 +132,91 @@ export default function MyDocumentsPage() {
         </Link>
       </div>
 
-      {SECTIONS.map((spec) => (
-        <DocumentSection
-          key={spec.category}
-          spec={spec}
-          files={byCategory[spec.category] ?? []}
-          primaryId={spec.slot ? profile.primary[spec.slot] : ""}
-          onFilesChange={(files, mode) => {
-            if (mode === "all") {
-              applyPatch({ uploadedFiles: files });
-              return;
-            }
-            const others = profile.uploadedFiles.filter(
-              (f) => (f.category ?? "other") !== spec.category,
-            );
-            applyPatch({ uploadedFiles: [...others, ...files] });
-          }}
-          onPrimaryChange={(value) => {
-            if (!spec.slot) return;
-            applyPatch({ primary: { ...profile.primary, [spec.slot]: value } });
-          }}
-        />
-      ))}
+      {/* ── submenus ── */}
+      <div role="tablist" aria-label="My Documents sections" className="flex gap-1 border-b">
+        {([
+          { key: "uploads",   label: "Upload Documents",    icon: Upload,   count: totalFiles },
+          { key: "generated", label: "Generated Documents", icon: Sparkles, count: generated.length },
+        ] as const).map(({ key, label, icon: Icon, count }) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              aria-controls={`panel-${key}`}
+              onClick={() => setTab(key)}
+              className="-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition"
+              style={active
+                ? { borderColor: "var(--primary)", color: "var(--primary)" }
+                : { borderColor: "transparent", color: "var(--muted-foreground)" }}
+            >
+              <Icon size={14} aria-hidden="true" />
+              {label}
+              <span
+                className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                style={active
+                  ? { background: "var(--primary)22", color: "var(--primary)" }
+                  : { background: "var(--surface-2)", color: "var(--muted-foreground)" }}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-      <GeneratedDocuments
-        files={generated}
-        onDeleted={(id) => {
-          applyPatch({ uploadedFiles: profile.uploadedFiles.filter((f) => f._id !== id) });
-        }}
-      />
+      {tab === "uploads" ? (
+        <div id="panel-uploads" role="tabpanel" className="space-y-5">
+          {SECTIONS.map((spec) => (
+            <DocumentSection
+              key={spec.category}
+              spec={spec}
+              files={byCategory[spec.category] ?? []}
+              primaryId={spec.slot ? profile.primary[spec.slot] : ""}
+              onFilesChange={(next, mode) => {
+                if (mode === "all") {
+                  applyPatch({ uploadedFiles: next });
+                  return;
+                }
+                const others = profile.uploadedFiles.filter(
+                  (f) => (f.category ?? "other") !== spec.category,
+                );
+                applyPatch({ uploadedFiles: [...others, ...next] });
+              }}
+              onPrimaryChange={(value) => {
+                if (!spec.slot) return;
+                applyPatch({ primary: { ...profile.primary, [spec.slot]: value } });
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div id="panel-generated" role="tabpanel">
+          <GeneratedDocuments
+            files={generated}
+            onDeleted={(id) => {
+              applyPatch({ uploadedFiles: profile.uploadedFiles.filter((f) => f._id !== id) });
+            }}
+          />
+        </div>
+      )}
+
     </div>
+  );
+}
+
+export default function MyDocumentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-24">
+          <Loader2 size={22} className="text-muted animate-spin" />
+        </div>
+      }
+    >
+      <MyDocumentsContent />
+    </Suspense>
   );
 }

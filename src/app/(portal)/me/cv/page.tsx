@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
-  Check, Download, FileText, Loader2, Lock, Save,
+  Check, Download, Eye, FileText, Loader2, Lock, Save,
   Sparkles, Star, X,
 } from "lucide-react";
 import {
@@ -13,6 +13,7 @@ import {
 } from "@/components/cv/fields";
 import { downloadCVDocx, useCVProfile } from "@/hooks/useCVProfile";
 import ImportPanel from "@/components/cv/ImportPanel";
+import SavedCVModal from "@/components/cv/SavedCVModal";
 import { canExportPdf, canUseCVFormat, canUseLebenslauf, isPremiumUser } from "@/lib/permissions";
 import type {
   CVContent, CVEducation, CVExperience, CVFormat,
@@ -78,6 +79,12 @@ export default function CVBuilderPage() {
   const { profile, setContent, save, loading, saving, saved, error } = useCVProfile();
   const c = profile.content;
 
+  /* The preview button stays hidden until there is something to preview. */
+  const savedCVs = profile.uploadedFiles
+    .filter((f) => f.generated)
+    .sort((a, b) => String(b.uploadedAt ?? "").localeCompare(String(a.uploadedAt ?? "")));
+
+  const [showSaved, setShowSaved] = useState(false);
   const [busyFormat, setBusyFormat] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState("");
 
@@ -195,6 +202,25 @@ export default function CVBuilderPage() {
           </div>
         </div>
 
+        <div className="flex items-center gap-2">
+        {savedCVs.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowSaved(true)}
+            className="flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-sm font-semibold transition hover:bg-[var(--surface-2)]"
+            title="Preview the CV you last generated"
+          >
+            <Eye size={14} aria-hidden="true" />
+            View saved CV
+            <span
+              className="rounded-full px-1.5 text-[10px] font-bold"
+              style={{ background: "var(--surface-2)", color: "var(--muted-foreground)" }}
+            >
+              {savedCVs.length}
+            </span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => save()}
@@ -207,7 +233,12 @@ export default function CVBuilderPage() {
               ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Saving…</>
               : <><Save size={14} aria-hidden="true" /> Save CV</>}
         </button>
+        </div>
       </div>
+
+      {showSaved && (
+        <SavedCVModal files={savedCVs} onClose={() => setShowSaved(false)} />
+      )}
 
       {!isPremium && (
         <div

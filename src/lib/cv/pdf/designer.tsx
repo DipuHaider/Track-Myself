@@ -51,7 +51,9 @@ const s = StyleSheet.create({
 function Bullet({ children }: { children: string }) {
   return (
     <View style={s.bulletRow} wrap={false}>
-      <Text style={s.glyph}>▸</Text>
+      {/* Helvetica is a base-14 font in WinAnsi — U+25B8 is not in it and renders
+          as a broken glyph. The bullet character is. */}
+      <Text style={s.glyph}>•</Text>
       <Text style={s.bulletText}>{children}</Text>
     </View>
   );
