@@ -60,7 +60,7 @@ export default function GeneratedDocuments({
         CV Builder.
       </p>
 
-      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="anim-in mb-3 text-sm text-red-600">{error}</p>}
 
       {files.length === 0 ? (
         <div className="rounded-lg border border-dashed px-4 py-8 text-center">
@@ -70,7 +70,7 @@ export default function GeneratedDocuments({
           </p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="anim-stagger divide-y rounded-lg border">
           {files.map((file) => (
             <li key={file._id} className="flex flex-wrap items-center gap-3 px-4 py-3">
               <FileText size={15} className="text-muted shrink-0" aria-hidden="true" />

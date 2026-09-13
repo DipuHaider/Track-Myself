@@ -272,3 +272,98 @@ body {
   font-weight: 300;
   text-shadow: 0 0 14px var(--logo-glow), 0 0 34px var(--logo-glow);
 }
+
+/* ── Motion ──
+   One shared vocabulary so overlays, panels and disclosures all move the same way.
+   Durations are deliberately short — this is interface feedback, not choreography.
+   Everything collapses to nothing under prefers-reduced-motion, and every resting
+   state is the visible one, so a page with animation disabled still reads correctly. */
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --dur-slow: 260ms;
+}
+
+@keyframes tm-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes tm-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes tm-pop-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes tm-pop-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(6px) scale(0.985); }
+}
+
+@keyframes tm-slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tm-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Overlay backdrop */
+.anim-backdrop { animation: tm-fade-in var(--dur) var(--ease-out) both; }
+.anim-backdrop-out { animation: tm-fade-out var(--dur-fast) var(--ease-in) both; }
+
+/* Overlay panel */
+.anim-panel { animation: tm-pop-in var(--dur-slow) var(--ease-out) both; }
+.anim-panel-out { animation: tm-pop-out var(--dur-fast) var(--ease-in) both; }
+
+/* Menus and popovers hanging off a trigger */
+.anim-menu { animation: tm-slide-down var(--dur) var(--ease-out) both; transform-origin: top; }
+
+/* Inline content appearing in place — tab panels, messages, results */
+.anim-in { animation: tm-rise var(--dur) var(--ease-out) both; }
+.anim-fade { animation: tm-fade-in var(--dur) var(--ease-out) both; }
+
+/* Stagger helper for lists: add .anim-stagger to the container */
+.anim-stagger > * { animation: tm-rise var(--dur) var(--ease-out) both; }
+.anim-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.anim-stagger > *:nth-child(2) { animation-delay: 30ms; }
+.anim-stagger > *:nth-child(3) { animation-delay: 60ms; }
+.anim-stagger > *:nth-child(4) { animation-delay: 90ms; }
+.anim-stagger > *:nth-child(5) { animation-delay: 120ms; }
+.anim-stagger > *:nth-child(n+6) { animation-delay: 150ms; }
+
+/* Disclosure — animates to auto height without measuring anything in JS.
+   The row collapses from 1fr to 0fr; the child needs min-height:0 to be squashable. */
+.disclosure {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur) var(--ease-out);
+}
+
+.disclosure[data-open="true"] { grid-template-rows: 1fr; }
+
+.disclosure > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Chevrons and other rotating affordances */
+.rotates { transition: transform var(--dur) var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-backdrop, .anim-backdrop-out,
+  .anim-panel, .anim-panel-out,
+  .anim-menu, .anim-in, .anim-fade,
+  .anim-stagger > * {
+    animation: none !important;
+  }
+  .disclosure, .rotates { transition: none !important; }
+}

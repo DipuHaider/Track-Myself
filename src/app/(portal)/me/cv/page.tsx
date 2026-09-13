@@ -262,8 +262,8 @@ export default function CVBuilderPage() {
         </div>
       )}
 
-      {(error || downloadError) && <p className="text-sm text-red-600">{error || downloadError}</p>}
-      {adaptMsg && <p className="text-sm font-medium" style={{ color: "#047857" }}>{adaptMsg}</p>}
+      {(error || downloadError) && <p className="anim-in text-sm text-red-600">{error || downloadError}</p>}
+      {adaptMsg && <p className="anim-in text-sm font-medium" style={{ color: "#047857" }}>{adaptMsg}</p>}
 
       {/* Formats */}
       {lockedFormats.length > 0 && (
@@ -313,7 +313,7 @@ export default function CVBuilderPage() {
         }}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="anim-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => {
           const key = `${card.key}-${card.variant}`;
           const busyDocx = busyFormat === `${key}-docx`;
@@ -680,8 +680,8 @@ export default function CVBuilderPage() {
 
       {/* AI adapt modal */}
       {showAdapt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
-          <div className="surface max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border p-6 shadow-xl">
+        <div className="anim-backdrop fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
+          <div className="anim-panel surface max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles size={18} style={{ color: "#d97706" }} aria-hidden="true" />

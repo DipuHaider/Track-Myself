@@ -119,8 +119,8 @@ export default function ImportPanel({
         typed wins — reading a file only fills the gaps.
       </p>
 
-      {error && <p className="mb-3 flex items-start gap-1.5 text-sm text-red-600"><AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />{error}</p>}
-      {message && <p className="mb-3 flex items-start gap-1.5 text-sm" style={{ color: "#047857" }}><Check size={13} className="mt-0.5 shrink-0" aria-hidden="true" />{message}</p>}
+      {error && <p className="anim-in mb-3 flex items-start gap-1.5 text-sm text-red-600"><AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />{error}</p>}
+      {message && <p className="anim-in mb-3 flex items-start gap-1.5 text-sm" style={{ color: "#047857" }}><Check size={13} className="mt-0.5 shrink-0" aria-hidden="true" />{message}</p>}
 
       {cvFiles.length === 0 ? (
         <p className="text-muted rounded-lg border border-dashed px-4 py-6 text-center text-sm">

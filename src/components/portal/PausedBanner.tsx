@@ -11,7 +11,7 @@ export default function PausedBanner() {
   return (
     <div
       role="status"
-      className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm"
+      className="anim-in mb-5 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm"
       style={{ borderColor: "#f59e0b66", background: "#fffbeb", color: "#92400e" }}
     >
       <PauseCircle size={16} className="shrink-0" aria-hidden="true" />

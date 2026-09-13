@@ -11,6 +11,7 @@ import {
   DEFAULT_CV_PROFILE, downloadCVDocx, fetchCVProfile, getCachedCVProfile, type CVProfile,
 } from "@/hooks/useCVProfile";
 import { canExportPdf, canUseCVFormat } from "@/lib/permissions";
+import { useDismissable } from "@/hooks/useDismissable";
 import type { CVFormat, CVVariant } from "@/types/cv";
 
 export type AppInfo = {
@@ -62,11 +63,13 @@ export default function AppDocModal({
   const [formatPref, setFormatPref] = useState<string>("ats:full");
   const [output, setOutput] = useState<"docx" | "pdf">("docx");
 
+  const { closing, close } = useDismissable(onClose);
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [close]);
 
   useEffect(() => {
     if (getCachedCVProfile()) return;
@@ -122,14 +125,14 @@ export default function AppDocModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${closing ? "anim-backdrop-out" : "anim-backdrop"}`}
       style={{ background: "rgba(0,0,0,0.55)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) close(); }}
       role="dialog"
       aria-modal="true"
       aria-label="Generate documents for this application"
     >
-      <div className="surface flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-xl border shadow-2xl">
+      <div className={`surface flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-xl border shadow-2xl ${closing ? "anim-panel-out" : "anim-panel"}`}>
         <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div className="min-w-0">
             <h2 className="flex items-center gap-2 text-base font-semibold">
@@ -142,7 +145,7 @@ export default function AppDocModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label="Close"
             className="shrink-0 rounded-md p-1.5 transition hover:bg-[var(--surface-2)]"
           >
@@ -170,9 +173,9 @@ export default function AppDocModal({
                 </div>
               )}
 
-              {error && <p className="border-b px-5 py-2.5 text-xs text-red-600">{error}</p>}
+              {error && <p className="anim-in border-b px-5 py-2.5 text-xs text-red-600">{error}</p>}
               {done && (
-                <p className="border-b px-5 py-2.5 text-xs" style={{ color: "#047857" }}>{done}</p>
+                <p className="anim-in border-b px-5 py-2.5 text-xs" style={{ color: "#047857" }}>{done}</p>
               )}
 
               {DOC_TYPES.map(({ key: docType, label, hint }) => {
@@ -205,12 +208,15 @@ export default function AppDocModal({
                       <ChevronDown
                         size={14}
                         aria-hidden="true"
-                        className="text-muted shrink-0 transition-transform"
-                        style={{ transform: expanded ? "rotate(180deg)" : undefined }}
+                        className="rotates text-muted shrink-0"
+                        style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
                       />
                     </button>
 
-                    {expanded && (
+                    <div className="disclosure" data-open={expanded}>
+                      {/* inert keeps the collapsed selects and buttons out of the
+                          tab order while they are still in the DOM for the animation */}
+                      <div inert={!expanded}>
                       <div className="space-y-3 px-5 pb-4">
                         {fileId && (
                           <div className="flex flex-wrap gap-2">
@@ -283,7 +289,8 @@ export default function AppDocModal({
                               : <><Download size={12} aria-hidden="true" /> Generate {label}</>}
                         </button>
                       </div>
-                    )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}

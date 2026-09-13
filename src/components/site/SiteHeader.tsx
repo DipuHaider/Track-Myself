@@ -91,7 +91,7 @@ export default function SiteHeader() {
 
       {/* ── Mobile nav panel (signed-out only; signed-in users get the account menu) ── */}
       {menuOpen && !session && (
-        <div id="site-mobile-menu" className="glass-nav border-t md:hidden">
+        <div id="site-mobile-menu" className="anim-menu glass-nav border-t md:hidden">
           <nav aria-label="Mobile site navigation" className="px-6 py-4">
             <ul className="space-y-0.5" role="list">
               {SITE_NAV.map(({ label, href }) => (

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, ExternalLink, FileText, Loader2, X } from "lucide-react";
 import type { CVFileMeta } from "@/types/cv";
+import { useDismissable } from "@/hooks/useDismissable";
 
 const FORMAT_NAME: Record<string, string> = {
   ats: "ATS", europass: "Europass", designer: "Designer", lebenslauf: "Lebenslauf",
@@ -32,6 +33,7 @@ export default function SavedCVModal({
 }) {
   const [activeId, setActiveId] = useState(files[0]?._id ?? "");
   const [frameLoading, setFrameLoading] = useState(true);
+  const { closing, close } = useDismissable(onClose);
 
   const active = useMemo(
     () => files.find((f) => f._id === activeId) ?? files[0],
@@ -39,10 +41,10 @@ export default function SavedCVModal({
   );
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [close]);
 
   /* A .docx is re-rendered to PDF for viewing; a stored PDF is served as-is. */
   const isPdf = active?.mimeType === "application/pdf";
@@ -50,14 +52,14 @@ export default function SavedCVModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${closing ? "anim-backdrop-out" : "anim-backdrop"}`}
       style={{ background: "rgba(0,0,0,0.6)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) close(); }}
       role="dialog"
       aria-modal="true"
       aria-label="Saved CV preview"
     >
-      <div className="surface flex h-[88dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border shadow-2xl">
+      <div className={`surface flex h-[88dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border shadow-2xl ${closing ? "anim-panel-out" : "anim-panel"}`}>
         <div className="flex items-center justify-between gap-3 border-b px-5 py-3">
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold">{active?.name ?? "Saved CV"}</h2>
@@ -92,7 +94,7 @@ export default function SavedCVModal({
             )}
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               aria-label="Close preview"
               className="rounded-md p-1.5 transition hover:bg-[var(--surface-2)]"
             >

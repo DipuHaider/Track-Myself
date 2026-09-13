@@ -88,8 +88,8 @@ export default function AccountControls() {
         Pause tracking while you take a break, or erase everything permanently.
       </p>
 
-      {message && <p className="mb-4 text-sm" style={{ color: "#047857" }}>{message}</p>}
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {message && <p className="anim-in mb-4 text-sm" style={{ color: "#047857" }}>{message}</p>}
+      {error && <p className="anim-in mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Pause / resume */}
       <div
@@ -163,7 +163,7 @@ export default function AccountControls() {
                 <Trash2 size={13} aria-hidden="true" /> Delete account
               </button>
             ) : (
-              <div className="mt-4 space-y-3">
+              <div className="anim-in mt-4 space-y-3">
                 <p className="flex items-start gap-2 text-xs" style={{ color: "#b91c1c" }}>
                   <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
                   Export anything you want to keep first — CVs can be downloaded from the builder.

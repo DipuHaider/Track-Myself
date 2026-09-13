@@ -124,11 +124,11 @@ export default function SiteSearch() {
 
       {open && (
         <div
-          className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-20"
+          className="anim-backdrop fixed inset-0 z-[60] flex items-start justify-center px-4 pt-20"
           style={{ background: "rgba(0,0,0,0.55)" }}
           onClick={(e) => e.target === e.currentTarget && close()}
         >
-          <div className="glass w-full max-w-2xl overflow-hidden rounded-xl">
+          <div className="anim-panel glass w-full max-w-2xl overflow-hidden rounded-xl">
             <div className="flex items-center gap-3 border-b px-4 py-3">
               <Search size={15} className="text-muted shrink-0" aria-hidden="true" />
               <input

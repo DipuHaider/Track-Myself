@@ -168,7 +168,7 @@ function MyDocumentsContent() {
       </div>
 
       {tab === "uploads" ? (
-        <div id="panel-uploads" role="tabpanel" className="space-y-5">
+        <div id="panel-uploads" role="tabpanel" className="anim-in space-y-5">
           {SECTIONS.map((spec) => (
             <DocumentSection
               key={spec.category}
@@ -193,7 +193,7 @@ function MyDocumentsContent() {
           ))}
         </div>
       ) : (
-        <div id="panel-generated" role="tabpanel">
+        <div id="panel-generated" role="tabpanel" className="anim-in">
           <GeneratedDocuments
             files={generated}
             onDeleted={(id) => {
