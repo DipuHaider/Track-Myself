@@ -6,6 +6,7 @@ import {
   Pencil, Star, Trash2, Upload, X,
 } from "lucide-react";
 import type { CVFileCategory, CVFileMeta } from "@/types/cv";
+import { fileTypeLabel, resolveFileMime } from "@/lib/cvFileTypes";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 
 export type SectionSpec = {
@@ -23,13 +24,6 @@ function fmtSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function fileKind(mimeType: string) {
-  if (mimeType === "application/pdf") return "PDF";
-  if (mimeType === "application/msword") return "DOC";
-  if (mimeType.startsWith("image/")) return mimeType.split("/")[1].toUpperCase();
-  return "DOCX";
 }
 
 async function readAsBase64(file: File): Promise<string> {
@@ -76,7 +70,7 @@ export default function DocumentSection({
         body: JSON.stringify({
           name: file.name,
           size: file.size,
-          mimeType: file.type,
+          mimeType: resolveFileMime(file.name, file.type),
           data,
           category: spec.category,
         }),
@@ -275,7 +269,7 @@ export default function DocumentSection({
                       <>
                         <p className="truncate text-sm font-medium">{file.name}</p>
                         <p className="text-muted text-[11px]">
-                          {fileKind(file.mimeType)} · {fmtSize(file.size)}
+                          {fileTypeLabel(file.mimeType, file.name)} · {fmtSize(file.size)}
                           {file.uploadedAt ? ` · ${new Date(file.uploadedAt).toLocaleDateString()}` : ""}
                         </p>
                       </>

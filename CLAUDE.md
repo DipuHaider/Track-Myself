@@ -106,7 +106,16 @@ scripts. There is no HTML-as-.doc path any more.
 - `src/types/cv.ts` — CVContent, CVFormat (`ats | europass | designer | lebenslauf`), CVVariant, categories
 - `src/lib/cv/content.ts` — defaults, `normaliseContent()`, `importFromLegacy()` (parses old free-text)
 - `src/lib/cv/docx/` — `ats.ts`, `europass.ts`, `designer.ts`, `lebenslauf.ts`, `coverLetter.ts`, `index.ts`
-- `src/lib/cvFiles.ts` — category mime/size rules, primary slots, lazy legacy-file migration
+- `src/lib/cvFileTypes.ts` — accepted mime types per category, size caps, primary slots,
+  `resolveFileMime()` (the extension decides for `.md`/`.json`, which browsers report
+  inconsistently) and `fileTypeLabel()`. No model imports, so client components may use it.
+- `src/lib/cvFiles.ts` — DB helpers (list/read/migrate); re-exports the tables above
+
+The CV, Resume, Cover Letters and Other sections also accept **`.json` and `.md`** as source
+data. A `.json` is read structurally (it is already CVContent) and ranks with the pasted JSON
+versions at weight 2; a `.md` is flattened to plain text by `textFromMarkdown()` and parsed
+like any other CV at weight 1. Both flow into the same cascade, so they aid CV, resume and
+cover-letter generation alike.
 
 Rules baked into the builders: no photo on ATS or Europass; per-format bullet-count arrays control
 page length; the compact ATS variant swaps in `summaryShort` + `skillsCompact` and drops projects.
@@ -158,7 +167,8 @@ src/
     applicationFlags.ts isPossibleGhost(), computeDuplicateIds()
     rbac.ts             access matrix load/save, canDoServer(), getAllowedActions()
     chartTheme.ts       useChartTheme() — validated light/dark chart palette
-    cvFiles.ts          CV file categories, limits, primary slots, legacy migration
+    cvFileTypes.ts      Accepted mimes, size caps, resolveFileMime(), fileTypeLabel() (client-safe)
+    cvFiles.ts          CV file DB helpers, legacy migration; re-exports cvFileTypes
     cv/                 content.ts (model + legacy import) and docx/ builders
     utils.ts            cn() className helper
   models/               User, Application, Interview, Document, Reminder, CVProfile, CVFile, AccessControl

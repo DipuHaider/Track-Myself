@@ -2,47 +2,20 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
-import dbConnect from "@/lib/db";
-import CVProfile from "@/models/CVProfile";
 import CVFile from "@/models/CVFile";
-import { importFromLegacy, isContentEmpty, normaliseContent } from "@/lib/cv/content";
+import { isTooThinToPrint, resolveGenerationContent } from "@/lib/cv/generatePipeline";
 import {
   DOCX_MIME, appDocFileName, cvFileName, renderCVDocx,
   renderCoverLetterDocx, renderTailoredResumeDocx, type AppInfo,
 } from "@/lib/cv/docx";
-import { readPhotoDataUri } from "@/lib/cvFiles";
 import {
   PDF_MIME, cvPdfFileName, renderCVPdf, renderCoverLetterPdf, renderTailoredResumePdf,
 } from "@/lib/cv/pdf";
 import {
   canExportPdf, canUseAppDocs, canUseCVFormat, canUseLebenslauf,
-  isPremiumUser, isSuperAdmin,
 } from "@/lib/permissions";
-import { buildMergedCV } from "@/lib/cv/import/sources";
 import { tailorToApplication } from "@/lib/cv/import/merge";
-import { CV_FORMATS, CV_VARIANTS, type CVContent, type CVFormat, type CVVariant } from "@/types/cv";
-
-const CONTENT_MAX = 200_000;
-
-/**
- * isContentEmpty only catches a *completely* blank profile, so a malformed override
- * like { name: "X" } produced a one-line document and a 200. A CV needs a name and
- * at least one section worth printing.
- */
-function isTooThinToPrint(c: CVContent) {
-  const hasBody =
-    Boolean(c.summary.trim()) ||
-    c.experience.length > 0 ||
-    c.education.length > 0 ||
-    c.skills.length > 0 ||
-    c.projects.length > 0;
-  return !c.name.trim() || !hasBody;
-}
-
-type ProfileDoc = Record<string, unknown> & {
-  content?: unknown;
-  primary?: { profilePhoto?: string };
-};
+import { CV_FORMATS, CV_VARIANTS, type CVFormat, type CVVariant } from "@/types/cv";
 
 export async function POST(req: Request) {
   const auth = await requireAuth();
@@ -103,58 +76,26 @@ export async function POST(req: Request) {
     );
   }
 
-  await dbConnect();
-
-  const doc = (await CVProfile.findOne(
-    { userId: auth.id },
-    { uploadedFiles: 0 },
-  ).lean()) as ProfileDoc | null;
-
-  let content = normaliseContent(doc?.content);
-  if (isContentEmpty(content) && doc) content = importFromLegacy(doc as never);
-
-  /* ── the data cascade ──
-     Uploaded CVs and imported JSON fill whatever the CV Builder form leaves blank.
-     The form always outranks them, so this can only add, never overwrite. Opt out
-     with useSources: false when you want the typed CV exactly as it stands. */
-  if (body.useSources !== false) {
-    const premium = isSuperAdmin(auth.role) || isPremiumUser(auth.role, auth.plan);
-    const merged = await buildMergedCV(auth.id, {
-      includeJson: premium,
-      formContent: isContentEmpty(content) ? undefined : content,
-    });
-    if (merged.content && !isContentEmpty(merged.content)) content = merged.content;
+  const resolved = await resolveGenerationContent(auth, body);
+  if (!resolved.ok) {
+    return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
-
-  if (body.content && typeof body.content === "object") {
-    if (JSON.stringify(body.content).length > CONTENT_MAX) {
-      return NextResponse.json(
-        { error: "That CV is too large to generate. Trim some detail and try again." },
-        { status: 413 },
-      );
-    }
-    content = normaliseContent(body.content);
-  }
-
-  if (!content.photo && doc?.primary?.profilePhoto) {
-    content = { ...content, photo: await readPhotoDataUri(auth.id, doc.primary.profilePhoto) };
-  }
-
-  if (isContentEmpty(content)) {
-    return NextResponse.json(
-      { error: "Your CV is empty. Add your details in the CV Builder first." },
-      { status: 400 },
-    );
-  }
+  let content = resolved.content;
 
   /* Job-specific layer: bias the merged CV toward the application the Docs menu
-     was opened from. Reorders only — nothing is invented. */
-  if (docType !== "cv" && appInfo) {
+     was opened from. Reorders only — nothing is invented.
+
+     Skipped when the caller already tailored: the review modal sends back the exact
+     content the user accepted, and re-sorting it here would make the downloaded file
+     disagree with the diff they just approved. */
+  if (docType !== "cv" && appInfo && body.pretailored !== true) {
     content = tailorToApplication(content, {
       jobTitle: appInfo.jobTitle,
       companyName: appInfo.companyName,
       location: appInfo.location,
       notes: appInfo.notes,
+      jobPostUrl: appInfo.jobPostUrl,
+      platform: appInfo.platform,
     });
   }
 
@@ -195,6 +136,10 @@ export async function POST(req: Request) {
 
   const isPdf = filename.endsWith(".pdf");
 
+  /* The photo is a data URI up to 3 MB — keeping it in the snapshot would roughly
+     double the row. It is re-injected from the profile on re-render. */
+  const snapshot = JSON.stringify({ ...content, photo: "" });
+
   /* Keep a copy in My Docs. Upserted on a stable signature so downloading the same
      document twice replaces the entry instead of stacking duplicates. */
   if (body.save !== false && buffer.length < 6 * 1024 * 1024) {
@@ -224,6 +169,12 @@ export async function POST(req: Request) {
             genDocType: docType,
             genOutput: isPdf ? "pdf" : "docx",
             genFor,
+            genContent: snapshot,
+            genContentAt: new Date(),
+            genDate: new Date().toISOString().slice(0, 10),
+            genTailor: String(body.genTailor ?? ""),
+            genNote: String(body.genNote ?? "").slice(0, 2000),
+            genEdited: false,
             uploadedAt: new Date(),
           },
         },

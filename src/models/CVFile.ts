@@ -24,6 +24,15 @@ const CVFileSchema = new Schema(
     genDocType: { type: String, default: "" },
     genOutput:  { type: String, default: "" },
     genFor:     { type: String, default: "" },
+
+    /* The content this document was built from, so it can be re-rendered or edited
+       later without guessing. Photo is stripped — a data URI would dwarf the row. */
+    genContent:   { type: String,  default: "" },
+    genContentAt: { type: Date,    default: null },
+    genDate:      { type: String,  default: "" },
+    genNote:      { type: String,  default: "" },
+    genTailor:    { type: String,  default: "" },
+    genEdited:    { type: Boolean, default: false },
   },
   { timestamps: { createdAt: "uploadedAt", updatedAt: false } },
 );

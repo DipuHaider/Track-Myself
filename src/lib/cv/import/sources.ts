@@ -1,7 +1,7 @@
 import CVFile from "@/models/CVFile";
 import CVProfile from "@/models/CVProfile";
 import { importFromLegacy, isContentEmpty, normaliseContent } from "@/lib/cv/content";
-import { extractCVText } from "./extractText";
+import { extractCVText, jsonFromBuffer } from "./extractText";
 import { parseCV } from "./parseText";
 import { mergeCVSources, type MergeSource } from "./merge";
 import type { CVContent } from "@/types/cv";
@@ -9,7 +9,7 @@ import type { CVContent } from "@/types/cv";
 /**
  * Assembles every CV data source an account has, in the order the pipeline expects:
  *
- *   uploaded CVs (weight 1) → imported JSON (2) → the CV Builder form (3)
+ *   uploaded CVs (weight 1) → JSON, uploaded or pasted (2) → the CV Builder form (3)
  *
  * The form always wins, so reading an old uploaded CV can only fill gaps — it can
  * never overwrite something the user typed.
@@ -34,6 +34,10 @@ type FileDoc = {
   parsedText?: string;
   uploadedAt?: Date;
 };
+
+function isJsonFile(file: { name: string; mimeType: string }) {
+  return file.mimeType === "application/json" || file.name.toLowerCase().endsWith(".json");
+}
 
 export type SourceReport = {
   label: string;
@@ -70,19 +74,45 @@ export async function gatherCVSources(
     { uploadedFiles: 0 },
   ).lean()) as ProfileDoc | null;
 
-  /* ── 1. uploaded CVs, oldest first so a newer file wins ── */
+  /* ── 1. uploaded CVs ── */
+  /* Take the newest MAX_FILES, then flip to oldest-first: the cap has to keep
+     what was uploaded most recently, while the merge still lets a newer file win. */
   const files = (await CVFile.find(
     /* generated: never — feeding our own output back in would be circular */
     { userId, category: { $in: ["cv", "resume"] }, generated: { $ne: true } },
     "name mimeType data category parsedText uploadedAt",
   )
-    .sort({ uploadedAt: 1 })
+    .sort({ uploadedAt: -1 })
     .limit(MAX_FILES)
     .lean()) as unknown as FileDoc[];
+  files.reverse();
 
   const primaryId = String(profile?.primary?.cv ?? "");
 
   for (const file of files) {
+    /* An uploaded .json is already the shape the builders render, so it is read
+       structurally and ranked with the pasted JSON versions rather than being
+       run through the heuristic text parser. */
+    if (isJsonFile(file)) {
+      const got = jsonFromBuffer(Buffer.from(file.data, "base64"));
+      if (!got.ok) {
+        report.push({ label: file.name, kind: "json", ok: false, detail: got.reason });
+        continue;
+      }
+      const content = normaliseContent(got.value);
+      if (isContentEmpty(content)) {
+        report.push({ label: file.name, kind: "json", ok: false, detail: "no CV fields found" });
+        continue;
+      }
+      sources.push({
+        label: file.name,
+        content,
+        weight: String(file._id) === primaryId ? 2.5 : 2,
+      });
+      report.push({ label: file.name, kind: "json", ok: true, detail: "structured upload" });
+      continue;
+    }
+
     const got = await textForFile(file);
     if (!got) {
       report.push({ label: file.name, kind: "file", ok: false, detail: "could not be read" });

@@ -42,7 +42,9 @@ export async function GET() {
       googleOAuth: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
       nextAuthSecret: Boolean(process.env.NEXTAUTH_SECRET),
       nextAuthUrl: Boolean(process.env.NEXTAUTH_URL),
-      aiTailoring: Boolean(process.env.ANTHROPIC_API_KEY),
+      aiTailoring: Boolean(process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY),
+      aiProviderPrimary: process.env.ANTHROPIC_API_KEY ? "anthropic" : "",
+      aiProviderFallback: process.env.GEMINI_API_KEY ? "gemini (superadmin only)" : "",
       nodeEnv: process.env.NODE_ENV ?? "unknown",
     },
     database: {

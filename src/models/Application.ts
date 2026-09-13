@@ -37,6 +37,7 @@ const ApplicationSchema = new Schema(
     salaryMin: { type: Number },
     salaryMax: { type: Number },
     jobPostUrl: { type: String },
+    jobDescription: { type: String, maxlength: 24000 },
     appliedDate: { type: Date },
     notes: { type: String },
     submittedDocuments: [{ type: String }],

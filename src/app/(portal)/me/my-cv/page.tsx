@@ -11,25 +11,29 @@ import type { CVFileCategory, CVFileMeta, CVPrimaryFiles } from "@/types/cv";
 
 const DOC_ACCEPT = ".pdf,.doc,.docx";
 const IMG_ACCEPT = ".png,.jpg,.jpeg,.webp";
+/* Read as data, not as a layout: .json fills the builder fields directly,
+   .md is flattened to text and parsed like any other CV. */
+const DATA_ACCEPT = ".json,.md";
+const SOURCE_ACCEPT = `${DOC_ACCEPT},${DATA_ACCEPT}`;
 
 const SECTIONS: (SectionSpec & { slot?: keyof CVPrimaryFiles })[] = [
   {
     category: "cv", slot: "cv",
     title: "CV",
-    description: "Your full CV files. The starred one is used when generating documents for an application.",
-    accept: DOC_ACCEPT, maxMB: 5, kind: "document", primaryLabel: "Main CV",
+    description: "Your full CV files. The starred one is used when generating documents for an application. .json and .md are read as source data.",
+    accept: SOURCE_ACCEPT, maxMB: 5, kind: "document", primaryLabel: "Main CV",
   },
   {
     category: "resume", slot: "resume",
     title: "Resume",
-    description: "Shorter, role-focused resumes. Star the one you send most often.",
-    accept: DOC_ACCEPT, maxMB: 5, kind: "document", primaryLabel: "Main Resume",
+    description: "Shorter, role-focused resumes. Star the one you send most often. .json and .md are read as source data.",
+    accept: SOURCE_ACCEPT, maxMB: 5, kind: "document", primaryLabel: "Main Resume",
   },
   {
     category: "cover-letter", slot: "coverLetter",
     title: "Cover Letters",
-    description: "Reusable cover letters and templates.",
-    accept: DOC_ACCEPT, maxMB: 5, kind: "document", primaryLabel: "Main Letter",
+    description: "Reusable cover letters and templates, including .md drafts.",
+    accept: SOURCE_ACCEPT, maxMB: 5, kind: "document", primaryLabel: "Main Letter",
   },
   {
     category: "certificate",
@@ -53,7 +57,7 @@ const SECTIONS: (SectionSpec & { slot?: keyof CVPrimaryFiles })[] = [
     category: "other",
     title: "Other Files",
     description: "Anything else worth keeping with your application documents.",
-    accept: `${DOC_ACCEPT},${IMG_ACCEPT}`, maxMB: 5, kind: "document",
+    accept: `${SOURCE_ACCEPT},${IMG_ACCEPT}`, maxMB: 5, kind: "document",
   },
 ];
 

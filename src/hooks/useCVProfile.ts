@@ -27,6 +27,14 @@ const DRAFT_KEY = "trackmyself-cv";
 let cache: CVProfile | null = null;
 let inflight: Promise<CVProfile> | null = null;
 
+/* Only the file library is broadcast. Content is edited in place in the CV
+   builder, so pushing a whole profile from here would discard unsaved typing. */
+const fileListeners = new Set<(files: CVFileMeta[]) => void>();
+
+function emitFiles(files: CVFileMeta[]) {
+  fileListeners.forEach((fn) => fn(files));
+}
+
 function normalise(raw: unknown): CVProfile {
   const d = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const primary = (d.primary ?? {}) as Partial<CVPrimaryFiles>;
@@ -50,6 +58,21 @@ export function getCachedCVProfile() {
 
 export function patchCachedCVProfile(patch: Partial<CVProfile>) {
   if (cache) cache = { ...cache, ...patch };
+  if (patch.uploadedFiles) emitFiles(patch.uploadedFiles);
+}
+
+export function subscribeCVFiles(fn: (files: CVFileMeta[]) => void) {
+  fileListeners.add(fn);
+  return () => { fileListeners.delete(fn); };
+}
+
+export async function refreshCVFiles(): Promise<CVFileMeta[]> {
+  const res = await fetch("/api/user/cv/files");
+  if (!res.ok) throw new Error("Could not refresh your documents.");
+  const files = (await res.json()) as CVFileMeta[];
+  if (cache) cache = { ...cache, uploadedFiles: files };
+  emitFiles(files);
+  return files;
 }
 
 function readLocalDraft(): CVContent | null {
@@ -106,8 +129,18 @@ export async function downloadCVDocx(payload: {
   variant?: CVVariant;
   output?: "docx" | "pdf";
   docType?: "cv" | "resume" | "cover-letter";
-  appInfo?: { companyName: string; jobTitle: string; location?: string; notes?: string };
+  appInfo?: {
+    companyName: string; jobTitle: string; location?: string; notes?: string;
+    jobPostUrl?: string; platform?: string; jobDescription?: string;
+  };
   content?: CVContent;
+  useSources?: boolean;
+  /* Set by the review modal: the content was already tailored, so the server must
+     not reorder it again or the download stops matching the approved diff. */
+  pretailored?: boolean;
+  save?: boolean;
+  genTailor?: string;
+  genNote?: string;
 }) {
   const res = await fetch("/api/user/cv/generate", {
     method: "POST",
@@ -134,6 +167,10 @@ export async function downloadCVDocx(payload: {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+  /* The file is already downloaded, so a failed list refresh must not surface
+     as a failed generation — My Documents catches up on its next load. */
+  await refreshCVFiles().catch(() => {});
 
   return filename;
 }
@@ -167,6 +204,16 @@ export function useCVProfile() {
 
     return () => { alive = false; };
   }, []);
+
+  useEffect(
+    () =>
+      subscribeCVFiles((files) =>
+        setProfile((prev) =>
+          prev.uploadedFiles === files ? prev : { ...prev, uploadedFiles: files },
+        ),
+      ),
+    [],
+  );
 
   const setContent = useCallback((updater: (prev: CVContent) => CVContent) => {
     setProfile((prev) => ({ ...prev, content: updater(prev.content) }));

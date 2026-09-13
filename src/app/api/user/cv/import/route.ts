@@ -6,7 +6,8 @@ import CVFile from "@/models/CVFile";
 import CVProfile from "@/models/CVProfile";
 import { requireAuth } from "@/lib/serverAuth";
 import { isContentEmpty, normaliseContent } from "@/lib/cv/content";
-import { parseCV } from "@/lib/cv/import/parseText";
+import { foundFields, parseCV } from "@/lib/cv/import/parseText";
+import { jsonFromBuffer } from "@/lib/cv/import/extractText";
 import { textForFile, buildMergedCV } from "@/lib/cv/import/sources";
 import { isPremiumUser, isSuperAdmin, cvVersionLimit } from "@/lib/permissions";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -65,10 +66,36 @@ export async function POST(req: Request) {
 
     if (!file) return NextResponse.json({ error: "That file is not in your library." }, { status: 404 });
 
+    /* A stored .json is already CVContent, so it is read rather than guessed at. */
+    if (file.mimeType === "application/json" || file.name.toLowerCase().endsWith(".json")) {
+      const raw = Buffer.from(file.data, "base64");
+      if (raw.length > JSON_MAX) {
+        return NextResponse.json({ error: "That JSON is too large." }, { status: 413 });
+      }
+      const got = jsonFromBuffer(raw);
+      if (!got.ok) return NextResponse.json({ error: got.reason }, { status: 422 });
+
+      const content = normaliseContent(got.value);
+      if (isContentEmpty(content)) {
+        return NextResponse.json(
+          { error: "That JSON has no recognisable CV fields. Export one from the builder to see the shape.", found: [] },
+          { status: 422 },
+        );
+      }
+
+      return NextResponse.json({
+        content,
+        found: foundFields(content),
+        coverage: 1,
+        characters: raw.length,
+        cached: false,
+      });
+    }
+
     const got = await textForFile(file);
     if (!got) {
       return NextResponse.json(
-        { error: "That file could not be read. Upload a .docx or .pdf with selectable text." },
+        { error: "That file could not be read. Upload a .docx, .pdf, .md or .json with readable content." },
         { status: 422 },
       );
     }

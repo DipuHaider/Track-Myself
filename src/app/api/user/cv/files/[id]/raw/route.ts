@@ -16,7 +16,7 @@ import type { CVFormat, CVVariant } from "@/types/cv";
 type StoredFile = {
   name: string; mimeType: string; data: string;
   generated?: boolean; genFormat?: string; genVariant?: string;
-  genDocType?: string; genFor?: string;
+  genDocType?: string; genFor?: string; genContent?: string; genEdited?: boolean;
 } & Record<string, unknown>;
 
 export async function GET(
@@ -49,20 +49,44 @@ export async function GET(
       );
     }
 
+    /* Hand edits live in the stored bytes, not in the snapshot — re-rendering here
+       would silently throw them away. */
+    if (file.genEdited) {
+      return NextResponse.json(
+        { error: "This document has been edited. Download it to see the edited version." },
+        { status: 422 },
+      );
+    }
+
     const doc = (await CVProfile.findOne(
       { userId: auth.id },
       { uploadedFiles: 0 },
     ).lean()) as (Record<string, unknown> & { content?: unknown; primary?: { profilePhoto?: string } }) | null;
 
+    /* Prefer the snapshot taken when this file was generated. Without it the viewer
+       re-derives from the live profile and shows today's CV, not the one in the file. */
     let content = normaliseContent(doc?.content);
-    if (isContentEmpty(content) && doc) content = importFromLegacy(doc as never);
+    let fromSnapshot = false;
 
-    const premium = isSuperAdmin(auth.role) || isPremiumUser(auth.role, auth.plan);
-    const merged = await buildMergedCV(auth.id, {
-      includeJson: premium,
-      formContent: isContentEmpty(content) ? undefined : content,
-    });
-    if (merged.content && !isContentEmpty(merged.content)) content = merged.content;
+    if (file.genContent) {
+      try {
+        content = normaliseContent(JSON.parse(file.genContent));
+        fromSnapshot = !isContentEmpty(content);
+      } catch {
+        fromSnapshot = false;
+      }
+    }
+
+    if (!fromSnapshot) {
+      if (isContentEmpty(content) && doc) content = importFromLegacy(doc as never);
+
+      const premium = isSuperAdmin(auth.role) || isPremiumUser(auth.role, auth.plan);
+      const merged = await buildMergedCV(auth.id, {
+        includeJson: premium,
+        formContent: isContentEmpty(content) ? undefined : content,
+      });
+      if (merged.content && !isContentEmpty(merged.content)) content = merged.content;
+    }
 
     if (!content.photo && doc?.primary?.profilePhoto) {
       content = { ...content, photo: await readPhotoDataUri(auth.id, doc.primary.profilePhoto) };
@@ -101,6 +125,8 @@ export async function GET(
       "Content-Type": file.mimeType,
       "Content-Length": String(bytes.length),
       "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${encodeURIComponent(file.name)}"`,
+      /* uploads are served verbatim, so never let a browser sniff one into HTML */
+      "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, max-age=300",
     },
   });

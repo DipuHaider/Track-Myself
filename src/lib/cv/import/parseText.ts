@@ -17,7 +17,7 @@ export type ParsedCV = {
   coverage: number;
 };
 
-const HEADING_ALIASES: Record<string, string> = {
+export const HEADING_ALIASES: Record<string, string> = {
   summary: "summary", profile: "summary", about: "summary", objective: "summary",
   "personal statement": "summary", "professional summary": "summary", "career summary": "summary",
   experience: "experience", "work experience": "experience", employment: "experience",
@@ -40,7 +40,7 @@ const BULLET_RE = /^\s*[•▪◦‣·*\-–—]\s+/;
 const DATE_RANGE_RE =
   /((?:19|20)\d{2}|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*(?:19|20)?\d{2,4})\s*[–—\-to]{1,3}\s*((?:19|20)\d{2}|present|current|now|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*(?:19|20)?\d{2,4})/i;
 
-function normaliseHeading(line: string): string | null {
+export function normaliseHeading(line: string): string | null {
   const clean = line.replace(/[:\-–—|]+$/g, "").trim().toLowerCase();
   if (clean.length > 42) return null;
   return HEADING_ALIASES[clean] ?? null;
@@ -57,7 +57,7 @@ function looksLikeHeading(line: string): boolean {
 }
 
 /** Splits the document into { heading -> lines } using whichever headings it finds. */
-function sectionise(lines: string[]) {
+export function sectionise(lines: string[]) {
   const sections: Record<string, string[]> = { _head: [] };
   let current = "_head";
 
@@ -164,6 +164,21 @@ function parseLanguages(lines: string[]) {
   return out;
 }
 
+/** Names the fields a CVContent actually carries, for the import UI to show. */
+export function foundFields(content: CVContent): string[] {
+  const found: string[] = [];
+  if (content.name) found.push("name");
+  if (content.contact.email) found.push("email");
+  if (content.contact.phone) found.push("phone");
+  if (content.summary) found.push("summary");
+  if (content.experience.length) found.push(`experience (${content.experience.length})`);
+  if (content.education.length) found.push(`education (${content.education.length})`);
+  if (content.skills.length) found.push(`skills (${content.skills.length})`);
+  if (content.languages.length) found.push(`languages (${content.languages.length})`);
+  if (content.projects.length) found.push(`projects (${content.projects.length})`);
+  return found;
+}
+
 export function parseCVText(text: string): ParsedCV {
   const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+$/, ""));
   const sections = sectionise(lines);
@@ -215,15 +230,7 @@ export function parseCVText(text: string): ParsedCV {
     awards,
   });
 
-  const found: string[] = [];
-  if (content.name) found.push("name");
-  if (content.contact.email) found.push("email");
-  if (content.contact.phone) found.push("phone");
-  if (content.summary) found.push("summary");
-  if (content.experience.length) found.push(`experience (${content.experience.length})`);
-  if (content.education.length) found.push(`education (${content.education.length})`);
-  if (content.skills.length) found.push(`skills (${content.skills.length})`);
-  if (content.languages.length) found.push(`languages (${content.languages.length})`);
+  const found = foundFields(content);
 
   /* rough share of the source text that ended up somewhere structured */
   const captured =

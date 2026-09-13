@@ -73,6 +73,7 @@ type FormData = {
   salaryMax: string;
   contactNumber: string;
   jobPostUrl: string;
+  jobDescription: string;
   appliedDate: string;
   priority: string;
   notes: string;
@@ -93,6 +94,7 @@ const EMPTY: FormData = {
   salaryMax: "",
   contactNumber: "",
   jobPostUrl: "",
+  jobDescription: "",
   appliedDate: "",
   priority: "Medium",
   notes: "",
@@ -114,6 +116,7 @@ function toForm(app: Application): FormData {
     salaryMax: app.salaryMax != null ? String(app.salaryMax) : "",
     contactNumber: app.contactNumber ?? "",
     jobPostUrl: app.jobPostUrl ?? "",
+    jobDescription: app.jobDescription ?? "",
     appliedDate: toDateTimeStr(app.appliedDate),
     priority: app.priority ?? "Medium",
     notes: app.notes ?? "",
@@ -516,6 +519,23 @@ export default function ApplicationFormModal({
               />
             </Field>
           </div>
+
+          {/* Job description — the text AI tailoring reads when generating for this job. */}
+          <Field label="Job description">
+            <textarea
+              className={inputCls}
+              rows={4}
+              maxLength={24000}
+              placeholder="Paste the job posting here. Documents generated for this application are tailored against it."
+              value={form.jobDescription}
+              onChange={set("jobDescription")}
+            />
+            <p className="text-muted mt-1 text-[11px]">
+              {form.jobDescription.trim()
+                ? form.jobDescription.length.toLocaleString() + " characters"
+                : "Optional, but tailoring is much better with it."}
+            </p>
+          </Field>
 
           {/* Notes */}
           <Field label="Notes">

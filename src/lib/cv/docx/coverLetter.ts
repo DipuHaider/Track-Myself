@@ -7,6 +7,10 @@ export type AppInfo = {
   jobTitle: string;
   location?: string;
   notes?: string;
+  /* Not rendered — carried so job-specific tailoring sees the whole posting. */
+  jobPostUrl?: string;
+  platform?: string;
+  jobDescription?: string;
 };
 
 export function buildCoverLetter(c: CVContent, info: AppInfo): Document {

@@ -2,45 +2,10 @@ import CVFile from "@/models/CVFile";
 import CVProfile from "@/models/CVProfile";
 import type { CVFileCategory } from "@/types/cv";
 
-export const DOC_MIME_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
-
-export const IMAGE_MIME_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-];
-
-export const CATEGORY_MIME: Record<CVFileCategory, string[]> = {
-  "cv":            DOC_MIME_TYPES,
-  "resume":        DOC_MIME_TYPES,
-  "cover-letter":  DOC_MIME_TYPES,
-  "certificate":   [...DOC_MIME_TYPES, ...IMAGE_MIME_TYPES],
-  "profile-photo": IMAGE_MIME_TYPES,
-  "cover-image":   IMAGE_MIME_TYPES,
-  "other":         [...DOC_MIME_TYPES, ...IMAGE_MIME_TYPES],
-};
-
-export const CATEGORY_MAX_BYTES: Record<CVFileCategory, number> = {
-  "cv":            5 * 1024 * 1024,
-  "resume":        5 * 1024 * 1024,
-  "cover-letter":  5 * 1024 * 1024,
-  "certificate":   5 * 1024 * 1024,
-  "profile-photo": 3 * 1024 * 1024,
-  "cover-image":   6 * 1024 * 1024,
-  "other":         5 * 1024 * 1024,
-};
-
-export const PRIMARY_FOR_CATEGORY: Partial<Record<CVFileCategory, string>> = {
-  "cv":            "cv",
-  "resume":        "resume",
-  "cover-letter":  "coverLetter",
-  "profile-photo": "profilePhoto",
-  "cover-image":   "coverImage",
-};
+export {
+  DOC_MIME_TYPES, IMAGE_MIME_TYPES, DATA_MIME_TYPES, resolveFileMime,
+  CATEGORY_MIME, CATEGORY_MAX_BYTES, PRIMARY_FOR_CATEGORY, fileTypeLabel,
+} from "@/lib/cvFileTypes";
 
 export type CVFileMetaRow = {
   _id: string;
@@ -89,7 +54,7 @@ export async function migrateLegacyCVFiles(userId: string) {
 
 export async function listCVFiles(userId: string) {
   await migrateLegacyCVFiles(userId);
-  return CVFile.find({ userId }, { data: 0 }).sort({ uploadedAt: 1 }).lean();
+  return CVFile.find({ userId }, { data: 0, genContent: 0 }).sort({ uploadedAt: 1 }).lean();
 }
 
 export async function readCVFile(userId: string, id: string) {

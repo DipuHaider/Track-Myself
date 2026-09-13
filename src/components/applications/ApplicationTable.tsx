@@ -213,6 +213,8 @@ export default function ApplicationTable({
                         location: app.location ?? app.city ?? app.country ?? undefined,
                         notes: app.notes ?? undefined,
                         jobPostUrl: app.jobPostUrl ?? undefined,
+                        platform: app.platform ?? undefined,
+                        jobDescription: app.jobDescription ?? undefined,
                       }}
                     />
                   </td>

@@ -10,6 +10,7 @@ export const applicationSchema = z.object({
   salary: z.string().optional(),
   jobPostUrl: z.union([z.string().url(), z.literal("")]).optional(),
   appliedDate: z.coerce.date().optional(),
+  jobDescription: z.string().max(24000).optional(),
   notes: z.string().optional(),
   priority: z.enum(["Low", "Medium", "High"]).optional(),
 });

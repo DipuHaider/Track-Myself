@@ -7,7 +7,7 @@ import CVFile from "@/models/CVFile";
 import CVProfile from "@/models/CVProfile";
 import {
   CATEGORY_MAX_BYTES, CATEGORY_MIME, PRIMARY_FOR_CATEGORY,
-  listCVFiles, migrateLegacyCVFiles,
+  listCVFiles, migrateLegacyCVFiles, resolveFileMime,
 } from "@/lib/cvFiles";
 import { CV_FILE_CATEGORIES, type CVFileCategory } from "@/types/cv";
 
@@ -40,7 +40,10 @@ export async function POST(req: Request) {
   if (!CV_FILE_CATEGORIES.includes(category)) {
     return NextResponse.json({ error: "Unknown document category" }, { status: 400 });
   }
-  if (!CATEGORY_MIME[category].includes(mimeType)) {
+  /* The browser’s type for .md and .json cannot be trusted, so the name decides. */
+  const mime = resolveFileMime(name, mimeType);
+
+  if (!CATEGORY_MIME[category].includes(mime)) {
     return NextResponse.json(
       { error: `That file type is not accepted for this section.` },
       { status: 400 },
@@ -62,7 +65,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const created = await CVFile.create({ userId: auth.id, category, name, size, mimeType, data });
+  const created = await CVFile.create({ userId: auth.id, category, name, size, mimeType: mime, data });
 
   const primaryKey = PRIMARY_FOR_CATEGORY[category];
   const set: Record<string, unknown> = {};

@@ -367,3 +367,34 @@ body {
   }
   .disclosure, .rotates { transition: none !important; }
 }
+
+/* ── Document review diff ── */
+
+.diff-pane {
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.diff-ins {
+  background: #dcfce7;
+  color: #14532d;
+  border-radius: 2px;
+  padding: 0 1px;
+  text-decoration: none;
+}
+
+.diff-del {
+  background: #fee2e2;
+  color: #7f1d1d;
+  border-radius: 2px;
+  padding: 0 1px;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+:root[data-theme="dark"] .diff-ins { background: #052e16; color: #86efac; }
+:root[data-theme="dark"] .diff-del { background: #3b0d0d; color: #fca5a5; }
+
+.diff-section-changed { border-left: 2px solid var(--primary); }
