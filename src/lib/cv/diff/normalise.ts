@@ -10,6 +10,9 @@ const FURNITURE = [
   /^page\s+\d+(\s+of\s+\d+)?$/i,
   /^\d+$/,
   /^[-–—_=*·•]+$/,
+  /* Europass and other templated layouts print field captions of their own.
+     A line that is nothing but one of these is scaffolding, never content. */
+  /^(?:(?:address|telephone|tel|mobile|e-?mail|linkedin|github|website|portfolio|nationality|date of birth|gender|position held|employer|occupation|main activities)[\s:,|·]*)+$/i,
 ];
 
 export function normaliseForDiff(text: string): string {
@@ -21,7 +24,14 @@ export function normaliseForDiff(text: string): string {
     .replace(/[‘’‛]/g, "'")
     .replace(/[“”‟]/g, '"')
     .split("\n")
-    .map((l) => l.replace(/^\s*[•▪◦‣·*\-–—]\s+/, "").replace(/[ \t]+/g, " ").trim());
+    .map((l) =>
+      l
+        .replace(/^\s*[•▪◦‣·*\-–—]\s+/, "")
+        /* a lone bar or middot between fields is a separator glyph, not a word */
+        .replace(/(^|\s)[|·•]+(?=\s|$)/g, " ")
+        .replace(/[ \t]+/g, " ")
+        .trim(),
+    );
 
   /* A header or footer repeated on every page is furniture, not content. */
   const seen = new Map<string, number>();

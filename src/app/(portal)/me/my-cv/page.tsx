@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ExternalLink, FolderOpen, Loader2, Sparkles, Upload } from "lucide-react";
 import DocumentSection, { type SectionSpec } from "@/components/cv/DocumentSection";
-import GeneratedDocuments from "@/components/cv/GeneratedDocuments";
+import GeneratedTree from "@/components/cv/GeneratedTree";
 import { useCVProfile } from "@/hooks/useCVProfile";
 import type { CVFileCategory, CVFileMeta, CVPrimaryFiles } from "@/types/cv";
 
@@ -198,7 +198,7 @@ function MyDocumentsContent() {
         </div>
       ) : (
         <div id="panel-generated" role="tabpanel" className="anim-in">
-          <GeneratedDocuments
+          <GeneratedTree
             files={generated}
             onDeleted={(id) => {
               applyPatch({ uploadedFiles: profile.uploadedFiles.filter((f) => f._id !== id) });

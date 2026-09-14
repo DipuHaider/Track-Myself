@@ -24,6 +24,20 @@ export type DocDiff = {
 /**
  * Diffs section-against-section rather than across the whole document, so a block
  * that moved does not cascade every following line into a false difference.
+ *
+ * Measured against real PDFs rendered by our own builders and read back through
+ * unpdf, comparing content with itself so every reported change is pure noise:
+ *
+ *   single column (ATS)        0% noise  — the representative case, since the left
+ *                                          side in production is the user's own CV
+ *   sidebar layout (Designer)  19%       — the sidebar extracts as one run, so its
+ *                                          skills land under a neighbouring heading
+ *   table layout (Europass)    40%       — caption and value columns interleave, so
+ *                                          section order does not survive extraction
+ *
+ * Two-column and table sources are therefore approximate by construction. Tightening
+ * them means teaching the extractor about column geometry, not tuning this file —
+ * caption-stripping heuristics aggressive enough to help also eat real headings.
  */
 export function diffDocuments(
   leftText: string,

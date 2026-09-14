@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ImageIcon, Scissors, ScanText, ArrowRight, Eraser, Sparkles, Layers } from "lucide-react";
+import { ArrowRight, Eraser, FileText, ImageIcon, Layers, PenLine, ScanText, Scissors, Sparkles } from "lucide-react";
 import { SITE_TOOLS, type SiteTool } from "@/lib/siteTools";
 
 const ICONS: Record<SiteTool["icon"], React.ComponentType<{ size?: number }>> = {
@@ -9,6 +9,8 @@ const ICONS: Record<SiteTool["icon"], React.ComponentType<{ size?: number }>> = 
   eraser: Eraser,
   sparkles: Sparkles,
   layers: Layers,
+  pen: PenLine,
+  file: FileText,
 };
 
 const TOOLS = SITE_TOOLS;

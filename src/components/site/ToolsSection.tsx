@@ -1,7 +1,5 @@
 import Link from "next/link";
-import {
-  ArrowRight, Eraser, ImageIcon, Layers, ScanText, Scissors, Sparkles,
-} from "lucide-react";
+import { ArrowRight, Eraser, FileText, ImageIcon, Layers, PenLine, ScanText, Scissors, Sparkles } from "lucide-react";
 import { SITE_TOOLS, type SiteTool } from "@/lib/siteTools";
 
 const ICONS: Record<SiteTool["icon"], React.ComponentType<{ size?: number }>> = {
@@ -11,6 +9,8 @@ const ICONS: Record<SiteTool["icon"], React.ComponentType<{ size?: number }>> = 
   eraser: Eraser,
   sparkles: Sparkles,
   layers: Layers,
+  pen: PenLine,
+  file: FileText,
 };
 
 export default function ToolsSection() {
@@ -20,7 +20,7 @@ export default function ToolsSection() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
-              Six tools · no account
+              Eight tools · no account
             </p>
             <h2 className="mt-3 text-3xl font-bold" style={{ textWrap: "balance" }}>
               The bits of a job hunt<br />nobody warns you about.

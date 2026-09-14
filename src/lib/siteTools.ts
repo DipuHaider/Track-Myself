@@ -1,6 +1,6 @@
 export type SiteTool = {
   href: string;
-  icon: "image" | "scissors" | "scan" | "eraser" | "sparkles" | "layers";
+  icon: "image" | "scissors" | "scan" | "eraser" | "sparkles" | "layers" | "pen" | "file";
   color: string;
   title: string;
   short: string;
@@ -10,6 +10,28 @@ export type SiteTool = {
 };
 
 export const SITE_TOOLS: SiteTool[] = [
+  {
+    href: "/tools/pdf-editor",
+    icon: "pen",
+    color: "#e11d48",
+    title: "PDF Editor",
+    short: "Fix the typo without rebuilding the file",
+    description:
+      "Open any PDF, type over it, highlight, draw or sign, rotate and drop pages, then export. It never leaves your browser.",
+    tags: ["In-browser", "Annotate", "Sign"],
+    badge: "New",
+  },
+  {
+    href: "/tools/docx-editor",
+    icon: "file",
+    color: "#2563eb",
+    title: "Word Text Editor",
+    short: "Reword a .docx without opening Word",
+    description:
+      "Edit the text of any Word document in the browser. Styles, lists, tables and images are repacked exactly as they were.",
+    tags: ["In-browser", "No Word", "Keeps styles"],
+    badge: "New",
+  },
   {
     href: "/tools/bg-remover",
     icon: "eraser",

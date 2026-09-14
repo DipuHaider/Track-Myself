@@ -76,7 +76,10 @@ export function contentToSections(content: CVContent, spec: DocSpec): Record<str
   put("certifications", content.certifications.join("\n"));
   put("awards", content.awards.join("\n"));
   put("languages", content.languages
-    .map((l) => `${l.name} (${l.mother ? "Mother tongue" : l.level})`)
+    .map((l) => {
+      const level = l.level || (l.mother ? "Mother tongue" : "");
+      return level ? `${l.name} (${level})` : l.name;
+    })
     .join("\n"));
 
   return out;

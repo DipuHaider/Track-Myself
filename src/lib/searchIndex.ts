@@ -101,6 +101,16 @@ export const SEARCH_PAGES: SearchPage[] = [
     keywords: ["tool", "tools", "pdf", "split", "merge", "pages", "extract"],
     group: "tools", visibility: { type: "public" },
   },
+  {
+    title: "PDF Editor", subtitle: "Edit, annotate and sign a PDF in your browser", href: "/tools/pdf-editor",
+    keywords: ["tool", "tools", "pdf", "edit", "annotate", "sign", "highlight", "text", "rotate"],
+    group: "tools", visibility: { type: "public" },
+  },
+  {
+    title: "Word Text Editor", subtitle: "Reword a .docx in your browser, styles untouched", href: "/tools/docx-editor",
+    keywords: ["tool", "tools", "word", "docx", "edit", "text", "reword", "document"],
+    group: "tools", visibility: { type: "public" },
+  },
 
   {
     title: "FAQ", subtitle: "Answers about tracking, CVs, tools, Premium and privacy", href: "/faq",

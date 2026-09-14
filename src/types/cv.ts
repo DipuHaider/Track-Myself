@@ -96,6 +96,9 @@ export type CVFileMeta = {
   genVariant?: string;
   genDocType?: string;
   genOutput?: string;
+  genDate?: string;
+  genTailor?: string;
+  genEdited?: boolean;
   genFor?: string;
 };
 

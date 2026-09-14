@@ -4,12 +4,16 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
 import CVFile from "@/models/CVFile";
 import { isTooThinToPrint, resolveGenerationContent } from "@/lib/cv/generatePipeline";
+import { generatedFileName } from "@/lib/cv/fileName";
+
+/* How many generated documents the library keeps before trimming the oldest. */
+const GENERATED_KEEP = 60;
 import {
-  DOCX_MIME, appDocFileName, cvFileName, renderCVDocx,
+  DOCX_MIME, renderCVDocx,
   renderCoverLetterDocx, renderTailoredResumeDocx, type AppInfo,
 } from "@/lib/cv/docx";
 import {
-  PDF_MIME, cvPdfFileName, renderCVPdf, renderCoverLetterPdf, renderTailoredResumePdf,
+  PDF_MIME, renderCVPdf, renderCoverLetterPdf, renderTailoredResumePdf,
 } from "@/lib/cv/pdf";
 import {
   canExportPdf, canUseAppDocs, canUseCVFormat, canUseLebenslauf,
@@ -108,30 +112,23 @@ export async function POST(req: Request) {
 
   let buffer: Buffer;
   let filename: string;
+  const naming = generatedFileName({ content, info: appInfo, docType, format, variant, output });
 
   if (docType === "cover-letter" && appInfo) {
     buffer = output === "pdf"
       ? await renderCoverLetterPdf(content, appInfo)
       : await renderCoverLetterDocx(content, appInfo);
-    filename = appDocFileName(content, appInfo, docType).replace(
-      /\.docx$/,
-      output === "pdf" ? ".pdf" : ".docx",
-    );
+    filename = naming.name;
   } else if (docType === "resume" && appInfo) {
     buffer = output === "pdf"
       ? await renderTailoredResumePdf(content, appInfo, variant)
       : await renderTailoredResumeDocx(content, appInfo, variant);
-    filename = appDocFileName(content, appInfo, docType).replace(
-      /\.docx$/,
-      output === "pdf" ? ".pdf" : ".docx",
-    );
+    filename = naming.name;
   } else {
     buffer = output === "pdf"
       ? await renderCVPdf(content, format, variant)
       : await renderCVDocx(content, format, variant);
-    filename = output === "pdf"
-      ? cvPdfFileName(content, format, variant)
-      : cvFileName(content, format, variant);
+    filename = naming.name;
   }
 
   const isPdf = filename.endsWith(".pdf");
@@ -154,6 +151,7 @@ export async function POST(req: Request) {
           genDocType: docType,
           genOutput: isPdf ? "pdf" : "docx",
           genFor,
+          genDate: naming.isoDate,
         },
         {
           $set: {
@@ -171,7 +169,7 @@ export async function POST(req: Request) {
             genFor,
             genContent: snapshot,
             genContentAt: new Date(),
-            genDate: new Date().toISOString().slice(0, 10),
+            genDate: naming.isoDate,
             genTailor: String(body.genTailor ?? ""),
             genNote: String(body.genNote ?? "").slice(0, 2000),
             genEdited: false,
@@ -180,6 +178,20 @@ export async function POST(req: Request) {
         },
         { upsert: true },
       );
+      /* genDate is part of the signature now, so a regenerated document replaces
+         only today's copy and the day folders keep real history. That grows without
+         bound, and generated rows are exempt from the 40-file upload cap, so the
+         library trims its own tail. */
+      const extra = await CVFile.countDocuments({ userId: auth.id, generated: true }) - GENERATED_KEEP;
+      if (extra > 0) {
+        const oldest = await CVFile.find(
+          { userId: auth.id, generated: true },
+          { _id: 1 },
+        ).sort({ uploadedAt: 1 }).limit(extra).lean() as unknown as { _id: unknown }[];
+        if (oldest.length) {
+          await CVFile.deleteMany({ _id: { $in: oldest.map((f) => f._id) } });
+        }
+      }
     } catch {
       /* the download is what matters — never fail it because the copy did not save */
     }

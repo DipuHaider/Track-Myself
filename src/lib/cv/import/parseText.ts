@@ -19,14 +19,18 @@ export type ParsedCV = {
 
 export const HEADING_ALIASES: Record<string, string> = {
   summary: "summary", profile: "summary", about: "summary", objective: "summary",
+  "about me": "summary", "personal profile": "summary",
   "personal statement": "summary", "professional summary": "summary", "career summary": "summary",
   experience: "experience", "work experience": "experience", employment: "experience",
   "professional experience": "experience", "work history": "experience", "career history": "experience",
   education: "education", "education and training": "education", qualifications: "education",
   academic: "education", "academic background": "education",
   skills: "skills", "technical skills": "skills", competencies: "skills",
+  "personal skills": "skills", "digital skills": "skills", "soft skills": "skills",
   "core competencies": "skills", "key skills": "skills", expertise: "skills",
   languages: "languages", "language skills": "languages",
+  "mother tongue": "languages", "mother tongues": "languages",
+  "personal information": "_head", "contact": "_head", "contact details": "_head",
   projects: "projects", "selected projects": "projects", "key projects": "projects",
   certifications: "certifications", certificates: "certifications", licences: "certifications",
   awards: "awards", honours: "awards", achievements: "awards",
