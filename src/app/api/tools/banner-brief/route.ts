@@ -1,6 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/serverAuth";
+import { isSuperAdmin } from "@/lib/permissions";
+import { callProvider, providerChain } from "@/lib/cv/ai/provider";
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 15;
@@ -165,8 +168,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Describe the banner you want." }, { status: 400 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  /* This tool is public, so a signed-out visitor is normal rather than an error:
+     requireAuth's 401 is read as "anonymous" instead of being returned. Gemini is
+     the superadmin's personal key, so only a superadmin session unlocks it. */
+  const auth = await requireAuth();
+  const superadmin = !(auth instanceof NextResponse) && isSuperAdmin(auth.role);
+
+  const chain = providerChain({ superadmin });
+  if (!chain.length) {
     return NextResponse.json(localBrief(prompt));
   }
 
@@ -187,24 +196,17 @@ Return ONLY this JSON object, no markdown:
 {"headline":"","subheadline":"","tagline":"","keywords":[],"palette":{"background":"#","backgroundAlt":"#","accent":"#","text":"#","muted":"#"},"style":"","layout":""}`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 800,
-        messages: [{ role: "user", content: instruction }],
-      }),
-    });
+    let text = "";
+    for (const provider of chain) {
+      const call = await callProvider(provider, instruction, 800);
+      if (call.ok) { text = call.text; break; }
+      console.error("banner brief provider failed:", call.error);
+    }
 
-    if (!res.ok) return NextResponse.json(localBrief(prompt));
+    /* Every provider declined, so fall back to the local brief rather than erroring —
+       this tool has always degraded silently and a banner is not worth a 502. */
+    if (!text) return NextResponse.json(localBrief(prompt));
 
-    const data = await res.json();
-    const text: string = data.content?.[0]?.text ?? "";
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return NextResponse.json(localBrief(prompt));
 

@@ -136,7 +136,7 @@ export default function SettingsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
             <Flag ok={env.nextAuthSecret} label="NextAuth secret" hint="Sessions will not persist without NEXTAUTH_SECRET." />
             <Flag ok={env.nextAuthUrl} label="NextAuth URL" hint="Set NEXTAUTH_URL for correct callback URLs in production." />
             <Flag ok={env.googleOAuth} label="Google sign-in" hint="Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." />
-            <Flag ok={env.aiTailoring} label="AI CV tailoring" hint="Set ANTHROPIC_API_KEY to enable the premium AI Tailor." />
+            <Flag ok={env.aiTailoring} label="AI CV tailoring" hint="Set ANTHROPIC_API_KEY for everyone, or GEMINI_API_KEY as the superadmin-only fallback." />
           </ul>
           <p className="text-muted mt-3 text-xs">
             Environment: <strong>{env.nodeEnv}</strong>
