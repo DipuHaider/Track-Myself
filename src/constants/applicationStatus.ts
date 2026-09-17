@@ -18,8 +18,24 @@ export const PLATFORMS = [
   "Company Website",
   "Facebook Page",
   "Facebook Group",
+  "Xing",
   "Referral",
   "Other",
+] as const;
+
+export const JOB_TYPES = [
+  "Full-Time",
+  "Part-Time",
+  "Contract",
+  "Freelance",
+  "Internship",
+  "Working Student",
+  "Apprenticeship",
+  "Temporary",
+  "Volunteer",
+  "Remote",
+  "Hybrid",
+  "On-site",
 ] as const;
 
 export const FACEBOOK_PLATFORMS: ReadonlySet<string> = new Set([

@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
-import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, PLATFORMS } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, PLATFORMS } from "@/constants/applicationStatus";
 import type { Application } from "@/types/application";
 
 /* ── helpers ─────────────────────────────────────── */
@@ -63,6 +63,7 @@ type FormData = {
   jobTitle: string;
   platform: string;
   platformDetail: string;
+  jobType: string;
   applicationStatus: string;
   city: string;
   country: string;
@@ -84,6 +85,7 @@ const EMPTY: FormData = {
   jobTitle: "",
   platform: "",
   platformDetail: "",
+  jobType: "",
   applicationStatus: "Wishlist",
   city: "",
   country: "",
@@ -106,6 +108,7 @@ function toForm(app: Application): FormData {
     jobTitle: app.jobTitle,
     platform: app.platform ?? "",
     platformDetail: app.platformDetail ?? "",
+    jobType: app.jobType ?? "",
     applicationStatus: app.applicationStatus,
     city: app.city ?? "",
     country: app.country ?? "",
@@ -248,6 +251,7 @@ export default function ApplicationFormModal({
       jobTitle: form.jobTitle,
       platform: form.platform || undefined,
       platformDetail: form.platformDetail || undefined,
+      jobType: form.jobType || undefined,
       applicationStatus: form.applicationStatus,
       city: form.city || undefined,
       country: form.country || undefined,
@@ -258,6 +262,7 @@ export default function ApplicationFormModal({
       salaryMax: form.salaryMax ? Number(form.salaryMax) : undefined,
       contactNumber: form.contactNumber || undefined,
       jobPostUrl: form.jobPostUrl || undefined,
+      jobDescription: form.jobDescription || undefined,
       appliedDate: form.appliedDate || undefined,
       priority: form.priority,
       notes: form.notes || undefined,
@@ -393,7 +398,17 @@ export default function ApplicationFormModal({
             </Field>
           )}
 
-          {/* Row 3 — Location: city + country */}
+          {/* Row 3 — Job type */}
+          <Field label="Job Type">
+            <select className={inputCls} value={form.jobType} onChange={set("jobType")}>
+              <option value="">Select job type</option>
+              {JOB_TYPES.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </Field>
+
+          {/* Row 4 — Location: city + country */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="City">
               <input
@@ -413,7 +428,7 @@ export default function ApplicationFormModal({
             </Field>
           </div>
 
-          {/* Row 4 — Salary */}
+          {/* Row 5 — Salary */}
           <Field label="Salary">
             <div className="flex items-center gap-2">
               {/* Fixed / Range toggle */}
@@ -479,7 +494,7 @@ export default function ApplicationFormModal({
             </div>
           </Field>
 
-          {/* Row 5 */}
+          {/* Row 6 */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Contact Number">
               <input
@@ -499,7 +514,7 @@ export default function ApplicationFormModal({
             </Field>
           </div>
 
-          {/* Row 6 */}
+          {/* Row 7 */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Applied Date & Time">
               <input

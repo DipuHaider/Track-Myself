@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import Modal from "@/components/shared/Modal";
-import { APPLICATION_STATUSES, PLATFORMS } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, JOB_TYPES, PLATFORMS } from "@/constants/applicationStatus";
 import type { Application } from "@/types/application";
 
 type FormData = {
   companyName: string;
   jobTitle: string;
   platform: string;
+  jobType: string;
   applicationStatus: string;
   country: string;
   salary: string;
@@ -22,6 +23,7 @@ const EMPTY: FormData = {
   companyName: "",
   jobTitle: "",
   platform: "",
+  jobType: "",
   applicationStatus: "Wishlist",
   country: "",
   salary: "",
@@ -83,6 +85,7 @@ export default function AddApplicationModal({
           appliedDate: form.appliedDate || undefined,
           jobPostUrl: form.jobPostUrl || undefined,
           platform: form.platform || undefined,
+          jobType: form.jobType || undefined,
         }),
       });
       if (!res.ok) {
@@ -127,7 +130,15 @@ export default function AddApplicationModal({
             </Field>
           </div>
 
-          {/* Row 3: Country + Salary */}
+          {/* Row 3: Job Type */}
+          <Field label="Job Type">
+            <select className={inputCls} value={form.jobType} onChange={set("jobType")}>
+              <option value="">Select job type</option>
+              {JOB_TYPES.map((t) => <option key={t}>{t}</option>)}
+            </select>
+          </Field>
+
+          {/* Row 4: Country + Salary */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Country">
               <input className={inputCls} placeholder="e.g. United Kingdom" value={form.country} onChange={set("country")} />
@@ -137,7 +148,7 @@ export default function AddApplicationModal({
             </Field>
           </div>
 
-          {/* Row 4: Applied Date + Priority */}
+          {/* Row 5: Applied Date + Priority */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Applied Date">
               <input type="date" className={inputCls} value={form.appliedDate} onChange={set("appliedDate")} />

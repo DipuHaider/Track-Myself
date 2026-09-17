@@ -5,6 +5,8 @@
    Light is the default; dark is opt-in via [data-theme="dark"].
    ------------------------------------------------------------------- */
 :root {
+  color-scheme: light;
+
   --background: #eceff7;
   --surface: #ffffff;
   --surface-2: #e4e9f5;
@@ -38,6 +40,8 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
+
   --background: #0a0e17;
   --surface: #141a28;
   --surface-2: #1d2536;
@@ -141,6 +145,19 @@ body {
   background: var(--surface-2);
 }
 
+/* The dropdown list is painted outside the page by the browser, so it only
+   inherits what is set here — without it dark mode gives white-on-white. */
+select {
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+
+select option,
+select optgroup {
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+
 .text-muted {
   color: var(--muted-foreground);
 }
@@ -207,6 +224,9 @@ body {
 :root[data-theme="dark"] .status-active    { background: #1e0a3b; color: #c4b5fd; }
 :root[data-theme="dark"] .status-offer     { background: #052e16; color: #86efac; }
 :root[data-theme="dark"] .status-rejected  { background: #3b0d0d; color: #fca5a5; }
+
+/* Job type badge */
+.job-type { background: var(--surface-2); color: var(--muted-foreground); }
 
 /* Ghost job & duplicate badges */
 .ghost-auto   { background: #fff7ed; color: #c2410c; }

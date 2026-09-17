@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
-  Check, Download, Eye, FileText, Loader2, Lock, Save,
+  Check, Download, Eye, FileText, FolderOpen, Loader2, Lock, Save,
   Sparkles, Star, X,
 } from "lucide-react";
 import {
@@ -91,7 +91,21 @@ export default function CVBuilderPage() {
   const [showAdapt, setShowAdapt] = useState(false);
   const [jobDesc, setJobDesc] = useState("");
   const [adapting, setAdapting] = useState(false);
-  const [adaptMsg, setAdaptMsg] = useState("");
+  const [adaptResult, setAdaptResult] = useState<
+    { fields: string[]; provider: string } | null
+  >(null);
+
+  /* The AI Tailor button sits down by the format cards while this panel renders up
+     near the top, so without this the result appears off-screen and reads as
+     "nothing happened". */
+  const adaptPanelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!adaptResult) return;
+    adaptPanelRef.current?.scrollIntoView({
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "center",
+    });
+  }, [adaptResult]);
   const [adaptErr, setAdaptErr] = useState("");
 
   function patch(update: Partial<CVContent>) {
@@ -124,7 +138,7 @@ export default function CVBuilderPage() {
     if (!isPremium || !jobDesc.trim() || adapting) return;
     setAdapting(true);
     setAdaptErr("");
-    setAdaptMsg("");
+    setAdaptResult(null);
     try {
       const res = await fetch("/api/cv/adapt", {
         method: "POST",
@@ -141,13 +155,22 @@ export default function CVBuilderPage() {
         summaryShort: body.summaryShort || c.summaryShort,
         skills: Array.isArray(body.skills) && body.skills.length ? body.skills : c.skills,
       };
+      /* Name what actually moved, so the panel is specific rather than boilerplate. */
+      const fields: string[] = [];
+      if (next.positioning !== c.positioning) fields.push("positioning");
+      if (next.summary !== c.summary) fields.push("summary");
+      if (next.summaryShort !== c.summaryShort) fields.push("short summary");
+      if (JSON.stringify(next.skills) !== JSON.stringify(c.skills)) fields.push("skill order");
+
       setContent(() => next);
       await save({ content: next });
       setShowAdapt(false);
       setJobDesc("");
-      setAdaptMsg("Summary, positioning and skill order tailored to that job, and saved.");
-      setTimeout(() => setAdaptMsg(""), 5000);
+      /* Deliberately not auto-dismissed: this panel is the only thing telling you
+         where the result went, and it carries the actions you need next. */
+      setAdaptResult({ fields, provider: String(body.providerLabel ?? "") });
     } catch (e) {
+      setAdaptResult(null);
       setAdaptErr(e instanceof Error ? e.message : "Failed. Try again.");
     } finally {
       setAdapting(false);
@@ -263,7 +286,61 @@ export default function CVBuilderPage() {
       )}
 
       {(error || downloadError) && <p className="anim-in text-sm text-red-600">{error || downloadError}</p>}
-      {adaptMsg && <p className="anim-in text-sm font-medium" style={{ color: "#047857" }}>{adaptMsg}</p>}
+      {adaptResult && (
+        <div
+          ref={adaptPanelRef}
+          data-adapt-result
+          className="anim-in glass flex flex-wrap items-start gap-3 rounded-xl px-4 py-3"
+          style={{ borderLeft: "3px solid var(--primary)" }}
+        >
+          <Check size={16} className="mt-0.5 shrink-0" style={{ color: "#047857" }} aria-hidden="true" />
+
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">
+              {adaptResult.fields.length
+                ? `Tailored and saved to your CV${adaptResult.provider ? ` by ${adaptResult.provider}` : ""}`
+                : "No changes were needed for that job"}
+            </p>
+            <p className="text-muted mt-0.5 text-xs leading-relaxed">
+              {adaptResult.fields.length ? (
+                <>
+                  Updated <strong>{adaptResult.fields.join(", ")}</strong> in the fields below — AI
+                  Tailor rewrites your CV itself, it does not produce a separate file. Download a
+                  format below to turn it into a document.
+                </>
+              ) : (
+                <>Your CV already suited that job, so nothing was changed.</>
+              )}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {savedCVs.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowSaved(true)}
+                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-2)]"
+              >
+                <Eye size={12} aria-hidden="true" /> View saved CV
+              </button>
+            )}
+            <Link
+              href="/me/my-cv?tab=generated"
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-2)]"
+            >
+              <FolderOpen size={12} aria-hidden="true" /> My Documents
+            </Link>
+            <button
+              type="button"
+              onClick={() => setAdaptResult(null)}
+              aria-label="Dismiss"
+              className="text-muted rounded-md p-1.5 transition hover:bg-[var(--surface-2)]"
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Formats */}
       {lockedFormats.length > 0 && (

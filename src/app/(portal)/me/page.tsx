@@ -248,11 +248,12 @@ export default function MePage() {
         ) : (
           <div className="surface overflow-hidden rounded-xl border">
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-sm">
+            <table className="w-full min-w-[680px] text-left text-sm">
               <thead className="surface-muted">
                 <tr>
                   <th className="px-4 py-3">Company</th>
                   <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Job Type</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Priority</th>
                   <th className="px-4 py-3">Applied</th>
@@ -263,6 +264,13 @@ export default function MePage() {
                   <tr key={app._id} className="border-t transition hover:bg-[var(--surface-2)]">
                     <td className="px-4 py-3 font-medium">{app.companyName}</td>
                     <td className="text-muted px-4 py-3">{app.jobTitle}</td>
+                    <td className="px-4 py-3">
+                      {app.jobType ? (
+                        <span className="role-badge job-type whitespace-nowrap">{app.jobType}</span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`role-badge ${badgeClass(app.applicationStatus)}`}>
                         {app.applicationStatus}

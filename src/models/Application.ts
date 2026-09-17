@@ -6,6 +6,7 @@ const ApplicationSchema = new Schema(
     companyName: { type: String, required: true },
     jobTitle: { type: String, required: true },
     platform: { type: String },
+    jobType: { type: String },
     applicationType: { type: String },
     submissionMethod: { type: String },
     applicationStatus: {

@@ -54,7 +54,7 @@ function ApplicationsContent() {
       if (ownerFilter && app.owner?._id !== ownerFilter) return false;
       if (!q) return true;
       return [
-        app.companyName, app.jobTitle, app.platform, app.location, app.country,
+        app.companyName, app.jobTitle, app.platform, app.jobType, app.location, app.country,
         app.applicationStatus, app.notes, app.salary, app.contactNumber,
         app.owner?.name, app.owner?.email,
       ]

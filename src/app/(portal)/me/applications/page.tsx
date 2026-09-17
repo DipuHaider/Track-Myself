@@ -7,7 +7,7 @@ import ViewApplicationModal from "@/components/applications/ViewApplicationModal
 import ApplicationTable from "@/components/applications/ApplicationTable";
 import { useApplications } from "@/hooks/useApplications";
 import type { Application } from "@/types/application";
-import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, JOB_TYPES } from "@/constants/applicationStatus";
 import type { QuickField } from "@/components/applications/ApplicationTable";
 import { computeDuplicateIds, isPossibleGhost } from "@/lib/applicationFlags";
 import Loading, { InlineSpinner } from "@/components/shared/Spinner";
@@ -26,6 +26,7 @@ function PortalApplicationsContent() {
   const [search, setSearch] = useState(initialQuery);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
+  const [filterJobType, setFilterJobType] = useState("");
   const [filterGhost, setFilterGhost] = useState<"" | "auto" | "manual">("");
   const [filterDuplicates, setFilterDuplicates] = useState(false);
 
@@ -35,20 +36,21 @@ function PortalApplicationsContent() {
     let result = applications;
     if (filterStatus)           result = result.filter((a) => a.applicationStatus === filterStatus);
     if (filterPriority)         result = result.filter((a) => a.priority === filterPriority);
+    if (filterJobType)          result = result.filter((a) => a.jobType === filterJobType);
     if (filterGhost === "auto") result = result.filter(isPossibleGhost);
     if (filterGhost === "manual") result = result.filter((a) => !!a.isGhostJob);
     if (filterDuplicates)       result = result.filter((a) => duplicateIds.has(a._id));
     const q = search.toLowerCase().trim();
     if (q) {
       result = result.filter((app) =>
-        [app.companyName, app.jobTitle, app.platform, app.location, app.country,
+        [app.companyName, app.jobTitle, app.platform, app.jobType, app.location, app.country,
           app.applicationStatus, app.notes, app.salary, app.contactNumber]
           .filter(Boolean)
           .some((f) => f!.toLowerCase().includes(q)),
       );
     }
     return result;
-  }, [applications, search, filterStatus, filterPriority, filterGhost, filterDuplicates, duplicateIds]);
+  }, [applications, search, filterStatus, filterPriority, filterJobType, filterGhost, filterDuplicates, duplicateIds]);
 
   const { page: safePage, setPage: goToPage, totalPages, pageItems, startIndex } =
     usePagination(filtered, PAGE_SIZE);
@@ -57,9 +59,10 @@ function PortalApplicationsContent() {
   const onSearch = (v: string) => { setSearch(v); resetPage(); };
   const onFilterStatus = (v: string) => { setFilterStatus(v); resetPage(); };
   const onFilterPriority = (v: string) => { setFilterPriority(v); resetPage(); };
+  const onFilterJobType = (v: string) => { setFilterJobType(v); resetPage(); };
 
   const clearAll = () => {
-    onSearch(""); onFilterStatus(""); onFilterPriority("");
+    onSearch(""); onFilterStatus(""); onFilterPriority(""); onFilterJobType("");
     setFilterGhost(""); setFilterDuplicates(false);
   };
 
@@ -90,6 +93,7 @@ function PortalApplicationsContent() {
   const activeFilters =
     (filterStatus ? 1 : 0) +
     (filterPriority ? 1 : 0) +
+    (filterJobType ? 1 : 0) +
     (filterGhost ? 1 : 0) +
     (filterDuplicates ? 1 : 0);
 
@@ -143,6 +147,20 @@ function PortalApplicationsContent() {
           <option value="High">High</option>
           <option value="Medium">Medium</option>
           <option value="Low">Low</option>
+        </select>
+
+        {/* Job type filter */}
+        <select
+          value={filterJobType}
+          onChange={(e) => onFilterJobType(e.target.value)}
+          className={`surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] ${
+            filterJobType ? "border-[var(--primary)]" : ""
+          }`}
+        >
+          <option value="">All Job Types</option>
+          {JOB_TYPES.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
         </select>
 
         {/* Ghost filter */}

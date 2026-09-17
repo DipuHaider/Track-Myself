@@ -93,13 +93,14 @@ export default function ApplicationTable({
   return (
     <div className="glass overflow-hidden rounded-lg">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[960px] text-left text-sm">
+        <table className="w-full min-w-[1060px] text-left text-sm">
           <thead className="surface-muted">
             <tr>
               <th className="px-3 py-3 font-medium text-center text-muted">#</th>
               {showOwner && <th className="px-4 py-3 font-medium">Owner</th>}
               <th className="px-4 py-3 font-medium">Company</th>
               <th className="px-4 py-3 font-medium">Job Title</th>
+              <th className="px-4 py-3 font-medium">Job Type</th>
               <th className="px-4 py-3 font-medium">Location</th>
               <th className="px-4 py-3 font-medium">Salary</th>
               <th className="px-4 py-3 font-medium">Applied</th>
@@ -143,6 +144,13 @@ export default function ApplicationTable({
                   </span>
                 </td>
                 <td className="px-4 py-3">{app.jobTitle}</td>
+                <td className="px-4 py-3">
+                  {app.jobType ? (
+                    <span className="role-badge job-type whitespace-nowrap">{app.jobType}</span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
                 <td className="text-muted px-4 py-3">{app.location ?? app.country ?? "—"}</td>
                 <td className="text-muted px-4 py-3 whitespace-nowrap">{formatSalary(app)}</td>
                 <td className="text-muted px-4 py-3 whitespace-nowrap">{formatDateTime(app.appliedDate)}</td>
@@ -297,7 +305,7 @@ export default function ApplicationTable({
             ))}
             {applications.length === 0 && (
               <tr>
-                <td className="text-muted px-4 py-10 text-center" colSpan={10 + (showOwner ? 1 : 0) + (showDocs ? 1 : 0)}>
+                <td className="text-muted px-4 py-10 text-center" colSpan={11 + (showOwner ? 1 : 0) + (showDocs ? 1 : 0)}>
                   No applications found.
                 </td>
               </tr>

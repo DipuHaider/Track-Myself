@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ExternalLink, Globe, Star } from "lucide-react";
+import FlagIcon, { type FlagCode } from "@/components/site/FlagIcon";
 
 type JobSite = {
   name: string;
@@ -9,12 +10,13 @@ type JobSite = {
   domain: string;
   description: string;
   color: string;
+  logo?: string;
   featured?: true;
 };
 
 type FilterKey = "international" | "bangladesh" | "germany" | "uk" | "usa";
 
-const FILTERS: { key: FilterKey; label: string; flagCode: string | null }[] = [
+const FILTERS: { key: FilterKey; label: string; flagCode: FlagCode | null }[] = [
   { key: "international", label: "International", flagCode: null },
   { key: "bangladesh", label: "Bangladesh", flagCode: "bd" },
   { key: "germany", label: "Germany", flagCode: "de" },
@@ -28,6 +30,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "LinkedIn",
       url: "https://www.linkedin.com/jobs",
       domain: "linkedin.com",
+      logo: "linkedin",
       description: "World's largest professional network with 1B+ members and job listings",
       color: "#0a66c2",
       featured: true,
@@ -36,6 +39,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Indeed",
       url: "https://www.indeed.com",
       domain: "indeed.com",
+      logo: "indeed",
       description: "Search millions of jobs from thousands of employers worldwide",
       color: "#003a9b",
     },
@@ -43,6 +47,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Glassdoor",
       url: "https://www.glassdoor.com",
       domain: "glassdoor.com",
+      logo: "glassdoor",
       description: "Find jobs with real company reviews, salaries & interview insights",
       color: "#0caa41",
     },
@@ -50,6 +55,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Monster",
       url: "https://www.monster.com",
       domain: "monster.com",
+      logo: "monster",
       description: "Connect with top employers globally and discover your next career move",
       color: "#7c3aed",
     },
@@ -57,6 +63,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "ZipRecruiter",
       url: "https://www.ziprecruiter.com",
       domain: "ziprecruiter.com",
+      logo: "ziprecruiter",
       description: "AI-powered job matching that connects you to the right employer fast",
       color: "#f16d0e",
     },
@@ -64,6 +71,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "CareerBuilder",
       url: "https://www.careerbuilder.com",
       domain: "careerbuilder.com",
+      logo: "careerbuilder",
       description: "Smart job search tools built to match you to the perfect fit",
       color: "#1565c0",
     },
@@ -73,6 +81,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "BDJobs",
       url: "https://www.bdjobs.com",
       domain: "bdjobs.com",
+      logo: "bdjobs",
       description: "Bangladesh's largest online job portal with 50,000+ active listings",
       color: "#e8312a",
       featured: true,
@@ -88,6 +97,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Prothom Alo Jobs",
       url: "https://jobs.prothomalo.com",
       domain: "prothomalo.com",
+      logo: "prothomalo",
       description: "Trusted job board from Bangladesh's most-read Bengali daily newspaper",
       color: "#dc2626",
     },
@@ -102,6 +112,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Bikroy Jobs",
       url: "https://bikroy.com/en/jobs",
       domain: "bikroy.com",
+      logo: "bikroy",
       description: "Bangladesh's popular marketplace with thousands of job listings",
       color: "#f59e0b",
     },
@@ -118,6 +129,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Indeed Germany",
       url: "https://de.indeed.com",
       domain: "de.indeed.com",
+      logo: "indeed",
       description: "Germany's most visited job site with millions of open positions",
       color: "#003a9b",
     },
@@ -125,6 +137,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "StepStone",
       url: "https://www.stepstone.de/en",
       domain: "stepstone.de",
+      logo: "stepstone",
       description: "Germany's leading job platform for professionals and recent graduates",
       color: "#e63812",
     },
@@ -132,6 +145,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Xing",
       url: "https://www.xing.com",
       domain: "xing.com",
+      logo: "xing",
       description: "The German-speaking professional network for career growth & networking",
       color: "#006567",
     },
@@ -139,6 +153,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Arbeitsagentur",
       url: "https://www.arbeitsagentur.de",
       domain: "arbeitsagentur.de",
+      logo: "arbeitsagentur",
       description: "Germany's official Federal Employment Agency job search portal",
       color: "#003087",
     },
@@ -146,6 +161,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Monster Germany",
       url: "https://www.monster.de",
       domain: "monster.de",
+      logo: "monster",
       description: "Find jobs and career opportunities across all German industries",
       color: "#7c3aed",
     },
@@ -153,6 +169,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Experteer",
       url: "https://www.experteer.de",
       domain: "experteer.de",
+      logo: "experteer",
       description: "Premium executive job platform for senior leadership roles in Germany",
       color: "#c41e3a",
     },
@@ -160,6 +177,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Make it in Germany",
       url: "https://www.make-it-in-germany.com",
       domain: "make-it-in-germany.com",
+      logo: "make-it-in-germany",
       description: "Official German government portal for skilled workers relocating to Germany",
       color: "#cc0000",
       featured: true,
@@ -170,6 +188,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Reed",
       url: "https://www.reed.co.uk",
       domain: "reed.co.uk",
+      logo: "reed",
       description: "The UK's #1 job site with over 250,000 live vacancies posted daily",
       color: "#cc0000",
     },
@@ -177,6 +196,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Totaljobs",
       url: "https://www.totaljobs.com",
       domain: "totaljobs.com",
+      logo: "totaljobs",
       description: "Connecting candidates with top UK employers since 1999",
       color: "#e94e1b",
     },
@@ -184,6 +204,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "CV-Library",
       url: "https://www.cv-library.co.uk",
       domain: "cv-library.co.uk",
+      logo: "cv-library",
       description: "UK's leading independent job board with 175,000+ live listings",
       color: "#0055a4",
     },
@@ -191,6 +212,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Guardian Jobs",
       url: "https://jobs.theguardian.com",
       domain: "theguardian.com",
+      logo: "theguardian",
       description: "Quality roles in media, charity, public sector, and education",
       color: "#052962",
     },
@@ -198,6 +220,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Indeed UK",
       url: "https://uk.indeed.com",
       domain: "uk.indeed.com",
+      logo: "indeed",
       description: "Search every job from every UK employer on one trusted platform",
       color: "#003a9b",
     },
@@ -205,6 +228,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Jobsite",
       url: "https://www.jobsite.co.uk",
       domain: "jobsite.co.uk",
+      logo: "jobsite",
       description: "Smart job search across all UK industries with salary insights",
       color: "#d9000d",
     },
@@ -214,6 +238,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Indeed USA",
       url: "https://www.indeed.com",
       domain: "indeed.com",
+      logo: "indeed",
       description: "America's #1 job site with 250M+ unique monthly visitors",
       color: "#003a9b",
     },
@@ -221,6 +246,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "LinkedIn",
       url: "https://www.linkedin.com/jobs",
       domain: "linkedin.com",
+      logo: "linkedin",
       description: "Apply directly to top US companies on the world's largest professional network",
       color: "#0a66c2",
     },
@@ -228,6 +254,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "ZipRecruiter",
       url: "https://www.ziprecruiter.com",
       domain: "ziprecruiter.com",
+      logo: "ziprecruiter",
       description: "AI job matching connects US job seekers to top employers in seconds",
       color: "#f16d0e",
     },
@@ -235,6 +262,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Glassdoor",
       url: "https://www.glassdoor.com",
       domain: "glassdoor.com",
+      logo: "glassdoor",
       description: "See real salaries and reviews before applying at US companies",
       color: "#0caa41",
     },
@@ -242,6 +270,7 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "Monster USA",
       url: "https://www.monster.com",
       domain: "monster.com",
+      logo: "monster",
       description: "Discover career opportunities at thousands of top US companies",
       color: "#7c3aed",
     },
@@ -249,11 +278,40 @@ const SITES: Record<FilterKey, JobSite[]> = {
       name: "CareerBuilder",
       url: "https://www.careerbuilder.com",
       domain: "careerbuilder.com",
+      logo: "careerbuilder",
       description: "AI-driven US job search personalized to your skills and career goals",
       color: "#1565c0",
     },
   ],
 };
+
+function SiteLogo({ site }: { site: JobSite }) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <div
+      className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl"
+      style={{ background: site.color + "18" }}
+    >
+      {site.logo && !failed ? (
+        <img
+          src={`/job-sites/${site.logo}.png`}
+          alt={`${site.name} logo`}
+          width={32}
+          height={32}
+          loading="lazy"
+          decoding="async"
+          className="h-8 w-8 object-contain"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className="text-lg font-bold" style={{ color: site.color }}>
+          {site.name.charAt(0)}
+        </span>
+      )}
+    </div>
+  );
+}
 
 const PER_PAGE = 4;
 const AUTO_SCROLL_MS = 3000;
@@ -320,15 +378,7 @@ export default function JobSitesSection() {
             }
           >
             {flagCode ? (
-              <img
-                src={`https://flagcdn.com/w20/${flagCode}.png`}
-                srcSet={`https://flagcdn.com/w40/${flagCode}.png 2x`}
-                width={20}
-                height={14}
-                alt={label}
-                className="rounded-sm object-cover"
-                style={{ display: "block" }}
-              />
+              <FlagIcon code={flagCode} label={label} className="rounded-sm" />
             ) : (
               <Globe size={14} />
             )}
@@ -365,22 +415,7 @@ export default function JobSitesSection() {
 
               {/* Logo row */}
               <div className="flex items-start justify-between">
-                <div
-                  className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl"
-                  style={{ background: site.color + "18" }}
-                >
-                  <img
-                    src={`https://logo.clearbit.com/${site.domain.replace(/^[a-z]{2}\./, "")}`}
-                    alt={site.name}
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 object-contain"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = `https://www.google.com/s2/favicons?sz=64&domain_url=${site.url}`;
-                    }}
-                  />
-                </div>
+                <SiteLogo site={site} />
                 <ExternalLink
                   size={13}
                   className="mt-0.5 opacity-0 transition-opacity group-hover:opacity-60"

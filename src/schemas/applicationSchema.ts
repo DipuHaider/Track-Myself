@@ -4,6 +4,7 @@ export const applicationSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
   jobTitle: z.string().min(1, "Job title is required"),
   platform: z.string().optional(),
+  jobType: z.string().optional(),
   applicationType: z.string().optional(),
   applicationStatus: z.string().min(1, "Status is required"),
   country: z.string().optional(),

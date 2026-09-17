@@ -69,6 +69,7 @@ export default function ViewApplicationModal({
           <Row label="Location" value={application.location ?? application.country} />
           <Row label="Salary" value={application.salary} />
           <Row label="Platform" value={application.platform} />
+          <Row label="Job Type" value={application.jobType} />
           <Row label="Priority" value={application.priority} />
           <Row label="Contact Number" value={application.contactNumber} />
           <Row label="Applied" value={formatDateTime(application.appliedDate)} />

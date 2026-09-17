@@ -71,6 +71,7 @@ export async function POST(req: Request) {
     companyName,
     jobTitle,
     location:          (body.location  as string | undefined)?.trim() ?? "",
+    jobType:           (body.jobType   as string | undefined)?.trim() || undefined,
     jobPostUrl:        (body.jobPostUrl as string | undefined)?.trim() ?? "",
     notes:             (body.notes     as string | undefined)?.trim() ?? "",
     applicationStatus: "Wishlist",
