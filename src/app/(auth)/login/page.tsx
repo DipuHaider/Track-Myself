@@ -1,14 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Spinner } from "@/components/shared/Spinner";
 import { Logo } from "@/components/shared/Logo";
 
-export default function LoginPage() {
+function safeReturnTo(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/me";
+  return value;
+}
+
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const expired = params.get("expired") === "1";
+  const returnTo = safeReturnTo(params.get("from"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,7 +37,7 @@ export default function LoginPage() {
     setIsSubmitting(false);
 
     if (result?.ok) {
-      router.push("/me");
+      router.push(returnTo);
       return;
     }
     setError("Invalid email or password");
@@ -37,7 +45,7 @@ export default function LoginPage() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    await signIn("google", { callbackUrl: "/me" });
+    await signIn("google", { callbackUrl: returnTo });
   };
 
   return (
@@ -50,6 +58,12 @@ export default function LoginPage() {
         <form onSubmit={onSubmit} className="surface w-full rounded-xl border p-6">
         <h1 className="text-2xl font-semibold">Login</h1>
         <p className="text-muted mt-1 text-sm">Continue tracking your applications.</p>
+
+        {expired && (
+          <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Your session expired. Please sign in again.
+          </p>
+        )}
 
         {/* Google */}
         <button
@@ -116,6 +130,14 @@ export default function LoginPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center p-6"><Spinner size={22} label="Loading" /></main>}>
+      <LoginForm />
+    </Suspense>
   );
 }
 

@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/serverAuth";
 import { isEditor } from "@/lib/permissions";
 import SiteHeader from "@/components/site/SiteHeader";
 import Sidebar from "@/components/layout/Sidebar";
+import SessionWatcher from "@/components/shared/SessionWatcher";
 import { NOINDEX } from "@/lib/seo";
 
 export const metadata = NOINDEX;
@@ -14,6 +15,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <>
+      <SessionWatcher />
       <SiteHeader />
       <div className="flex min-h-screen pt-14">
         <Sidebar />

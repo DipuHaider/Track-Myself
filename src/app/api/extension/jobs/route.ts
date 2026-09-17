@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { liveStatus } from "@/lib/serverAuth";
+import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
 
 async function getExtensionUser(req: Request) {
   const auth = req.headers.get("authorization");
@@ -14,6 +14,8 @@ async function getExtensionUser(req: Request) {
   try {
     const payload = await decode({ token: auth.slice(7), secret });
     if (!payload?.id) return null;
+    const startedAt = payload.sessionStart ?? (payload.iat ? payload.iat * 1000 : 0);
+    if (await sessionsRevokedBefore(payload.id as string, startedAt)) return null;
     return { id: payload.id as string, role: (payload.role ?? "free") as string };
   } catch {
     return null;

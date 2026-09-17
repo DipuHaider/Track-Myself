@@ -26,6 +26,7 @@ declare module "next-auth/jwt" {
     plan?:      Plan;
     status?:    AccountStatus;
     claimsAt?:  number;
+    sessionStart?: number;
     picture?:   string;
     iat?:       number;
     exp?:       number;

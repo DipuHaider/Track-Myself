@@ -58,6 +58,15 @@ export async function liveStatus(userId: string): Promise<AccountStatus | null> 
   return row.status === "paused" ? "paused" : "active";
 }
 
+export async function sessionsRevokedBefore(userId: string, startedAt: number): Promise<boolean> {
+  await dbConnect();
+  const row = (await User.findById(userId, "sessionsValidFrom").lean()) as
+    | { sessionsValidFrom?: Date | null }
+    | null;
+  if (!row?.sessionsValidFrom) return false;
+  return startedAt < new Date(row.sessionsValidFrom).getTime();
+}
+
 export async function requireActiveAuth(): Promise<SessionUser | NextResponse> {
   const user = await getSessionUser();
   if (!user) return unauthorized();

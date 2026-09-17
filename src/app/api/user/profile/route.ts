@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth/next";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { authOptions } from "@/lib/auth";
+import { authOptions, invalidateClaims } from "@/lib/auth";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -28,7 +28,7 @@ export async function PATCH(req: Request) {
   const body = await req.json();
   const { name, bio, currentPassword, newPassword } = body;
 
-  const update: Record<string, string> = {};
+  const update: Record<string, string | Date> = {};
   if (name?.trim()) update.name = name.trim();
   if (typeof bio === "string") update.bio = bio;
 
@@ -49,8 +49,10 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
     }
     update.password = await bcrypt.hash(newPassword, 10);
+    update.sessionsValidFrom = new Date();
   }
 
   const updated = await User.findByIdAndUpdate(userId, update, { new: true, select: "-password" });
+  if (update.sessionsValidFrom) invalidateClaims(updated?.email);
   return NextResponse.json(updated);
 }

@@ -1,4 +1,5 @@
 import type { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
@@ -8,6 +9,11 @@ import { SUPERADMIN_EMAILS, isPremiumRole, type AccountStatus, type Plan } from 
 import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
 
 export const CLAIMS_TTL_MS = 5 * 60 * 1000;
+
+export const IDLE_TIMEOUT_SECONDS = 12 * 60 * 60;
+export const ABSOLUTE_TIMEOUT_SECONDS = 7 * 24 * 60 * 60;
+export const SESSION_REFRESH_SECONDS = 15 * 60;
+export const EXTENSION_TOKEN_SECONDS = 7 * 24 * 60 * 60;
 
 type ClaimSource = { _id: { toString(): string }; email: string; role: string; plan?: string; image?: string; status?: string };
 
@@ -57,16 +63,21 @@ async function loadClaims(email: string, force: boolean): Promise<ClaimsResult> 
   return { kind: "ok", claims };
 }
 
-type Presence = { status: AccountStatus } | null;
+type Presence = { status: AccountStatus; sessionsValidFrom: number } | null;
 
 export async function loadPresence(userId: string, fallback: AccountStatus): Promise<Presence> {
   try {
     await dbConnect();
-    const row = (await User.findById(userId, "status").lean()) as { status?: string } | null;
+    const row = (await User.findById(userId, "status sessionsValidFrom").lean()) as
+      | { status?: string; sessionsValidFrom?: Date | null }
+      | null;
     if (!row) return null;
-    return { status: row.status === "paused" ? "paused" : "active" };
+    return {
+      status: row.status === "paused" ? "paused" : "active",
+      sessionsValidFrom: row.sessionsValidFrom ? new Date(row.sessionsValidFrom).getTime() : 0,
+    };
   } catch {
-    return { status: fallback };
+    return { status: fallback, sessionsValidFrom: 0 };
   }
 }
 
@@ -78,6 +89,16 @@ export function effectiveRole(email: string, dbRole: string): string {
 export function effectivePlan(role: string, dbPlan?: string): Plan {
   if (isPremiumRole(role)) return "premium";
   return dbPlan === "premium" ? "premium" : "free";
+}
+
+function endSession(token: JWT): JWT {
+  token.id = undefined;
+  token.role = undefined;
+  token.plan = undefined;
+  token.status = undefined;
+  token.picture = undefined;
+  token.claimsAt = Date.now();
+  return token;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -129,11 +150,11 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: "/login" },
   session: {
     strategy: "jwt",
-    maxAge:    30 * 24 * 3600,
-    updateAge: 24 * 3600,
+    maxAge:    IDLE_TIMEOUT_SECONDS,
+    updateAge: SESSION_REFRESH_SECONDS,
   },
   jwt: {
-    maxAge: 30 * 24 * 3600,
+    maxAge: IDLE_TIMEOUT_SECONDS,
   },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
@@ -169,6 +190,15 @@ export const authOptions: NextAuthOptions = {
         token.plan = user.plan ?? "free";
         token.status = user.status ?? "active";
         token.claimsAt = Date.now();
+        token.sessionStart = Date.now();
+      }
+
+      if (!token.sessionStart) {
+        token.sessionStart = token.iat ? token.iat * 1000 : Date.now();
+      }
+
+      if (Date.now() - token.sessionStart > ABSOLUTE_TIMEOUT_SECONDS * 1000) {
+        return endSession(token);
       }
 
       const stale = !token.claimsAt || Date.now() - token.claimsAt > CLAIMS_TTL_MS;
@@ -185,13 +215,7 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (result.kind === "missing") {
-          token.id = undefined;
-          token.role = undefined;
-          token.plan = undefined;
-          token.status = undefined;
-          token.picture = undefined;
-          token.claimsAt = Date.now();
-          return token;
+          return endSession(token);
         }
 
         if (result.kind === "ok") {
@@ -215,6 +239,11 @@ export const authOptions: NextAuthOptions = {
       const tokenStatus = (token.status as AccountStatus | undefined) ?? "active";
       const presence = await loadPresence(token.id, tokenStatus);
       if (!presence) {
+        return null as unknown as typeof session;
+      }
+
+      const startedAt = token.sessionStart ?? (token.iat ? token.iat * 1000 : 0);
+      if (presence.sessionsValidFrom && startedAt < presence.sessionsValidFrom) {
         return null as unknown as typeof session;
       }
 

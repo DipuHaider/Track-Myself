@@ -23,6 +23,7 @@ const UserSchema = new Schema(
       index: true,
     },
     pausedAt: { type: Date, default: null },
+    sessionsValidFrom: { type: Date, default: null },
     bio: { type: String, default: "" },
     image: { type: String, default: "" },
   },

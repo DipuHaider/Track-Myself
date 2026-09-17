@@ -5,7 +5,7 @@ import { encode } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { effectivePlan, effectiveRole } from "@/lib/auth";
+import { EXTENSION_TOKEN_SECONDS, effectivePlan, effectiveRole } from "@/lib/auth";
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
@@ -49,9 +49,10 @@ export async function POST(req: Request) {
       plan:     effectivePlan(role, user.plan),
       email:    user.email,
       claimsAt: Date.now(),
+      sessionStart: Date.now(),
     },
     secret,
-    maxAge: 30 * 24 * 3600,
+    maxAge: EXTENSION_TOKEN_SECONDS,
   });
 
   return NextResponse.json({ token, name: user.name ?? "", email: user.email });

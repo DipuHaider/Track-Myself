@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/serverAuth";
 import SiteHeader from "@/components/site/SiteHeader";
 import PortalSidebar from "@/components/portal/PortalSidebar";
 import PausedBanner from "@/components/portal/PausedBanner";
+import SessionWatcher from "@/components/shared/SessionWatcher";
 import { NOINDEX } from "@/lib/seo";
 
 export const metadata = NOINDEX;
@@ -14,6 +15,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
 
   return (
     <>
+      <SessionWatcher />
       <SiteHeader />
       <div className="flex min-h-screen pt-14">
         <PortalSidebar />
