@@ -5,6 +5,7 @@ import { Josefin_Sans } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/providers/SessionProvider";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/seo";
+import { A11Y_BOOT_SCRIPT } from "@/lib/a11y";
 
 const josefin = Josefin_Sans({
   subsets: ["latin"],
@@ -74,15 +75,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const setInitialTheme = `
-    (function() {
-      try {
-        var saved = localStorage.getItem("theme");
-        document.documentElement.setAttribute("data-theme", saved === "dark" ? "dark" : "light");
-      } catch (e) {}
-    })();
-  `;
-
   return (
     <html
       lang="en"
@@ -90,7 +82,7 @@ export default function RootLayout({
       className={`${GeistSans.variable} ${GeistMono.variable} ${josefin.variable} h-full antialiased`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: setInitialTheme }} />
+        <script dangerouslySetInnerHTML={{ __html: A11Y_BOOT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
         <SessionProvider>{children}</SessionProvider>

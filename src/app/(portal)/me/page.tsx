@@ -13,6 +13,8 @@ import { computeDuplicateIds } from "@/lib/applicationFlags";
 import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
 import Loading from "@/components/shared/Spinner";
 import AccountControls from "@/components/portal/AccountControls";
+import TodoList from "@/components/portal/TodoList";
+import MyReports from "@/components/portal/MyReports";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 
 type Profile = { name: string; email: string; role: string; plan: string; bio: string };
@@ -375,6 +377,12 @@ export default function MePage() {
           </button>
         </form>
       </section>
+
+      {/* ── To-Do ── */}
+      <TodoList />
+
+      {/* ── Reported issues ── */}
+      <MyReports />
 
       {/* ── Account ── */}
       <AccountControls />

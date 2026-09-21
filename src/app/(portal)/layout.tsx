@@ -5,6 +5,7 @@ import SiteHeader from "@/components/site/SiteHeader";
 import PortalSidebar from "@/components/portal/PortalSidebar";
 import PausedBanner from "@/components/portal/PausedBanner";
 import SessionWatcher from "@/components/shared/SessionWatcher";
+import QuickBubble from "@/components/shared/QuickBubble";
 import { NOINDEX } from "@/lib/seo";
 
 export const metadata = NOINDEX;
@@ -24,6 +25,7 @@ export default async function PortalLayout({ children }: { children: ReactNode }
           {children}
         </main>
       </div>
+      <QuickBubble />
     </>
   );
 }

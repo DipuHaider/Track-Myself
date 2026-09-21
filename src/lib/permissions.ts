@@ -55,6 +55,8 @@ export type DashboardAction =
   | "view:settings"
   | "edit:users"
   | "delete:users"
+  | "view:issues"
+  | "manage:issues"
   | "assign:superadmin";
 
 export const ACTION_ROLES: Record<DashboardAction, readonly Role[]> = {
@@ -67,6 +69,8 @@ export const ACTION_ROLES: Record<DashboardAction, readonly Role[]> = {
   "view:settings":     ["superadmin", "admin"],
   "edit:users":        ["superadmin", "admin"],
   "delete:users":      ["superadmin", "admin"],
+  "view:issues":       ["superadmin", "admin", "editor"],
+  "manage:issues":     ["superadmin", "admin"],
   "assign:superadmin": ["superadmin"],
 };
 
@@ -80,6 +84,8 @@ export const ACTION_LABELS: Record<DashboardAction, string> = {
   "view:settings":     "View settings",
   "edit:users":        "Edit users",
   "delete:users":      "Delete users",
+  "view:issues":       "View issue reports",
+  "manage:issues":     "Triage issue reports",
   "assign:superadmin": "Assign the superadmin role",
 };
 
@@ -93,6 +99,8 @@ export const ACTION_DESCRIPTIONS: Record<DashboardAction, string> = {
   "view:settings":     "Open Settings, including configuration and data counts.",
   "edit:users":        "Change another account's role or plan.",
   "delete:users":      "Permanently delete an account.",
+  "view:issues":       "Open the issue reports queue and read what users have reported.",
+  "manage:issues":     "Change an issue report's status or leave a triage note.",
   "assign:superadmin": "Grant or modify the superadmin role. Superadmin only.",
 };
 

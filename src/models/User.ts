@@ -26,6 +26,15 @@ const UserSchema = new Schema(
     sessionsValidFrom: { type: Date, default: null },
     bio: { type: String, default: "" },
     image: { type: String, default: "" },
+    a11y: {
+      textScale: { type: String, enum: ["sm", "md", "lg", "xl"], default: "md" },
+      scheme: { type: String, enum: ["light", "dark", "system"], default: "system" },
+      contrast: { type: Boolean, default: false },
+      reduceMotion: { type: Boolean, default: false },
+      dyslexiaFont: { type: Boolean, default: false },
+      readingSpacing: { type: Boolean, default: false },
+      underlineLinks: { type: Boolean, default: false },
+    },
   },
   { timestamps: true },
 );

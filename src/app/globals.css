@@ -506,3 +506,121 @@ select optgroup {
 
 /* The editor writes its own hit targets; keep them clickable above the text layer. */
 .pdf-editor-active .annotationEditorLayer { pointer-events: auto; }
+
+/* ── Accessibility preferences ────────────────────────────────────────
+   Driven by data-* attributes stamped on <html> before paint by the boot
+   script in the root layout, so a reload never flashes the default. Every
+   rule keys off an attribute, so the untouched default costs nothing.
+   ------------------------------------------------------------------- */
+:root[data-text-scale="sm"]  { font-size: 87.5%; }
+:root[data-text-scale="md"]  { font-size: 100%; }
+:root[data-text-scale="lg"]  { font-size: 112.5%; }
+:root[data-text-scale="xl"]  { font-size: 125%; }
+
+:root[data-contrast] {
+  --muted-foreground: #303a4d;
+  --border: #7c8aa8;
+  --surface-2: #dfe5f3;
+}
+
+:root[data-contrast][data-theme="dark"] {
+  --muted-foreground: #d3dcf0;
+  --border: #7f8db0;
+  --surface-2: #27314a;
+}
+
+:root[data-contrast] .text-muted { color: var(--muted-foreground); }
+
+:root[data-contrast] :is(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+:root[data-dyslexia] body {
+  font-family: "Atkinson Hyperlegible", "Comic Sans MS", Verdana, Tahoma, sans-serif;
+}
+
+:root[data-reading-spacing] body {
+  line-height: 1.85;
+  letter-spacing: 0.02em;
+  word-spacing: 0.06em;
+}
+
+:root[data-underline-links] a:not(.btn-primary):not([role="button"]) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+:root[data-reduce-motion] *,
+:root[data-reduce-motion] *::before,
+:root[data-reduce-motion] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── Quick bubble ── */
+.quick-bubble-shell {
+  position: fixed;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  touch-action: none;
+}
+
+.quick-bubble-orb {
+  display: flex;
+  height: 3rem;
+  width: 3rem;
+  cursor: grab;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--glass-border);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+  box-shadow: 0 10px 28px -8px rgba(15, 23, 41, 0.55);
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+}
+
+.quick-bubble-orb:hover { transform: translateY(-2px) scale(1.04); }
+.quick-bubble-orb:active { cursor: grabbing; transform: scale(0.97); }
+.quick-bubble-shell[data-dragging="true"] .quick-bubble-orb { cursor: grabbing; }
+
+.quick-bubble-menu {
+  min-width: 13.5rem;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  border: 1px solid var(--glass-border);
+  background: var(--surface);
+  box-shadow: 0 18px 44px -14px rgba(15, 23, 41, 0.5);
+}
+
+.quick-bubble-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.875rem;
+  text-align: left;
+  color: var(--foreground);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.quick-bubble-item:hover { background: var(--surface-2); }
+.quick-bubble-item + .quick-bubble-item { border-top: 1px solid var(--border); }
+
+.quick-bubble-icon {
+  display: flex;
+  height: 1.85rem;
+  width: 1.85rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  background: var(--surface-2);
+  color: var(--primary);
+}

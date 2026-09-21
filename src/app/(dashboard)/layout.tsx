@@ -5,6 +5,7 @@ import { isEditor } from "@/lib/permissions";
 import SiteHeader from "@/components/site/SiteHeader";
 import Sidebar from "@/components/layout/Sidebar";
 import SessionWatcher from "@/components/shared/SessionWatcher";
+import QuickBubble from "@/components/shared/QuickBubble";
 import { NOINDEX } from "@/lib/seo";
 
 export const metadata = NOINDEX;
@@ -21,6 +22,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <Sidebar />
         <main className="pb-mobile-nav min-w-0 flex-1 overflow-auto p-6">{children}</main>
       </div>
+      <QuickBubble />
     </>
   );
 }
