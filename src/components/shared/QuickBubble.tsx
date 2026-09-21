@@ -1,17 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowUp, Briefcase, LifeBuoy, ListTodo, Settings2, Sparkles } from "lucide-react";
+import { ArrowUp, Briefcase, Compass, LifeBuoy, ListTodo, Settings2, Sparkles } from "lucide-react";
 import A11ySettingsModal from "@/components/shared/A11ySettingsModal";
 import ReportIssueModal from "@/components/shared/ReportIssueModal";
+import TodoModal from "@/components/portal/TodoModal";
+import { TOUR_EVENT, TOUR_PENDING_KEY } from "@/lib/tour";
 
 const POS_KEY = "tm-bubble-pos";
 const ORB = 48;
 const EDGE = 16;
 const DRAG_THRESHOLD = 4;
-const RING_R = 19;
+const ARROW_D = "M12 3.2 L20.4 11.6 L15.6 11.6 L15.6 20.6 L8.4 20.6 L8.4 11.6 L3.6 11.6 Z";
 
 type Side = "left" | "right";
 type Pos = { x: number; y: number; side: Side };
@@ -47,7 +49,6 @@ export default function QuickBubble() {
   const { status } = useSession();
   const signedIn = status === "authenticated";
   const shellRef = useRef<HTMLDivElement>(null);
-  const hoverTimer = useRef<number | null>(null);
   const drag = useRef({ active: false, moved: false, dx: 0, dy: 0 });
 
   const [pos, setPos] = useState<Pos | null>(null);
@@ -56,6 +57,7 @@ export default function QuickBubble() {
   const [dragging, setDragging] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTodos, setShowTodos] = useState(false);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -110,13 +112,6 @@ export default function QuickBubble() {
     };
   }, [pinned]);
 
-  const clearHover = useCallback(() => {
-    if (hoverTimer.current !== null) {
-      window.clearTimeout(hoverTimer.current);
-      hoverTimer.current = null;
-    }
-  }, []);
-
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!pos) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -134,7 +129,6 @@ export default function QuickBubble() {
       setDragging(true);
       setOpen(false);
       setPinned(false);
-      clearHover();
     }
 
     setPos((p) => (p ? { ...p, x: nx, y: ny } : p));
@@ -162,16 +156,15 @@ export default function QuickBubble() {
     });
   };
 
-  const onEnter = (e: React.PointerEvent) => {
-    if (e.pointerType !== "mouse" || drag.current.active) return;
-    clearHover();
-    hoverTimer.current = window.setTimeout(() => setOpen(true), 140);
-  };
-
-  const onLeave = (e: React.PointerEvent) => {
-    if (e.pointerType !== "mouse" || pinned) return;
-    clearHover();
-    hoverTimer.current = window.setTimeout(() => setOpen(false), 220);
+  const startTour = () => {
+    setOpen(false);
+    setPinned(false);
+    if (window.location.pathname === "/me") {
+      window.dispatchEvent(new Event(TOUR_EVENT));
+      return;
+    }
+    try { sessionStorage.setItem(TOUR_PENDING_KEY, "1"); } catch {}
+    router.push("/me");
   };
 
   const go = (href: string) => {
@@ -187,16 +180,16 @@ export default function QuickBubble() {
   const items = [
     ...(signedIn
       ? [
-          { icon: <ListTodo size={15} aria-hidden="true" />, label: "To-Do list", onClick: () => go("/me#todos") },
+          { icon: <ListTodo size={15} aria-hidden="true" />, label: "To-Do list", onClick: () => { setOpen(false); setPinned(false); setShowTodos(true); } },
           { icon: <Briefcase size={15} aria-hidden="true" />, label: "My Applications", onClick: () => go("/me/applications") },
           { icon: <LifeBuoy size={15} aria-hidden="true" />, label: "Report an issue", onClick: () => { setOpen(false); setPinned(false); setShowReport(true); } },
+          { icon: <Compass size={15} aria-hidden="true" />, label: "Take the tour", onClick: startTour },
         ]
       : []),
     { icon: <Settings2 size={15} aria-hidden="true" />, label: "Accessibility", onClick: () => { setOpen(false); setPinned(false); setShowSettings(true); } },
   ];
 
   const pct = Math.round(progress * 100);
-  const dash = 2 * Math.PI * RING_R;
   const showTop = progress > 0.02;
 
   const toTop = () => {
@@ -221,34 +214,34 @@ export default function QuickBubble() {
           alignItems: pos.side === "left" ? "flex-start" : "flex-end",
           flexDirection: above ? "column-reverse" : "column",
         }}
-        onPointerEnter={onEnter}
-        onPointerLeave={onLeave}
       >
         {showTop && (
           <button type="button" className="quick-bubble-top" onClick={toTop} aria-label={`Back to top — ${pct}% scrolled`}>
-            <svg className="quick-bubble-ring" viewBox="0 0 44 44" aria-hidden="true">
+            <svg viewBox="0 0 24 24" className="quick-bubble-arrow" aria-hidden="true">
               <defs>
-                <linearGradient id="quick-bubble-neon" x1="0" y1="0" x2="1" y2="1">
+                <clipPath id="tm-arrow-clip">
+                  <path d={ARROW_D} />
+                </clipPath>
+                <linearGradient id="tm-arrow-fill" x1="0" y1="1" x2="0" y2="0">
                   <stop offset="0%" stopColor="var(--neon-1)" />
                   <stop offset="100%" stopColor="var(--neon-2)" />
                 </linearGradient>
               </defs>
-              <circle className="track" cx="22" cy="22" r={RING_R} strokeWidth="2.5" />
-              <circle
-                className="bar"
-                cx="22" cy="22" r={RING_R} strokeWidth="2.5"
-                strokeDasharray={dash}
-                strokeDashoffset={dash * (1 - progress)}
-              />
+
+              <g clipPath="url(#tm-arrow-clip)">
+                <rect className="water" x="0" y={24 - 24 * progress} width="24" height="24" fill="url(#tm-arrow-fill)" />
+                <rect className="surface-line" x="0" y={24 - 24 * progress} width="24" height="0.9" fill="var(--neon-2)" />
+              </g>
+
+              <path d={ARROW_D} fill="none" stroke="var(--neon-1)" strokeWidth="1.5" strokeLinejoin="round" />
             </svg>
-            <span className="quick-bubble-pct">{pct}</span>
-            <ArrowUp className="arrow" size={16} aria-hidden="true" />
           </button>
         )}
 
         <button
           type="button"
           className="quick-bubble-orb"
+          data-tour="bubble"
           aria-label="Quick actions"
           aria-expanded={open}
           aria-haspopup="menu"
@@ -277,6 +270,7 @@ export default function QuickBubble() {
         )}
       </div>
 
+      {showTodos && <TodoModal open onClose={() => setShowTodos(false)} />}
       {showReport && <ReportIssueModal open onClose={() => setShowReport(false)} />}
       {showSettings && <A11ySettingsModal open onClose={() => setShowSettings(false)} />}
     </>

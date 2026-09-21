@@ -76,7 +76,7 @@ export default function TodoList() {
   };
 
   return (
-    <section id="todos" className="surface scroll-mt-24 rounded-xl border p-5">
+    <section id="todos" data-tour="todos" className="surface scroll-mt-24 rounded-xl border p-5">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <ListTodo size={17} className="text-[var(--primary)]" aria-hidden="true" />

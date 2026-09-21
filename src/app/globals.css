@@ -702,3 +702,105 @@ select optgroup {
 }
 
 .quick-bubble-icon svg { filter: drop-shadow(0 0 4px var(--neon-glow)); }
+
+/* ── Product tour ─────────────────────────────────────────────────────
+   Four veils around the target rather than an SVG mask, so the spotlit
+   element keeps its own paint and stays crisp at any zoom.
+   ------------------------------------------------------------------- */
+.tour-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.tour-veil {
+  position: fixed;
+  left: 0;
+  right: 0;
+  background: rgba(6, 10, 20, 0.62);
+  pointer-events: auto;
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+}
+
+.tour-ring {
+  position: fixed;
+  border-radius: 0.85rem;
+  border: 2px solid var(--neon-1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--neon-1) 22%, transparent),
+              0 0 22px -2px var(--neon-glow);
+  pointer-events: none;
+}
+
+.tour-tip {
+  position: fixed;
+  pointer-events: auto;
+  border-radius: 0.9rem;
+  border: 1px solid var(--glass-border);
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+  box-shadow: 0 22px 50px -16px rgba(6, 10, 20, 0.65);
+}
+
+.tour-count {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+}
+
+.tour-skip {
+  display: flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.4rem;
+  color: var(--muted-foreground);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.tour-skip:hover { background: var(--surface-2); color: var(--foreground); }
+
+.tour-intro {
+  margin-bottom: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+
+.tour-title { font-size: 0.95rem; font-weight: 600; }
+.tour-body { margin-top: 0.35rem; font-size: 0.83rem; line-height: 1.55; color: var(--muted-foreground); }
+
+.tour-dots { display: flex; gap: 0.3rem; }
+
+.tour-dots span {
+  height: 0.35rem;
+  width: 0.35rem;
+  border-radius: 9999px;
+  background: var(--border);
+  transition: background var(--dur-fast) var(--ease-out), width var(--dur-fast) var(--ease-out);
+}
+
+.tour-dots span[data-active="true"] { width: 1.1rem; background: var(--neon-1); }
+
+.tour-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.tour-btn:hover { background: var(--surface-2); }
+
+.tour-btn-primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+}
+
+.tour-btn-primary:hover { filter: brightness(1.06); background: linear-gradient(135deg, var(--primary), var(--accent)); }

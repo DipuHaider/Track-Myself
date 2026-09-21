@@ -119,6 +119,7 @@ export default function AppSidebar({
             return (
               <Link
                 key={href}
+                data-tour={`nav:${href}`}
                 href={href}
                 aria-current={active ? "page" : undefined}
                 title={collapsed ? label : undefined}

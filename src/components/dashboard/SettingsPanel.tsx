@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Database, Loader2, Play, Shield, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Compass, Database, Loader2, Play, Shield, XCircle } from "lucide-react";
 import { PLAN_LABELS, ROLE_LABELS, type Plan, type Role } from "@/lib/permissions";
 
 type SystemInfo = {
@@ -53,6 +53,73 @@ function Flag({ ok, label, hint }: { ok: boolean; label: string; hint?: string }
         {hint && !ok && <span className="text-muted block text-xs">{hint}</span>}
       </span>
     </li>
+  );
+}
+
+function FeatureToggles() {
+  const [tourEnabled, setTourEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setTourEnabled(d ? d.tourEnabled !== false : true))
+      .catch(() => setTourEnabled(true));
+  }, []);
+
+  const toggle = async () => {
+    if (tourEnabled === null || saving) return;
+    const next = !tourEnabled;
+    setSaving(true);
+    setTourEnabled(next);
+
+    const res = await fetch("/api/admin/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tourEnabled: next }),
+    }).catch(() => null);
+
+    setSaving(false);
+    if (!res || !res.ok) setTourEnabled(!next);
+  };
+
+  return (
+    <div className="surface rounded-xl border p-5">
+      <h3 className="mb-3 flex items-center gap-2 font-semibold">
+        <Compass size={16} aria-hidden="true" />
+        Features
+      </h3>
+
+      <div className="flex items-start justify-between gap-4 border-b py-3 last:border-b-0">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">New-user quick tour</p>
+          <p className="text-muted text-xs">
+            Runs once for each user the first time they open their overview — a free version and a
+            premium version. Everyone can replay it from the quick bubble. Turning this off stops it
+            firing for everyone, including the replay.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={tourEnabled === true}
+          aria-label="New-user quick tour"
+          onClick={toggle}
+          disabled={tourEnabled === null || saving}
+          className="relative h-6 w-11 shrink-0 rounded-full border transition disabled:opacity-50"
+          style={{
+            background: tourEnabled ? "var(--primary)" : "var(--surface-2)",
+            borderColor: tourEnabled ? "var(--primary)" : "var(--border)",
+          }}
+        >
+          <span
+            className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all"
+            style={{ left: tourEnabled ? "1.5rem" : "0.2rem" }}
+          />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -126,6 +193,8 @@ export default function SettingsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
 
   return (
     <div className="space-y-6">
+      <FeatureToggles />
+
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="surface rounded-xl border p-5">
           <h3 className="mb-3 flex items-center gap-2 font-semibold">

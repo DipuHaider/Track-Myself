@@ -26,6 +26,7 @@ const UserSchema = new Schema(
     sessionsValidFrom: { type: Date, default: null },
     bio: { type: String, default: "" },
     image: { type: String, default: "" },
+    toursSeen: { type: [String], default: [] },
     a11y: {
       textScale: { type: String, enum: ["sm", "md", "lg", "xl"], default: "md" },
       scheme: { type: String, enum: ["light", "dark", "system"], default: "system" },

@@ -193,7 +193,7 @@ export default function MePage() {
       </div>
 
       {/* ── Stats ── */}
-      <section>
+      <section data-tour="pipeline">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
             Your Stats
@@ -228,7 +228,7 @@ export default function MePage() {
       </section>
 
       {/* ── Recent applications ── */}
-      <section>
+      <section data-tour="recent">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
             Recent Applications
