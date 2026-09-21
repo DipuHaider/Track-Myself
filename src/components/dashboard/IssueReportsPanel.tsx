@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { LifeBuoy, MailCheck, MailX, Trash2 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ISSUE_EVENT, ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
+import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
+import { announceIssueChange, onIssueChange } from "@/lib/issueSync";
 
 type Report = {
   _id: string;
@@ -20,6 +21,8 @@ type Report = {
   createdAt: string;
   userId?: { name?: string; email?: string } | string | null;
 };
+
+const POLL_MS = 30000;
 
 const STATUS_STYLE: Record<IssueStatus, string> = {
   open: "status-submitted",
@@ -53,8 +56,21 @@ export default function IssueReportsPanel() {
 
   useEffect(() => {
     load();
-    window.addEventListener(ISSUE_EVENT, load);
-    return () => window.removeEventListener(ISSUE_EVENT, load);
+    return onIssueChange(load);
+  }, [load]);
+
+  /* A channel only carries this browser's own tabs. Reports arrive from other
+     people, so the queue also polls while it is the visible tab. */
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    const id = window.setInterval(tick, POLL_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [load]);
 
   const setStatus = async (report: Report, status: IssueStatus) => {
@@ -66,6 +82,7 @@ export default function IssueReportsPanel() {
       body: JSON.stringify({ status }),
     }).catch(() => null);
     if (!res || !res.ok) setReports(before);
+    else announceIssueChange();
   };
 
   const remove = async (report: Report) => {
@@ -73,6 +90,7 @@ export default function IssueReportsPanel() {
     setReports((list) => list.filter((r) => r._id !== report._id));
     const res = await fetch(`/api/admin/issues/${report._id}`, { method: "DELETE" }).catch(() => null);
     if (!res || !res.ok) setReports(before);
+    else announceIssueChange();
   };
 
   return (

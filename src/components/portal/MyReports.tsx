@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { LifeBuoy } from "lucide-react";
-import { ISSUE_EVENT, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
+import { ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
+import { onIssueChange } from "@/lib/issueSync";
 
 type Report = {
   _id: string;
@@ -33,8 +34,7 @@ export default function MyReports({ showEmpty = false }: { showEmpty?: boolean }
 
   useEffect(() => {
     load();
-    window.addEventListener(ISSUE_EVENT, load);
-    return () => window.removeEventListener(ISSUE_EVENT, load);
+    return onIssueChange(load);
   }, [load]);
 
   if (loading) return null;
