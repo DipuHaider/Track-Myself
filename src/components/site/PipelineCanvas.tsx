@@ -8,7 +8,7 @@ import {
 } from "@/lib/tools/boltPresets";
 import {
   CELL_HOLD_MS, CHASE_FACTOR, EAT_FACTOR, GRAB_FACTOR, MOUTH_MAX, MOUTH_MIN,
-  RAGE_EAT_MS, RAGE_MORPH_MS, RAGE_RADIUS, RETARGET_FRAMES, TRAIL_MAX, TRAIL_MS,
+  RAGE_EAT_MS, RAGE_MORPH_MS, RAGE_RADIUS, RESPAWN_MS, RETARGET_FRAMES, TRAIL_MAX, TRAIL_MS,
   applyRageMix, createLoadTracker, densestCell, drawNeonPac, drawNeonRing, drawNeonTrail,
   eatIntervalMs, makePac, nearestNode, pacPalette, shouldEnterRage, shouldExitRage,
   type HeroNode, type NeonRing, type Pac,
@@ -76,6 +76,8 @@ export default function PipelineCanvas() {
     let pac: Pac | null = null;
     let neon: NeonRing[] = [];
     let eatFloor = 18;
+    let baseCount = 0;
+    let nextRespawnAt = 0;
     let lastFrameAt = performance.now();
 
     const tracker = createLoadTracker();
@@ -116,7 +118,9 @@ export default function PipelineCanvas() {
         makeNode(Math.random() * width, Math.random() * height),
       );
 
-      eatFloor = Math.max(14, Math.round(count * 0.8));
+      baseCount = count;
+      eatFloor = Math.max(12, Math.round(count * 0.5));
+      nextRespawnAt = 0;
       neon = [];
       pac = makePac(width * 0.5, height * 0.62, rand(0, Math.PI * 2));
     }
@@ -323,9 +327,7 @@ export default function PipelineCanvas() {
       if (target.y > height + pad) target.y = -pad;
     }
 
-    function tryEat(target: Pac, now: number) {
-      if (now < target.nextEatAt) return false;
-
+    function tryEat(target: Pac) {
       const reach = target.radius * EAT_FACTOR;
       const reachSq = reach * reach;
 
@@ -376,7 +378,9 @@ export default function PipelineCanvas() {
       updateRage(now, load);
 
       if (pac.held) {
-        if (tryEat(pac, now)) pac.nextEatAt = now + (pac.raging ? RAGE_EAT_MS : eatIntervalMs(nodes.length, eatFloor, load));
+        if (now >= pac.nextEatAt && tryEat(pac)) {
+          pac.nextEatAt = now + (pac.raging ? RAGE_EAT_MS : eatIntervalMs(nodes.length, load));
+        }
         return;
       }
 
@@ -396,7 +400,7 @@ export default function PipelineCanvas() {
         else if (pac.hasCell) steer(pac, pac.cellX, pac.cellY);
 
         advance(pac);
-        if (tryEat(pac, now)) pac.nextEatAt = now + RAGE_EAT_MS;
+        if (now >= pac.nextEatAt && tryEat(pac)) pac.nextEatAt = now + RAGE_EAT_MS;
 
         if (pac.tick % 3 === 0) {
           pac.trail.push({ x: pac.x, y: pac.y, born: now });
@@ -405,13 +409,13 @@ export default function PipelineCanvas() {
         return;
       }
 
-      if (now >= pac.nextEatAt) {
+      if (nodes.length > eatFloor && now >= pac.nextEatAt) {
         if (pac.tick % RETARGET_FRAMES === 0 || !pac.target || nodes.indexOf(pac.target) < 0) {
           pac.target = nearestNode(nodes, pac.x, pac.y);
         }
         if (pac.target) steer(pac, pac.target.x, pac.target.y);
         advance(pac);
-        if (tryEat(pac, now)) pac.nextEatAt = now + eatIntervalMs(nodes.length, eatFloor, load);
+        if (tryEat(pac)) pac.nextEatAt = now + eatIntervalMs(nodes.length, load);
       } else {
         pac.wander += 0.013;
         pac.heading += Math.sin(pac.wander) * 0.02;
@@ -705,6 +709,15 @@ export default function PipelineCanvas() {
           ctx!.lineWidth = 1;
           ctx!.stroke();
         }
+      }
+
+      if (now >= nextRespawnAt) {
+        if (nodes.length < baseCount) {
+          const node = makeNode(rand(0, width), rand(0, height));
+          node.scale = 0;
+          nodes.push(node);
+        }
+        nextRespawnAt = now + RESPAWN_MS;
       }
 
       updatePac(now, load);

@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import { Josefin_Sans } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/providers/SessionProvider";
+import QuickBubble from "@/components/shared/QuickBubble";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/seo";
 import { A11Y_BOOT_SCRIPT } from "@/lib/a11y";
 
@@ -85,7 +86,10 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: A11Y_BOOT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          {children}
+          <QuickBubble />
+        </SessionProvider>
       </body>
     </html>
   );

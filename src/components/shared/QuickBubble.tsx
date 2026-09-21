@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, LifeBuoy, ListTodo, Settings2, Sparkles } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { ArrowUp, Briefcase, LifeBuoy, ListTodo, Settings2, Sparkles } from "lucide-react";
 import A11ySettingsModal from "@/components/shared/A11ySettingsModal";
 import ReportIssueModal from "@/components/shared/ReportIssueModal";
 
@@ -10,6 +11,7 @@ const POS_KEY = "tm-bubble-pos";
 const ORB = 48;
 const EDGE = 16;
 const DRAG_THRESHOLD = 4;
+const RING_R = 19;
 
 type Side = "left" | "right";
 type Pos = { x: number; y: number; side: Side };
@@ -42,6 +44,8 @@ function readPos(): Pos {
 
 export default function QuickBubble() {
   const router = useRouter();
+  const { status } = useSession();
+  const signedIn = status === "authenticated";
   const shellRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<number | null>(null);
   const drag = useRef({ active: false, moved: false, dx: 0, dy: 0 });
@@ -52,6 +56,7 @@ export default function QuickBubble() {
   const [dragging, setDragging] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setPos(readPos()));
@@ -60,6 +65,28 @@ export default function QuickBubble() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      const doc = document.documentElement;
+      const max = doc.scrollHeight - window.innerHeight;
+      setProgress(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0);
+    };
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
     };
   }, []);
 
@@ -158,11 +185,25 @@ export default function QuickBubble() {
   const above = pos.y > window.innerHeight / 2;
 
   const items = [
-    { icon: <ListTodo size={15} aria-hidden="true" />, label: "To-Do list", onClick: () => go("/me#todos") },
-    { icon: <Briefcase size={15} aria-hidden="true" />, label: "My Applications", onClick: () => go("/me/applications") },
-    { icon: <LifeBuoy size={15} aria-hidden="true" />, label: "Report an issue", onClick: () => { setOpen(false); setPinned(false); setShowReport(true); } },
+    ...(signedIn
+      ? [
+          { icon: <ListTodo size={15} aria-hidden="true" />, label: "To-Do list", onClick: () => go("/me#todos") },
+          { icon: <Briefcase size={15} aria-hidden="true" />, label: "My Applications", onClick: () => go("/me/applications") },
+          { icon: <LifeBuoy size={15} aria-hidden="true" />, label: "Report an issue", onClick: () => { setOpen(false); setPinned(false); setShowReport(true); } },
+        ]
+      : []),
     { icon: <Settings2 size={15} aria-hidden="true" />, label: "Accessibility", onClick: () => { setOpen(false); setPinned(false); setShowSettings(true); } },
   ];
+
+  const pct = Math.round(progress * 100);
+  const dash = 2 * Math.PI * RING_R;
+  const showTop = progress > 0.02;
+
+  const toTop = () => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      || document.documentElement.hasAttribute("data-reduce-motion");
+    window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+  };
 
   return (
     <>
@@ -171,7 +212,11 @@ export default function QuickBubble() {
         className="quick-bubble-shell"
         data-dragging={dragging}
         style={{
-          left: pos.x,
+          ...(dragging
+            ? { left: pos.x }
+            : pos.side === "left"
+              ? { left: EDGE }
+              : { right: EDGE }),
           top: pos.y,
           alignItems: pos.side === "left" ? "flex-start" : "flex-end",
           flexDirection: above ? "column-reverse" : "column",
@@ -179,6 +224,28 @@ export default function QuickBubble() {
         onPointerEnter={onEnter}
         onPointerLeave={onLeave}
       >
+        {showTop && (
+          <button type="button" className="quick-bubble-top" onClick={toTop} aria-label={`Back to top — ${pct}% scrolled`}>
+            <svg className="quick-bubble-ring" viewBox="0 0 44 44" aria-hidden="true">
+              <defs>
+                <linearGradient id="quick-bubble-neon" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="var(--neon-1)" />
+                  <stop offset="100%" stopColor="var(--neon-2)" />
+                </linearGradient>
+              </defs>
+              <circle className="track" cx="22" cy="22" r={RING_R} strokeWidth="2.5" />
+              <circle
+                className="bar"
+                cx="22" cy="22" r={RING_R} strokeWidth="2.5"
+                strokeDasharray={dash}
+                strokeDashoffset={dash * (1 - progress)}
+              />
+            </svg>
+            <span className="quick-bubble-pct">{pct}</span>
+            <ArrowUp className="arrow" size={16} aria-hidden="true" />
+          </button>
+        )}
+
         <button
           type="button"
           className="quick-bubble-orb"

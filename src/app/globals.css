@@ -560,7 +560,24 @@ select optgroup {
   scroll-behavior: auto !important;
 }
 
-/* ── Quick bubble ── */
+/* ── Quick bubble ──────────────────────────────────────────────────────
+   Glass orb on a semi-transparent ground, neon iconography. The neon pair
+   is defined per theme so the glow reads on paper and on ink alike.
+   ------------------------------------------------------------------- */
+:root {
+  --neon-1: #1f5cff;
+  --neon-2: #8b2df0;
+  --neon-glow: rgba(31, 92, 255, 0.40);
+  --neon-track: rgba(15, 23, 41, 0.14);
+}
+
+:root[data-theme="dark"] {
+  --neon-1: #5ee0ff;
+  --neon-2: #bb86ff;
+  --neon-glow: rgba(94, 224, 255, 0.55);
+  --neon-track: rgba(255, 255, 255, 0.14);
+}
+
 .quick-bubble-shell {
   position: fixed;
   z-index: 45;
@@ -570,32 +587,91 @@ select optgroup {
   touch-action: none;
 }
 
-.quick-bubble-orb {
+.quick-bubble-orb,
+.quick-bubble-top {
   display: flex;
-  height: 3rem;
-  width: 3rem;
-  cursor: grab;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
   border: 1px solid var(--glass-border);
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  color: #fff;
-  box-shadow: 0 10px 28px -8px rgba(15, 23, 41, 0.55);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+  color: var(--neon-1);
+  box-shadow: 0 8px 26px -10px rgba(15, 23, 41, 0.5), 0 0 16px -6px var(--neon-glow);
   transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
 }
 
-.quick-bubble-orb:hover { transform: translateY(-2px) scale(1.04); }
+.quick-bubble-orb {
+  height: 3rem;
+  width: 3rem;
+  cursor: grab;
+}
+
+.quick-bubble-orb:hover,
+.quick-bubble-top:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 12px 30px -10px rgba(15, 23, 41, 0.55), 0 0 26px -4px var(--neon-glow);
+}
+
 .quick-bubble-orb:active { cursor: grabbing; transform: scale(0.97); }
 .quick-bubble-shell[data-dragging="true"] .quick-bubble-orb { cursor: grabbing; }
 
+.quick-bubble-orb svg,
+.quick-bubble-top svg {
+  filter: drop-shadow(0 0 5px var(--neon-glow));
+}
+
+/* ── Scroll-to-top with progress ring ── */
+.quick-bubble-top {
+  position: relative;
+  height: 2.75rem;
+  width: 2.75rem;
+  cursor: pointer;
+}
+
+.quick-bubble-ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.quick-bubble-ring circle {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.quick-bubble-ring .track { stroke: var(--neon-track); }
+
+.quick-bubble-ring .bar {
+  stroke: url(#quick-bubble-neon);
+  transition: stroke-dashoffset 120ms linear;
+  filter: drop-shadow(0 0 4px var(--neon-glow));
+}
+
+.quick-bubble-pct {
+  position: relative;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.6rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--neon-1);
+  text-shadow: 0 0 6px var(--neon-glow);
+}
+
+.quick-bubble-top .arrow { position: relative; display: none; }
+.quick-bubble-top:hover .arrow { display: block; }
+.quick-bubble-top:hover .quick-bubble-pct { display: none; }
+
+/* ── Menu ── */
 .quick-bubble-menu {
   min-width: 13.5rem;
   overflow: hidden;
   border-radius: 0.9rem;
   border: 1px solid var(--glass-border);
-  background: var(--surface);
-  box-shadow: 0 18px 44px -14px rgba(15, 23, 41, 0.5);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+  box-shadow: 0 18px 44px -14px rgba(15, 23, 41, 0.5), 0 0 22px -10px var(--neon-glow);
 }
 
 .quick-bubble-item {
@@ -610,8 +686,8 @@ select optgroup {
   transition: background var(--dur-fast) var(--ease-out);
 }
 
-.quick-bubble-item:hover { background: var(--surface-2); }
-.quick-bubble-item + .quick-bubble-item { border-top: 1px solid var(--border); }
+.quick-bubble-item:hover { background: color-mix(in srgb, var(--neon-1) 12%, transparent); }
+.quick-bubble-item + .quick-bubble-item { border-top: 1px solid var(--glass-hairline, var(--border)); }
 
 .quick-bubble-icon {
   display: flex;
@@ -621,6 +697,8 @@ select optgroup {
   align-items: center;
   justify-content: center;
   border-radius: 0.55rem;
-  background: var(--surface-2);
-  color: var(--primary);
+  background: color-mix(in srgb, var(--neon-1) 14%, transparent);
+  color: var(--neon-1);
 }
+
+.quick-bubble-icon svg { filter: drop-shadow(0 0 4px var(--neon-glow)); }

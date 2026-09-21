@@ -85,6 +85,7 @@ export const RAGE_TURN = 0.13;
 export const BASE_CHOMP = 0.014;
 export const RAGE_CHOMP = 0.027;
 export const RAGE_EAT_MS = 95;
+export const RESPAWN_MS = 1100;
 
 export const MOUTH_MAX = 0.62;
 export const MOUTH_MIN = 0.06;
@@ -123,8 +124,7 @@ export function createLoadTracker() {
   };
 }
 
-export function eatIntervalMs(n: number, floor: number, load: number) {
-  if (n <= floor) return Infinity;
+export function eatIntervalMs(n: number, load: number) {
   const base =
     n >= 150 ? 70 : n >= 110 ? 130 : n >= RAGE_ENTER ? 220 : n >= 70 ? 420 : 900;
   return load > LOAD_HOT ? base * 0.6 : base;
