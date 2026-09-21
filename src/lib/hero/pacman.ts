@@ -72,7 +72,7 @@ export const RAGE_PALETTE: Palette = {
 
 export const RAGE_ENTER = 96;
 export const RAGE_EXIT = 72;
-export const RAGE_MAX_MS = 18000;
+export const RAGE_MAX_MS = 9000;
 export const RAGE_COOLDOWN_MS = 3000;
 export const RAGE_MORPH_MS = 340;
 
