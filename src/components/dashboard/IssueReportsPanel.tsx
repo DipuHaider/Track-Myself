@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LifeBuoy, Trash2 } from "lucide-react";
+import { LifeBuoy, MailCheck, MailX, Trash2 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
 
@@ -106,6 +106,23 @@ export default function IssueReportsPanel() {
                 <span className={`role-badge ${STATUS_STYLE[report.status]}`}>
                   {ISSUE_STATUS_LABELS[report.status]}
                 </span>
+                {report.notifiedAt ? (
+                  <span
+                    className="role-badge badge-mail-sent"
+                    title={`Emailed ${new Date(report.notifiedAt).toLocaleString()}`}
+                  >
+                    <MailCheck size={11} aria-hidden="true" />
+                    Mail Sent
+                  </span>
+                ) : (
+                  <span
+                    className="role-badge badge-mail-failed"
+                    title={report.notifyError || "No delivery recorded"}
+                  >
+                    <MailX size={11} aria-hidden="true" />
+                    Not sent
+                  </span>
+                )}
               </div>
               <span className="text-muted text-xs">
                 {reporter(report)} · {new Date(report.createdAt).toLocaleDateString()}
@@ -118,15 +135,9 @@ export default function IssueReportsPanel() {
               {report.url || "—"} {report.viewport && `· ${report.viewport}`} {report.role && `· ${report.role}`}
             </p>
 
-            <p className="mt-1 text-[11px]">
-              {report.notifiedAt ? (
-                <span className="text-emerald-600">Emailed {new Date(report.notifiedAt).toLocaleString()}</span>
-              ) : (
-                <span className="text-amber-600">
-                  Not emailed{report.notifyError ? ` — ${report.notifyError}` : ""}
-                </span>
-              )}
-            </p>
+            {!report.notifiedAt && report.notifyError && (
+              <p className="mt-1 text-[11px] text-amber-600">{report.notifyError}</p>
+            )}
 
             {manage && (
               <div className="mt-3 flex items-center gap-1.5 border-t pt-2">
