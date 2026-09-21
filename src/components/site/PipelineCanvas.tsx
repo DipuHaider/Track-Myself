@@ -6,8 +6,13 @@ import {
   SPLIT_BOLT_FRAMES, boltColor,
   type BoltPreset, type MitosisType,
 } from "@/lib/tools/boltPresets";
-import { publishHeroField, type HeroNode } from "@/lib/hero/heroField";
-import { EAT_FLOOR } from "@/lib/hero/pacman";
+import {
+  CELL_HOLD_MS, CHASE_FACTOR, EAT_FACTOR, GRAB_FACTOR, MOUTH_MAX, MOUTH_MIN,
+  RAGE_EAT_MS, RAGE_MORPH_MS, RAGE_RADIUS, RETARGET_FRAMES, TRAIL_MAX, TRAIL_MS,
+  applyRageMix, createLoadTracker, densestCell, drawNeonPac, drawNeonRing, drawNeonTrail,
+  eatIntervalMs, makePac, nearestNode, pacPalette, shouldEnterRage, shouldExitRage,
+  type HeroNode, type NeonRing, type Pac,
+} from "@/lib/hero/pacman";
 
 const STAGE_COLORS = ["#94a3b8", "#3b82f6", "#22d3ee", "#34d399"];
 
@@ -68,9 +73,15 @@ export default function PipelineCanvas() {
     let nodes: Node[] = [];
     let bolts: Bolt[] = [];
     let splits: Mitosis[] = [];
+    let pac: Pac | null = null;
+    let neon: NeonRing[] = [];
+    let eatFloor = 18;
+    let lastFrameAt = performance.now();
 
+    const tracker = createLoadTracker();
     const pointer = { x: -9999, y: -9999, active: false };
     const press = { active: false, x: 0, y: 0, start: 0, target: null as Node | null };
+    const drag = { pac: null as Pac | null, dx: 0, dy: 0, lx: 0, ly: 0, vx: 0, vy: 0 };
 
     function makeNode(x: number, y: number, stage?: number): Node {
       const weighted = Math.random();
@@ -104,6 +115,10 @@ export default function PipelineCanvas() {
       nodes = Array.from({ length: count }, () =>
         makeNode(Math.random() * width, Math.random() * height),
       );
+
+      eatFloor = Math.max(14, Math.round(count * 0.8));
+      neon = [];
+      pac = makePac(width * 0.5, height * 0.62, rand(0, Math.PI * 2));
     }
 
     function clampToReach(ox: number, oy: number, x: number, y: number) {
@@ -258,7 +273,7 @@ export default function PipelineCanvas() {
     }
 
     function eat(node: Node) {
-      if (nodes.length <= EAT_FLOOR) return false;
+      if (nodes.length <= eatFloor) return false;
       if (press.active && press.target === node) return false;
 
       const index = nodes.indexOf(node);
@@ -269,13 +284,152 @@ export default function PipelineCanvas() {
       return true;
     }
 
-    function pop(x: number, y: number, intensity: number) {
-      spawnBoltSequence(
-        x, y,
-        Math.round(rand(BIRTH_BOLT_FRAMES[0], BIRTH_BOLT_FRAMES[1])),
-        intensity,
-      );
+    function addNeon(x: number, y: number, from: number, to: number, life: number, stroke: number, mix: number) {
+      const palette = pacPalette(mix);
+      neon.push({
+        x, y, from, to, life,
+        born: performance.now(),
+        width: stroke,
+        glow: palette.glow,
+        core: palette.core,
+      });
+      while (neon.length > 40) neon.shift();
     }
+
+    function pacAt(x: number, y: number) {
+      if (!pac) return null;
+      const reach = pac.radius * GRAB_FACTOR;
+      const dx = pac.x - x;
+      const dy = pac.y - y;
+      return dx * dx + dy * dy <= reach * reach ? pac : null;
+    }
+
+    function steer(target: Pac, tx: number, ty: number) {
+      const desired = Math.atan2(ty - target.y, tx - target.x);
+      let diff = desired - target.heading;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      target.heading += Math.max(-target.turn, Math.min(target.turn, diff));
+    }
+
+    function advance(target: Pac) {
+      const pad = 60;
+      target.x += Math.cos(target.heading) * target.speed;
+      target.y += Math.sin(target.heading) * target.speed;
+
+      if (target.x < -pad) target.x = width + pad;
+      if (target.x > width + pad) target.x = -pad;
+      if (target.y < -pad) target.y = height + pad;
+      if (target.y > height + pad) target.y = -pad;
+    }
+
+    function tryEat(target: Pac, now: number) {
+      if (now < target.nextEatAt) return false;
+
+      const reach = target.radius * EAT_FACTOR;
+      const reachSq = reach * reach;
+
+      for (const node of nodes) {
+        const dx = node.x - target.x;
+        const dy = node.y - target.y;
+        if (dx * dx + dy * dy > reachSq) continue;
+        if (!eat(node)) continue;
+
+        if (target.target === node) target.target = null;
+        addNeon(node.x, node.y, 2, target.radius * 0.9, 300, 1.6, target.rageMix);
+        return true;
+      }
+
+      return false;
+    }
+
+    function updateRage(now: number, load: number) {
+      if (!pac) return;
+
+      if (!pac.raging && shouldEnterRage(nodes.length, load, now - pac.rageEndedAt)) {
+        pac.raging = true;
+        pac.rageStart = now;
+        pac.target = null;
+        pac.nextCellAt = 0;
+        spawnBoltSequence(pac.x, pac.y, Math.round(rand(SPLIT_BOLT_FRAMES[0], SPLIT_BOLT_FRAMES[1])), 1);
+        addNeon(pac.x, pac.y, 4, RAGE_RADIUS * 3.2, 520, 2.6, 1);
+      } else if (pac.raging && shouldExitRage(nodes.length, load, now - pac.rageStart)) {
+        pac.raging = false;
+        pac.rageEndedAt = now;
+        pac.trail = [];
+        addNeon(pac.x, pac.y, RAGE_RADIUS, RAGE_RADIUS * 2.1, 420, 2, 1);
+      }
+
+      const goal = pac.raging ? 1 : 0;
+      const stepMix = 1 / (RAGE_MORPH_MS / 16.7);
+      pac.rageMix += Math.max(-stepMix, Math.min(stepMix, goal - pac.rageMix));
+      applyRageMix(pac);
+    }
+
+    function updatePac(now: number, load: number) {
+      if (!pac) return;
+
+      pac.tick++;
+      pac.energy = 1 + Math.sin(now * 0.004) * 0.18;
+      pac.mouth = MOUTH_MIN + (MOUTH_MAX - MOUTH_MIN) * (1 - Math.cos(now * pac.chompRate)) * 0.5;
+
+      updateRage(now, load);
+
+      if (pac.held) {
+        if (tryEat(pac, now)) pac.nextEatAt = now + (pac.raging ? RAGE_EAT_MS : eatIntervalMs(nodes.length, eatFloor, load));
+        return;
+      }
+
+      if (pac.raging) {
+        if (now >= pac.nextCellAt) {
+          const cell = densestCell(nodes, width, height);
+          if (cell) {
+            pac.cellX = cell.x;
+            pac.cellY = cell.y;
+            pac.hasCell = true;
+          }
+          pac.nextCellAt = now + CELL_HOLD_MS;
+        }
+
+        const near = nearestNode(nodes, pac.x, pac.y, pac.radius * CHASE_FACTOR);
+        if (near) steer(pac, near.x, near.y);
+        else if (pac.hasCell) steer(pac, pac.cellX, pac.cellY);
+
+        advance(pac);
+        if (tryEat(pac, now)) pac.nextEatAt = now + RAGE_EAT_MS;
+
+        if (pac.tick % 3 === 0) {
+          pac.trail.push({ x: pac.x, y: pac.y, born: now });
+          while (pac.trail.length > TRAIL_MAX) pac.trail.shift();
+        }
+        return;
+      }
+
+      if (now >= pac.nextEatAt) {
+        if (pac.tick % RETARGET_FRAMES === 0 || !pac.target || nodes.indexOf(pac.target) < 0) {
+          pac.target = nearestNode(nodes, pac.x, pac.y);
+        }
+        if (pac.target) steer(pac, pac.target.x, pac.target.y);
+        advance(pac);
+        if (tryEat(pac, now)) pac.nextEatAt = now + eatIntervalMs(nodes.length, eatFloor, load);
+      } else {
+        pac.wander += 0.013;
+        pac.heading += Math.sin(pac.wander) * 0.02;
+        pac.target = null;
+        advance(pac);
+      }
+    }
+
+    function drawPac(now: number) {
+      for (const ring of neon) drawNeonRing(ctx!, ring, now);
+      neon = neon.filter((r) => now - r.born < r.life);
+
+      if (!pac) return;
+      pac.trail = pac.trail.filter((d) => now - d.born < TRAIL_MS);
+      drawNeonTrail(ctx!, pac, now);
+      drawNeonPac(ctx!, pac);
+    }
+
 
     function chargeIntensity() {
       return Math.min(1, (performance.now() - press.start) / CHARGE_MS);
@@ -445,6 +599,11 @@ export default function PipelineCanvas() {
     }
 
     function step() {
+      const now = performance.now();
+      tracker.sample(now - lastFrameAt);
+      lastFrameAt = now;
+      const load = tracker.load();
+
       ctx!.clearRect(0, 0, width, height);
 
       for (const node of nodes) {
@@ -548,6 +707,9 @@ export default function PipelineCanvas() {
         }
       }
 
+      updatePac(now, load);
+      drawPac(now);
+
       drawBolts();
       drawCharge();
 
@@ -582,10 +744,40 @@ export default function PipelineCanvas() {
       pointer.x = p.x;
       pointer.y = p.y;
       pointer.active = true;
+
+      if (drag.pac) {
+        const nx = p.x + drag.dx;
+        const ny = p.y + drag.dy;
+        drag.vx = nx - drag.lx;
+        drag.vy = ny - drag.ly;
+        drag.lx = nx;
+        drag.ly = ny;
+        drag.pac.x = nx;
+        drag.pac.y = ny;
+        if (Math.hypot(drag.vx, drag.vy) > 0.6) {
+          drag.pac.heading = Math.atan2(drag.vy, drag.vx);
+        }
+        host.style.cursor = "grabbing";
+        return;
+      }
+
+      host.style.cursor = pacAt(p.x, p.y) ? "grab" : "";
+
       if (press.active) {
         press.x = p.x;
         press.y = p.y;
       }
+    }
+
+    function releaseDrag() {
+      if (!drag.pac) return;
+      const speed = Math.hypot(drag.vx, drag.vy);
+      if (speed > 0.6) drag.pac.heading = Math.atan2(drag.vy, drag.vx);
+      drag.pac.held = false;
+      addNeon(drag.pac.x, drag.pac.y, 2, drag.pac.radius * 2.2, 380, 2, drag.pac.rageMix);
+      drag.pac = null;
+      host.style.cursor = "";
+      host.style.userSelect = "";
     }
 
     function onLeave() {
@@ -593,10 +785,29 @@ export default function PipelineCanvas() {
       pointer.x = -9999;
       pointer.y = -9999;
       press.active = false;
+      releaseDrag();
     }
 
     function onDown(e: PointerEvent) {
       const p = localPoint(e);
+      const grabbed = pacAt(p.x, p.y);
+
+      if (grabbed) {
+        e.preventDefault();
+        drag.pac = grabbed;
+        drag.dx = grabbed.x - p.x;
+        drag.dy = grabbed.y - p.y;
+        drag.lx = grabbed.x;
+        drag.ly = grabbed.y;
+        drag.vx = 0;
+        drag.vy = 0;
+        grabbed.held = true;
+        host.style.cursor = "grabbing";
+        host.style.userSelect = "none";
+        window.getSelection()?.removeAllRanges();
+        return;
+      }
+
       press.active = true;
       press.x = p.x;
       press.y = p.y;
@@ -605,6 +816,10 @@ export default function PipelineCanvas() {
     }
 
     function onUp() {
+      if (drag.pac) {
+        releaseDrag();
+        return;
+      }
       if (!press.active) return;
       const intensity = chargeIntensity();
       press.active = false;
@@ -617,20 +832,11 @@ export default function PipelineCanvas() {
 
     seed();
 
-    const unpublish = publishHeroField({
-      nodes: () => nodes,
-      consume: eat,
-      burst: pop,
-    });
-
     if (reduced) {
       step();
       cancelAnimationFrame(frame);
       window.addEventListener("resize", seed);
-      return () => {
-        unpublish();
-        window.removeEventListener("resize", seed);
-      };
+      return () => window.removeEventListener("resize", seed);
     }
 
     frame = requestAnimationFrame(step);
@@ -642,8 +848,9 @@ export default function PipelineCanvas() {
     window.addEventListener("resize", resize);
 
     return () => {
-      unpublish();
       cancelAnimationFrame(frame);
+      host.style.cursor = "";
+      host.style.userSelect = "";
       host.removeEventListener("pointermove", onMove);
       host.removeEventListener("pointerleave", onLeave);
       host.removeEventListener("pointerdown", onDown);

@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 
 const PipelineCanvas = dynamic(() => import("@/components/site/PipelineCanvas"), {
-  ssr: false,
-});
-
-const PacmanLayer = dynamic(() => import("@/components/site/PacmanLayer"), {
   ssr: false,
 });
 
@@ -30,30 +25,6 @@ const FACTS = [
 ];
 
 export default function HeroSection() {
-  const [pacman, setPacman] = useState(false);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (window.innerWidth < 1024) return;
-
-    const nav = navigator as Navigator & {
-      deviceMemory?: number;
-      connection?: { saveData?: boolean };
-    };
-    if ((nav.deviceMemory ?? 8) < 4) return;
-    if ((navigator.hardwareConcurrency ?? 8) < 4) return;
-    if (nav.connection?.saveData) return;
-
-    const start = () => setPacman(true);
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(start, { timeout: 2500 });
-      return () => window.cancelIdleCallback(id);
-    }
-
-    const id = window.setTimeout(start, 1400);
-    return () => window.clearTimeout(id);
-  }, []);
-
   return (
     <section className="relative overflow-hidden pt-14" style={{ background: "#0a0f1e" }}>
       <PipelineCanvas />
@@ -67,7 +38,6 @@ export default function HeroSection() {
         className="pointer-events-none absolute -right-40 -top-24 h-[34rem] w-[34rem] rounded-full opacity-[0.18] blur-3xl"
         style={{ background: "radial-gradient(circle, #4169e1 0%, transparent 70%)" }}
       />
-      {pacman ? <PacmanLayer /> : null}
       <div className="relative z-10 mx-auto grid max-w-6xl gap-14 px-6 pb-24 pt-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12">
         {/* ── Thesis ── */}
         <div>

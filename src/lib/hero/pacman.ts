@@ -1,28 +1,100 @@
-import type { HeroNode } from "@/lib/hero/heroField";
+export type HeroNode = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  stage: number;
+  phase: number;
+  wobble: number;
+  scale: number;
+  pulse: number;
+};
 
-export const EAT_FLOOR = 46;
+export type Pac = {
+  x: number;
+  y: number;
+  heading: number;
+  radius: number;
+  speed: number;
+  turn: number;
+  chompRate: number;
+  wander: number;
+  held: boolean;
+  target: HeroNode | null;
+  cellX: number;
+  cellY: number;
+  hasCell: boolean;
+  nextEatAt: number;
+  nextCellAt: number;
+  raging: boolean;
+  rageMix: number;
+  rageStart: number;
+  rageEndedAt: number;
+  energy: number;
+  mouth: number;
+  tick: number;
+  trail: { x: number; y: number; born: number }[];
+};
+
+export type NeonRing = {
+  x: number;
+  y: number;
+  born: number;
+  life: number;
+  from: number;
+  to: number;
+  width: number;
+  glow: string;
+  core: string;
+};
+
+export type Palette = {
+  glow: string;
+  mid: string;
+  core: string;
+  crest: string;
+};
+
+export const BASE_PALETTE: Palette = {
+  glow: "#ffb020",
+  mid: "#ffd84d",
+  core: "#fff8d6",
+  crest: "#ffd84d",
+};
+
+export const RAGE_PALETTE: Palette = {
+  glow: "#ff2d55",
+  mid: "#ff6b7a",
+  core: "#ffe4e8",
+  crest: "#ffb347",
+};
+
 export const RAGE_ENTER = 96;
 export const RAGE_EXIT = 72;
-export const RAGE_TIER = 16;
-export const MAX_CLONES = 6;
+export const RAGE_MAX_MS = 18000;
+export const RAGE_COOLDOWN_MS = 3000;
+export const RAGE_MORPH_MS = 340;
 
-export const CLONE_TTL_MS = 10000;
-export const CLONE_SPAWN_GAP_MS = 420;
-export const SPAWN_MS = 260;
-export const BURST_MS = 420;
-
-export const BASE_RADIUS = 26;
-export const CLONE_RADIUS = 20;
+export const BASE_RADIUS = 27;
+export const RAGE_RADIUS = 41;
 export const BASE_SPEED = 2.1;
-export const CLONE_SPEED = 3.3;
+export const RAGE_SPEED = 4.3;
 export const BASE_TURN = 0.075;
-export const CLONE_TURN = 0.11;
-export const CHOMP_MAX = 0.5;
-export const EAT_FACTOR = 0.95;
-export const CLONE_EAT_MS = 260;
+export const RAGE_TURN = 0.13;
+export const BASE_CHOMP = 0.014;
+export const RAGE_CHOMP = 0.027;
+export const RAGE_EAT_MS = 95;
+
+export const MOUTH_MAX = 0.62;
+export const MOUTH_MIN = 0.06;
+export const EAT_FACTOR = 1.05;
+export const GRAB_FACTOR = 1.45;
 export const RETARGET_FRAMES = 6;
-export const CLONE_SEEK_RADIUS = 170;
-export const TRAIL_FRAMES = 7;
+export const CELL_HOLD_MS = 700;
+export const CHASE_FACTOR = 3.4;
+export const TRAIL_MS = 320;
+export const TRAIL_MAX = 10;
 
 export const EMA_ALPHA = 0.06;
 export const LOAD_WARN = 1.18;
@@ -51,26 +123,21 @@ export function createLoadTracker() {
   };
 }
 
-export function eatIntervalMs(n: number, load: number) {
-  if (n <= EAT_FLOOR) return Infinity;
+export function eatIntervalMs(n: number, floor: number, load: number) {
+  if (n <= floor) return Infinity;
   const base =
     n >= 150 ? 70 : n >= 110 ? 130 : n >= RAGE_ENTER ? 220 : n >= 70 ? 420 : 900;
   return load > LOAD_HOT ? base * 0.6 : base;
 }
 
-export function nextRage(rage: boolean, n: number, load: number) {
-  if (!rage && (n >= RAGE_ENTER || (n > RAGE_EXIT && load > 1.25))) return true;
-  if (rage && n <= RAGE_EXIT) return false;
-  return rage;
+export function shouldEnterRage(n: number, load: number, sinceLastRage: number) {
+  if (sinceLastRage < RAGE_COOLDOWN_MS) return false;
+  return n >= RAGE_ENTER || (n > RAGE_EXIT && load > LOAD_WARN);
 }
 
-export function wantClones(rage: boolean, n: number, load: number) {
-  if (!rage) return 0;
-  const tier =
-    n >= RAGE_ENTER ? Math.min(MAX_CLONES, 1 + Math.floor((n - RAGE_ENTER) / RAGE_TIER)) : 0;
-  const boost =
-    n > RAGE_EXIT ? (load > LOAD_HOT ? MAX_CLONES : load > LOAD_WARN ? 2 : 0) : 0;
-  return Math.max(tier, boost);
+export function shouldExitRage(n: number, load: number, elapsed: number) {
+  if (elapsed >= RAGE_MAX_MS) return true;
+  return n <= RAGE_EXIT && load < LOAD_WARN;
 }
 
 export function nearestNode(nodes: readonly HeroNode[], x: number, y: number, maxDist = Infinity) {
@@ -88,7 +155,7 @@ export function nearestNode(nodes: readonly HeroNode[], x: number, y: number, ma
   return best;
 }
 
-export function densestCells(nodes: readonly HeroNode[], width: number, height: number): Cell[] {
+export function densestCell(nodes: readonly HeroNode[], width: number, height: number): Cell | null {
   const cells: Cell[] = [];
   for (let i = 0; i < GRID_COLS * GRID_ROWS; i++) cells.push({ x: 0, y: 0, count: 0 });
 
@@ -101,13 +168,198 @@ export function densestCells(nodes: readonly HeroNode[], width: number, height: 
     cell.count++;
   }
 
-  const filled: Cell[] = [];
+  let best: Cell | null = null;
   for (const cell of cells) {
     if (!cell.count) continue;
+    if (best && cell.count <= best.count) continue;
     cell.x /= cell.count;
     cell.y /= cell.count;
-    filled.push(cell);
+    best = cell;
   }
 
-  return filled.sort((a, b) => b.count - a.count);
+  return best;
+}
+
+export function makePac(x: number, y: number, heading: number): Pac {
+  return {
+    x, y, heading,
+    radius: BASE_RADIUS,
+    speed: BASE_SPEED,
+    turn: BASE_TURN,
+    chompRate: BASE_CHOMP,
+    wander: Math.random() * Math.PI * 2,
+    held: false,
+    target: null,
+    cellX: 0,
+    cellY: 0,
+    hasCell: false,
+    nextEatAt: 0,
+    nextCellAt: 0,
+    raging: false,
+    rageMix: 0,
+    rageStart: 0,
+    rageEndedAt: -RAGE_COOLDOWN_MS,
+    energy: 1,
+    mouth: MOUTH_MAX * 0.5,
+    tick: 0,
+    trail: [],
+  };
+}
+
+export function applyRageMix(pac: Pac) {
+  const t = pac.rageMix;
+  pac.radius = BASE_RADIUS + (RAGE_RADIUS - BASE_RADIUS) * t;
+  pac.speed = BASE_SPEED + (RAGE_SPEED - BASE_SPEED) * t;
+  pac.turn = BASE_TURN + (RAGE_TURN - BASE_TURN) * t;
+  pac.chompRate = BASE_CHOMP + (RAGE_CHOMP - BASE_CHOMP) * t;
+}
+
+function hexToRgb(hex: string) {
+  const v = parseInt(hex.slice(1), 16);
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+
+function mixChannel(a: string, b: string, t: number) {
+  const ca = hexToRgb(a);
+  const cb = hexToRgb(b);
+  return `rgb(${Math.round(ca[0] + (cb[0] - ca[0]) * t)}, ${Math.round(ca[1] + (cb[1] - ca[1]) * t)}, ${Math.round(ca[2] + (cb[2] - ca[2]) * t)})`;
+}
+
+export function pacPalette(t: number): Palette {
+  if (t <= 0) return BASE_PALETTE;
+  if (t >= 1) return RAGE_PALETTE;
+  return {
+    glow: mixChannel(BASE_PALETTE.glow, RAGE_PALETTE.glow, t),
+    mid: mixChannel(BASE_PALETTE.mid, RAGE_PALETTE.mid, t),
+    core: mixChannel(BASE_PALETTE.core, RAGE_PALETTE.core, t),
+    crest: mixChannel(BASE_PALETTE.crest, RAGE_PALETTE.crest, t),
+  };
+}
+
+function pacPath(pac: Pac, radius: number) {
+  const path = new Path2D();
+  path.moveTo(pac.x, pac.y);
+  path.arc(pac.x, pac.y, radius, pac.heading + pac.mouth, pac.heading - pac.mouth);
+  path.closePath();
+  return path;
+}
+
+export function drawNeonPac(ctx: CanvasRenderingContext2D, pac: Pac) {
+  const radius = pac.radius;
+  if (radius <= 0.5) return;
+
+  const palette = pacPalette(pac.rageMix);
+  const path = pacPath(pac, radius);
+  const bloom = pac.energy * (pac.held ? 1.35 : 1) * (1 + pac.rageMix * 0.35);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  ctx.globalAlpha = 0.26;
+  ctx.fillStyle = palette.mid;
+  ctx.fill(path);
+
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = palette.glow;
+  ctx.shadowBlur = 17 * bloom;
+  ctx.strokeStyle = palette.glow;
+  ctx.lineWidth = radius * 0.17;
+  ctx.stroke(path);
+
+  ctx.shadowBlur = 7 * bloom;
+  ctx.strokeStyle = palette.mid;
+  ctx.lineWidth = radius * 0.09;
+  ctx.stroke(path);
+
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = palette.core;
+  ctx.lineWidth = Math.max(1.1, radius * 0.05);
+  ctx.stroke(path);
+
+  const up = pac.heading - Math.PI / 2;
+  const ex = pac.x + Math.cos(pac.heading) * radius * 0.12 + Math.cos(up) * radius * 0.44;
+  const ey = pac.y + Math.sin(pac.heading) * radius * 0.12 + Math.sin(up) * radius * 0.44;
+
+  ctx.shadowColor = palette.core;
+  ctx.shadowBlur = 9 * bloom;
+  ctx.fillStyle = palette.core;
+  ctx.beginPath();
+  ctx.arc(ex, ey, Math.max(1.1, radius * 0.1), 0, Math.PI * 2);
+  ctx.fill();
+
+  if (pac.rageMix > 0.02) {
+    const sweep = 0.95 * pac.rageMix;
+    const crestR = radius * 1.26;
+
+    ctx.globalAlpha = pac.rageMix;
+    ctx.shadowColor = palette.crest;
+    ctx.shadowBlur = 11 * bloom;
+    ctx.strokeStyle = palette.crest;
+    ctx.lineWidth = radius * 0.2;
+    ctx.beginPath();
+    ctx.arc(pac.x, pac.y, crestR, up - sweep, up + sweep);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = palette.core;
+    ctx.lineWidth = Math.max(0.8, radius * 0.06);
+    ctx.beginPath();
+    ctx.arc(pac.x, pac.y, crestR, up - sweep, up + sweep);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+export function drawNeonTrail(ctx: CanvasRenderingContext2D, pac: Pac, now: number) {
+  if (!pac.trail.length || pac.rageMix <= 0.05) return;
+
+  const palette = pacPalette(pac.rageMix);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.shadowColor = palette.glow;
+
+  for (const dot of pac.trail) {
+    const t = (now - dot.born) / TRAIL_MS;
+    if (t >= 1) continue;
+    const fade = (1 - t) * (1 - t);
+    ctx.globalAlpha = fade * 0.55 * pac.rageMix;
+    ctx.shadowBlur = 10 * fade;
+    ctx.fillStyle = palette.mid;
+    ctx.beginPath();
+    ctx.arc(dot.x, dot.y, pac.radius * 0.3 * fade, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+export function drawNeonRing(ctx: CanvasRenderingContext2D, ring: NeonRing, now: number) {
+  const t = (now - ring.born) / ring.life;
+  if (t >= 1) return;
+
+  const radius = ring.from + (ring.to - ring.from) * t;
+  const fade = (1 - t) * (1 - t);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = fade;
+  ctx.shadowColor = ring.glow;
+  ctx.shadowBlur = 18 * fade;
+  ctx.strokeStyle = ring.glow;
+  ctx.lineWidth = ring.width;
+  ctx.beginPath();
+  ctx.arc(ring.x, ring.y, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = ring.core;
+  ctx.lineWidth = Math.max(0.6, ring.width * 0.32);
+  ctx.beginPath();
+  ctx.arc(ring.x, ring.y, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
