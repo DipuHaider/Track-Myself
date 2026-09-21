@@ -35,9 +35,9 @@ const APPLICATIONS: TourStep = {
 
 const TODOS: TourStep = {
   id: "todos",
-  target: '[data-tour="todos"]',
+  target: '[data-tour="nav:/me/todos"]',
   title: "Keep the follow-ups",
-  body: "A job hunt is lost in the follow-up. Anything you jot here stays with your account, so the next chase is never a memory test.",
+  body: "A job hunt is lost in the follow-up. Keep chases here — on this page, or from the quick bubble on any screen — and they stay with your account.",
 };
 
 const CV_FREE: TourStep = {

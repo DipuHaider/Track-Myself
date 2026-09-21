@@ -10,7 +10,7 @@ type Todo = {
   dueAt: string | null;
 };
 
-export default function TodoList() {
+export default function TodoList({ variant = "card" }: { variant?: "card" | "plain" }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
@@ -75,13 +75,23 @@ export default function TodoList() {
     }
   };
 
+  const plain = variant === "plain";
+
   return (
-    <section id="todos" data-tour="todos" className="surface scroll-mt-24 rounded-xl border p-5">
+    <section
+      id="todos"
+      data-tour="todos"
+      className={plain ? "p-5" : "surface scroll-mt-24 rounded-xl border p-5"}
+    >
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-base font-semibold">
-          <ListTodo size={17} className="text-[var(--primary)]" aria-hidden="true" />
-          To-Do list
-        </h2>
+        {plain ? (
+          <span className="text-muted text-xs">Everything here is saved to your account.</span>
+        ) : (
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <ListTodo size={17} className="text-[var(--primary)]" aria-hidden="true" />
+            To-Do list
+          </h2>
+        )}
         <span className="text-muted text-xs">{remaining} open</span>
       </div>
 

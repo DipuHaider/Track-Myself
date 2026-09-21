@@ -13,6 +13,8 @@ const IssueReportSchema = new Schema(
     viewport: { type: String, default: "" },
     status: { type: String, enum: ISSUE_STATUSES, default: "open", index: true },
     note: { type: String, default: "" },
+    notifiedAt: { type: Date, default: null },
+    notifyError: { type: String, default: "" },
   },
   { timestamps: true },
 );

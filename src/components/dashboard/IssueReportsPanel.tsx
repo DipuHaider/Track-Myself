@@ -15,6 +15,8 @@ type Report = {
   url: string;
   viewport: string;
   note?: string;
+  notifiedAt?: string | null;
+  notifyError?: string;
   createdAt: string;
   userId?: { name?: string; email?: string } | string | null;
 };
@@ -114,6 +116,16 @@ export default function IssueReportsPanel() {
 
             <p className="text-muted mt-2 font-mono text-[11px]">
               {report.url || "—"} {report.viewport && `· ${report.viewport}`} {report.role && `· ${report.role}`}
+            </p>
+
+            <p className="mt-1 text-[11px]">
+              {report.notifiedAt ? (
+                <span className="text-emerald-600">Emailed {new Date(report.notifiedAt).toLocaleString()}</span>
+              ) : (
+                <span className="text-amber-600">
+                  Not emailed{report.notifyError ? ` — ${report.notifyError}` : ""}
+                </span>
+              )}
             </p>
 
             {manage && (

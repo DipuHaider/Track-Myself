@@ -19,7 +19,7 @@ const STATUS_STYLE: Record<IssueStatus, string> = {
   closed: "status-offer",
 };
 
-export default function MyReports() {
+export default function MyReports({ showEmpty = false }: { showEmpty?: boolean }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +31,8 @@ export default function MyReports() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading || !reports.length) return null;
+  if (loading) return null;
+  if (!reports.length && !showEmpty) return null;
 
   return (
     <section id="my-reports" className="surface scroll-mt-24 rounded-xl border p-5">
@@ -40,8 +41,15 @@ export default function MyReports() {
         Reported issues
       </h2>
 
+      {!reports.length && (
+        <p className="text-muted text-sm">
+          You haven&apos;t reported anything yet. Use Report an issue in the quick bubble and it will
+          show up here with its status.
+        </p>
+      )}
+
       <ul className="space-y-2">
-        {reports.slice(0, 5).map((report) => (
+        {reports.slice(0, showEmpty ? reports.length : 5).map((report) => (
           <li key={report._id} className="surface-muted rounded-lg border px-3 py-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-medium">{report.category}</span>

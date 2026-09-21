@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowUp, Briefcase, Compass, LifeBuoy, ListTodo, Settings2, Sparkles } from "lucide-react";
+import { Briefcase, Compass, LifeBuoy, ListTodo, Settings2, Sparkles } from "lucide-react";
 import A11ySettingsModal from "@/components/shared/A11ySettingsModal";
 import ReportIssueModal from "@/components/shared/ReportIssueModal";
 import TodoModal from "@/components/portal/TodoModal";

@@ -22,6 +22,7 @@ export default function ReportIssueModal({ open, onClose }: { open: boolean; onC
       body: JSON.stringify({
         category,
         message,
+        botcheck: "",
         url: window.location.pathname + window.location.search,
         viewport: `${window.innerWidth}x${window.innerHeight}`,
       }),
@@ -86,6 +87,15 @@ export default function ReportIssueModal({ open, onClose }: { open: boolean; onC
               {message.length}/{ISSUE_MESSAGE_MAX} · the page address and your browser are attached automatically.
             </p>
           </div>
+
+          <input
+            type="checkbox"
+            name="botcheck"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            style={{ display: "none" }}
+          />
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 

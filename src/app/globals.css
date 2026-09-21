@@ -622,45 +622,31 @@ select optgroup {
   filter: drop-shadow(0 0 5px var(--neon-glow));
 }
 
-/* ── Scroll-to-top with progress ring ── */
+/* ── Scroll-to-top: hollow neon arrow that fills like water ── */
 .quick-bubble-top {
-  position: relative;
   height: 2.75rem;
   width: 2.75rem;
   cursor: pointer;
 }
 
-.quick-bubble-ring {
-  position: absolute;
-  inset: 0;
-  transform: rotate(-90deg);
+.quick-bubble-arrow {
+  height: 1.45rem;
+  width: 1.45rem;
+  overflow: visible;
+  filter: drop-shadow(0 0 5px var(--neon-glow));
 }
 
-.quick-bubble-ring circle {
-  fill: none;
-  stroke-linecap: round;
+.quick-bubble-arrow .water,
+.quick-bubble-arrow .surface-line {
+  transition: y 140ms linear;
 }
 
-.quick-bubble-ring .track { stroke: var(--neon-track); }
+.quick-bubble-arrow .surface-line { opacity: 0.9; }
 
-.quick-bubble-ring .bar {
-  stroke: url(#quick-bubble-neon);
-  transition: stroke-dashoffset 120ms linear;
-  filter: drop-shadow(0 0 4px var(--neon-glow));
+:root[data-reduce-motion] .quick-bubble-arrow .water,
+:root[data-reduce-motion] .quick-bubble-arrow .surface-line {
+  transition: none;
 }
-
-.quick-bubble-pct {
-  position: relative;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.6rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--neon-1);
-  text-shadow: 0 0 6px var(--neon-glow);
-}
-
-.quick-bubble-top .arrow { position: relative; display: none; }
-.quick-bubble-top:hover .arrow { display: block; }
-.quick-bubble-top:hover .quick-bubble-pct { display: none; }
 
 /* ── Menu ── */
 .quick-bubble-menu {
