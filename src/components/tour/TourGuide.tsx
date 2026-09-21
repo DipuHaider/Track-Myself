@@ -13,6 +13,13 @@ const PAD = 8;
 const TIP_W = 320;
 const GAP = 14;
 
+function visible(selector: string) {
+  const el = document.querySelector(selector);
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+}
+
 function measure(step: TourStep): Box | null {
   const el = document.querySelector(step.target);
   if (!el) return null;
@@ -29,7 +36,7 @@ export default function TourGuide() {
   const [running, setRunning] = useState(false);
 
   const start = useCallback((v: TourVariant) => {
-    const list = TOUR_STEPS[v].filter((s) => document.querySelector(s.target));
+    const list = TOUR_STEPS[v].filter((s) => visible(s.target));
     if (!list.length) return;
     setVariant(v);
     setSteps(list);
@@ -54,9 +61,20 @@ export default function TourGuide() {
 
       if (!data.enabled) return;
       if (!pending && data.seen) return;
-      setTimeout(() => {
-        if (!cancelled) start(data.variant as TourVariant);
-      }, 600);
+
+      const variantName = data.variant as TourVariant;
+      const first = TOUR_STEPS[variantName][0];
+      const deadline = Date.now() + 10000;
+
+      const attempt = () => {
+        if (cancelled) return;
+        if (visible(first.target) || Date.now() > deadline) {
+          start(variantName);
+          return;
+        }
+        window.setTimeout(attempt, 250);
+      };
+      window.setTimeout(attempt, 400);
     };
 
     boot();
@@ -90,16 +108,21 @@ export default function TourGuide() {
     const sync = () => setBox(measure(step));
     const raf = requestAnimationFrame(sync);
     const timer = window.setTimeout(sync, 380);
+    const bail = window.setTimeout(() => {
+      if (measure(step)) return;
+      setIndex((i) => (i < steps.length - 1 ? i + 1 : i));
+    }, 1200);
 
     window.addEventListener("resize", sync);
     window.addEventListener("scroll", sync, { passive: true });
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(timer);
+      window.clearTimeout(bail);
       window.removeEventListener("resize", sync);
       window.removeEventListener("scroll", sync);
     };
-  }, [running, step]);
+  }, [running, step, steps.length]);
 
   const finish = useCallback(
     (completed: boolean) => {

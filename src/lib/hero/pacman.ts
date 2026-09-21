@@ -56,19 +56,27 @@ export type Palette = {
   crest: string;
 };
 
-export const BASE_PALETTE: Palette = {
-  glow: "#ffb020",
-  mid: "#ffd84d",
-  core: "#fff8d6",
-  crest: "#ffd84d",
+export const PAC_PALETTES: { base: Palette; rage: Palette } = {
+  base: { glow: "#ffb020", mid: "#ffd84d", core: "#fff8d6", crest: "#ffd84d" },
+  rage: { glow: "#ff2d55", mid: "#ff6b7a", core: "#ffe4e8", crest: "#ffb347" },
 };
 
-export const RAGE_PALETTE: Palette = {
-  glow: "#ff2d55",
-  mid: "#ff6b7a",
-  core: "#ffe4e8",
-  crest: "#ffb347",
+export const NEON = {
+  blend: "lighter" as GlobalCompositeOperation,
+  fill: 0.26,
+  trail: 0.55,
 };
+
+export function setNeonBlend(dark: boolean) {
+  NEON.blend = dark ? "lighter" : "source-over";
+  NEON.fill = dark ? 0.26 : 0.92;
+  NEON.trail = dark ? 0.55 : 0.32;
+}
+
+export function setPacPalettes(base: Palette, rage: Palette) {
+  PAC_PALETTES.base = base;
+  PAC_PALETTES.rage = rage;
+}
 
 export const RAGE_ENTER = 96;
 export const RAGE_EXIT = 72;
@@ -215,7 +223,10 @@ export function applyRageMix(pac: Pac) {
 }
 
 function hexToRgb(hex: string) {
-  const v = parseInt(hex.slice(1), 16);
+  const clean = hex.trim().replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
+  const v = parseInt(full, 16);
+  if (Number.isNaN(v)) return [255, 255, 255];
   return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
 }
 
@@ -226,13 +237,14 @@ function mixChannel(a: string, b: string, t: number) {
 }
 
 export function pacPalette(t: number): Palette {
-  if (t <= 0) return BASE_PALETTE;
-  if (t >= 1) return RAGE_PALETTE;
+  const { base, rage } = PAC_PALETTES;
+  if (t <= 0) return base;
+  if (t >= 1) return rage;
   return {
-    glow: mixChannel(BASE_PALETTE.glow, RAGE_PALETTE.glow, t),
-    mid: mixChannel(BASE_PALETTE.mid, RAGE_PALETTE.mid, t),
-    core: mixChannel(BASE_PALETTE.core, RAGE_PALETTE.core, t),
-    crest: mixChannel(BASE_PALETTE.crest, RAGE_PALETTE.crest, t),
+    glow: mixChannel(base.glow, rage.glow, t),
+    mid: mixChannel(base.mid, rage.mid, t),
+    core: mixChannel(base.core, rage.core, t),
+    crest: mixChannel(base.crest, rage.crest, t),
   };
 }
 
@@ -253,11 +265,11 @@ export function drawNeonPac(ctx: CanvasRenderingContext2D, pac: Pac) {
   const bloom = pac.energy * (pac.held ? 1.35 : 1) * (1 + pac.rageMix * 0.35);
 
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
+  ctx.globalCompositeOperation = NEON.blend;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  ctx.globalAlpha = 0.26;
+  ctx.globalAlpha = NEON.fill;
   ctx.fillStyle = palette.mid;
   ctx.fill(path);
 
@@ -319,14 +331,14 @@ export function drawNeonTrail(ctx: CanvasRenderingContext2D, pac: Pac, now: numb
   const palette = pacPalette(pac.rageMix);
 
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
+  ctx.globalCompositeOperation = NEON.blend;
   ctx.shadowColor = palette.glow;
 
   for (const dot of pac.trail) {
     const t = (now - dot.born) / TRAIL_MS;
     if (t >= 1) continue;
     const fade = (1 - t) * (1 - t);
-    ctx.globalAlpha = fade * 0.55 * pac.rageMix;
+    ctx.globalAlpha = fade * NEON.trail * pac.rageMix;
     ctx.shadowBlur = 10 * fade;
     ctx.fillStyle = palette.mid;
     ctx.beginPath();
@@ -345,7 +357,7 @@ export function drawNeonRing(ctx: CanvasRenderingContext2D, ring: NeonRing, now:
   const fade = (1 - t) * (1 - t);
 
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
+  ctx.globalCompositeOperation = NEON.blend;
   ctx.globalAlpha = fade;
   ctx.shadowColor = ring.glow;
   ctx.shadowBlur = 18 * fade;

@@ -46,7 +46,7 @@ export default function ReportIssueModal({ open, onClose }: { open: boolean; onC
           <CheckCircle2 size={34} className="text-emerald-500" aria-hidden="true" />
           <p className="font-medium">Thanks — your report is in.</p>
           <p className="text-muted text-sm">
-            You can follow its status under Reported issues on your overview.
+            You can follow its status under My Reported Issues.
           </p>
           <button type="button" onClick={onClose} className="btn-primary mt-2 rounded-lg px-4 py-2 text-sm">
             Done

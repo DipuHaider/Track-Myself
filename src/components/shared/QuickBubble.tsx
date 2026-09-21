@@ -13,10 +13,18 @@ const POS_KEY = "tm-bubble-pos";
 const ORB = 48;
 const EDGE = 16;
 const DRAG_THRESHOLD = 4;
-const ARROW_D = "M12 3.2 L20.4 11.6 L15.6 11.6 L15.6 20.6 L8.4 20.6 L8.4 11.6 L3.6 11.6 Z";
+const ARROW_D = "M12 3.4 L18.4 11.3 L14.2 11.3 L14.2 20.6 L9.8 20.6 L9.8 11.3 L5.6 11.3 Z";
 
 type Side = "left" | "right";
 type Pos = { x: number; y: number; side: Side };
+
+type MenuItem = {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  hint?: string;
+  pulse?: boolean;
+};
 
 function clampY(y: number) {
   const max = window.innerHeight - ORB - EDGE;
@@ -59,6 +67,8 @@ export default function QuickBubble() {
   const [showSettings, setShowSettings] = useState(false);
   const [showTodos, setShowTodos] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [tourUnseen, setTourUnseen] = useState(false);
+  const tourChecked = useRef(false);
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setPos(readPos()));
@@ -145,6 +155,7 @@ export default function QuickBubble() {
     if (!moved) {
       setPinned((v) => !v);
       setOpen((v) => !v);
+      checkTour();
       return;
     }
 
@@ -154,6 +165,15 @@ export default function QuickBubble() {
       try { localStorage.setItem(POS_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
+  };
+
+  const checkTour = () => {
+    if (tourChecked.current || !signedIn) return;
+    tourChecked.current = true;
+    fetch("/api/user/tour")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setTourUnseen(Boolean(d?.enabled) && !d?.seen))
+      .catch(() => {});
   };
 
   const startTour = () => {
@@ -177,13 +197,31 @@ export default function QuickBubble() {
 
   const above = pos.y > window.innerHeight / 2;
 
-  const items = [
+  const askToSignIn = () => {
+    setOpen(false);
+    setPinned(false);
+    const from = window.location.pathname + window.location.search;
+    router.push(`/login?from=${encodeURIComponent(from)}`);
+  };
+
+  const items: MenuItem[] = [
     ...(signedIn
       ? [
           { icon: <ListTodo size={15} aria-hidden="true" />, label: "To-Do list", onClick: () => { setOpen(false); setPinned(false); setShowTodos(true); } },
           { icon: <Briefcase size={15} aria-hidden="true" />, label: "My Applications", onClick: () => go("/me/applications") },
-          { icon: <LifeBuoy size={15} aria-hidden="true" />, label: "Report an issue", onClick: () => { setOpen(false); setPinned(false); setShowReport(true); } },
-          { icon: <Compass size={15} aria-hidden="true" />, label: "Take the tour", onClick: startTour },
+        ]
+      : []),
+    {
+      icon: <LifeBuoy size={15} aria-hidden="true" />,
+      label: "Report an issue",
+      onClick: signedIn
+        ? () => { setOpen(false); setPinned(false); setShowReport(true); }
+        : askToSignIn,
+      hint: signedIn ? undefined : "Sign in",
+    },
+    ...(signedIn
+      ? [
+          { icon: <Compass size={15} aria-hidden="true" />, label: "Take the tour", onClick: () => { setTourUnseen(false); startTour(); }, pulse: tourUnseen },
         ]
       : []),
     { icon: <Settings2 size={15} aria-hidden="true" />, label: "Accessibility", onClick: () => { setOpen(false); setPinned(false); setShowSettings(true); } },
@@ -200,6 +238,30 @@ export default function QuickBubble() {
 
   return (
     <>
+      {showTop && (
+        <button type="button" className="quick-bubble-top" onClick={toTop} aria-label={`Back to top — ${pct}% scrolled`}>
+          <svg viewBox="0 0 24 24" className="quick-bubble-arrow" aria-hidden="true">
+            <defs>
+            <clipPath id="tm-arrow-clip">
+              <path d={ARROW_D} />
+            </clipPath>
+            <linearGradient id="tm-arrow-fill" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor="var(--neon-1)" />
+              <stop offset="100%" stopColor="var(--neon-2)" />
+            </linearGradient>
+            </defs>
+
+            <g clipPath="url(#tm-arrow-clip)">
+            <rect className="water" x="0" y={24 - 24 * progress} width="24" height="24" fill="url(#tm-arrow-fill)" />
+            <rect className="surface-line" x="0" y={24 - 24 * progress} width="24" height="0.9" fill="var(--neon-2)" />
+            </g>
+
+            <path d={ARROW_D} fill="none" stroke="var(--neon-1)" strokeWidth="1.5" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
+
+
       <div
         ref={shellRef}
         className="quick-bubble-shell"
@@ -215,29 +277,6 @@ export default function QuickBubble() {
           flexDirection: above ? "column-reverse" : "column",
         }}
       >
-        {showTop && (
-          <button type="button" className="quick-bubble-top" onClick={toTop} aria-label={`Back to top — ${pct}% scrolled`}>
-            <svg viewBox="0 0 24 24" className="quick-bubble-arrow" aria-hidden="true">
-              <defs>
-                <clipPath id="tm-arrow-clip">
-                  <path d={ARROW_D} />
-                </clipPath>
-                <linearGradient id="tm-arrow-fill" x1="0" y1="1" x2="0" y2="0">
-                  <stop offset="0%" stopColor="var(--neon-1)" />
-                  <stop offset="100%" stopColor="var(--neon-2)" />
-                </linearGradient>
-              </defs>
-
-              <g clipPath="url(#tm-arrow-clip)">
-                <rect className="water" x="0" y={24 - 24 * progress} width="24" height="24" fill="url(#tm-arrow-fill)" />
-                <rect className="surface-line" x="0" y={24 - 24 * progress} width="24" height="0.9" fill="var(--neon-2)" />
-              </g>
-
-              <path d={ARROW_D} fill="none" stroke="var(--neon-1)" strokeWidth="1.5" strokeLinejoin="round" />
-            </svg>
-          </button>
-        )}
-
         <button
           type="button"
           className="quick-bubble-orb"
@@ -260,10 +299,12 @@ export default function QuickBubble() {
                 type="button"
                 role="menuitem"
                 className="quick-bubble-item"
+                data-pulse={item.pulse ? "true" : undefined}
                 onClick={item.onClick}
               >
                 <span className="quick-bubble-icon">{item.icon}</span>
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.hint && <span className="quick-bubble-hint">{item.hint}</span>}
               </button>
             ))}
           </div>

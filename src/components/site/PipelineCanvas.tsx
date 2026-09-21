@@ -10,11 +10,40 @@ import {
   CELL_HOLD_MS, CHASE_FACTOR, EAT_FACTOR, GRAB_FACTOR, MOUTH_MAX, MOUTH_MIN,
   RAGE_EAT_MS, RAGE_MORPH_MS, RAGE_RADIUS, RESPAWN_MS, RETARGET_FRAMES, TRAIL_MAX, TRAIL_MS,
   applyRageMix, createLoadTracker, densestCell, drawNeonPac, drawNeonRing, drawNeonTrail,
-  eatIntervalMs, makePac, nearestNode, pacPalette, shouldEnterRage, shouldExitRage,
+  eatIntervalMs, makePac, nearestNode, pacPalette, setNeonBlend, setPacPalettes, shouldEnterRage, shouldExitRage,
   type HeroNode, type NeonRing, type Pac,
 } from "@/lib/hero/pacman";
 
 const STAGE_COLORS = ["#94a3b8", "#3b82f6", "#22d3ee", "#34d399"];
+const LINK_RGB = { fwd: "148, 197, 255", idle: "148, 163, 184" };
+
+function readHeroPalette() {
+  const cs = getComputedStyle(document.documentElement);
+  setNeonBlend(document.documentElement.getAttribute("data-theme") === "dark");
+  const pick = (name: string, fallback: string) => {
+    const v = cs.getPropertyValue(name).trim();
+    return v || fallback;
+  };
+
+  for (let i = 0; i < 4; i++) STAGE_COLORS[i] = pick(`--hero-dot-${i}`, STAGE_COLORS[i]);
+  LINK_RGB.fwd = pick("--hero-link-fwd", LINK_RGB.fwd);
+  LINK_RGB.idle = pick("--hero-link-idle", LINK_RGB.idle);
+
+  setPacPalettes(
+    {
+      glow: pick("--pac-glow", "#ffb020"),
+      mid: pick("--pac-mid", "#ffd84d"),
+      core: pick("--pac-core", "#fff8d6"),
+      crest: pick("--pac-crest", "#ffd84d"),
+    },
+    {
+      glow: pick("--pac-rage-glow", "#ff2d55"),
+      mid: pick("--pac-rage-mid", "#ff6b7a"),
+      core: pick("--pac-rage-core", "#ffe4e8"),
+      crest: pick("--pac-rage-crest", "#ffb347"),
+    },
+  );
+}
 
 const BASE_NODES = 52;
 const MAX_NODES = 190;
@@ -112,6 +141,7 @@ export default function PipelineCanvas() {
     }
 
     function seed() {
+      readHeroPalette();
       resize();
       const count = Math.max(22, Math.min(BASE_NODES, Math.round((width * height) / 17000)));
       nodes = Array.from({ length: count }, () =>
@@ -664,8 +694,8 @@ export default function PipelineCanvas() {
           ctx!.moveTo(a.x, a.y);
           ctx!.lineTo(b.x, b.y);
           ctx!.strokeStyle = forward
-            ? `rgba(148, 197, 255, ${strength * 0.3})`
-            : `rgba(148, 163, 184, ${strength * 0.12})`;
+            ? `rgba(${LINK_RGB.fwd}, ${strength * 0.3})`
+            : `rgba(${LINK_RGB.idle}, ${strength * 0.12})`;
           ctx!.lineWidth = forward ? 1.1 : 0.7;
           ctx!.stroke();
         }
@@ -852,6 +882,10 @@ export default function PipelineCanvas() {
       return () => window.removeEventListener("resize", seed);
     }
 
+    const onThemeChange = () => readHeroPalette();
+    window.addEventListener("theme-change", onThemeChange);
+    window.addEventListener("tm-a11y-change", onThemeChange);
+
     frame = requestAnimationFrame(step);
     host.addEventListener("pointermove", onMove);
     host.addEventListener("pointerleave", onLeave);
@@ -864,6 +898,8 @@ export default function PipelineCanvas() {
       cancelAnimationFrame(frame);
       host.style.cursor = "";
       host.style.userSelect = "";
+      window.removeEventListener("theme-change", onThemeChange);
+      window.removeEventListener("tm-a11y-change", onThemeChange);
       host.removeEventListener("pointermove", onMove);
       host.removeEventListener("pointerleave", onLeave);
       host.removeEventListener("pointerdown", onDown);

@@ -6,8 +6,6 @@ import FunnelChart from "@/components/dashboard/FunnelChart";
 import StatusDistribution from "@/components/dashboard/StatusDistribution";
 import RecentApplications from "@/components/dashboard/RecentApplications";
 import UserStatsSection from "@/components/dashboard/UserStatsSection";
-import IssueReportsPanel from "@/components/dashboard/IssueReportsPanel";
-import PermissionGate from "@/components/dashboard/PermissionGate";
 
 const INTERVIEW_STATUSES = [
   "Interview Scheduled",
@@ -48,10 +46,6 @@ export default async function DashboardPage() {
       </section>
 
       <RecentApplications />
-
-      <PermissionGate action="view:issues">
-        <IssueReportsPanel />
-      </PermissionGate>
 
       <UserStatsSection />
     </div>

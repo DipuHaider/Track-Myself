@@ -624,13 +624,17 @@ select optgroup {
 
 /* ── Scroll-to-top: hollow neon arrow that fills like water ── */
 .quick-bubble-top {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 45;
   height: 2.75rem;
   width: 2.75rem;
   cursor: pointer;
 }
 
 .quick-bubble-arrow {
-  height: 1.45rem;
+  height: 1.5rem;
   width: 1.45rem;
   overflow: visible;
   filter: drop-shadow(0 0 5px var(--neon-glow));
@@ -790,3 +794,128 @@ select optgroup {
 }
 
 .tour-btn-primary:hover { filter: brightness(1.06); background: linear-gradient(135deg, var(--primary), var(--accent)); }
+
+/* ── Tour entry: pulses until the user has taken it ── */
+@keyframes tm-tour-pulse {
+  0%, 100% { background: color-mix(in srgb, var(--neon-1) 8%, transparent); }
+  50%      { background: color-mix(in srgb, var(--neon-1) 26%, transparent); }
+}
+
+@keyframes tm-tour-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--neon-1) 45%, transparent); }
+  70%      { box-shadow: 0 0 0 7px transparent; }
+}
+
+.quick-bubble-item[data-pulse="true"] {
+  animation: tm-tour-pulse 1.9s var(--ease-out) infinite;
+}
+
+.quick-bubble-item[data-pulse="true"] .quick-bubble-icon {
+  animation: tm-tour-glow 1.9s var(--ease-out) infinite;
+}
+
+.quick-bubble-hint {
+  flex-shrink: 0;
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--neon-1) 14%, transparent);
+  padding: 0.1rem 0.4rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.03em;
+  color: var(--neon-1);
+}
+
+/* ── Hero: was dark-only, now follows the theme ───────────────────────
+   One token set drives the markup, the 2D canvas palette and the neon
+   Pac-Man, so light and dark stay in step without duplicating markup.
+   ------------------------------------------------------------------- */
+:root {
+  --hero-bg: linear-gradient(165deg, #f3f6fd 0%, #e5ebf8 55%, #dde5f6 100%);
+  --hero-fg: #0f1729;
+  --hero-fg-80: rgba(15, 23, 41, 0.80);
+  --hero-fg-60: rgba(15, 23, 41, 0.62);
+  --hero-fg-45: rgba(15, 23, 41, 0.50);
+  --hero-fg-30: rgba(15, 23, 41, 0.38);
+  --hero-line: rgba(15, 23, 41, 0.12);
+  --hero-line-soft: rgba(15, 23, 41, 0.07);
+  --hero-card-bg: rgba(255, 255, 255, 0.70);
+  --hero-card-border: rgba(15, 23, 41, 0.10);
+  --hero-strip: rgba(15, 23, 41, 0.035);
+  --hero-ghost-border: rgba(15, 23, 41, 0.18);
+  --hero-ghost-hover: rgba(15, 23, 41, 0.06);
+  --hero-glow: #7aa2ff;
+  --hero-glow-opacity: 0.22;
+
+  --hero-dot-0: #8492ad;
+  --hero-dot-1: #2f6fe4;
+  --hero-dot-2: #0f9bb5;
+  --hero-dot-3: #12a37a;
+  --hero-link-fwd: 47, 111, 228;
+  --hero-link-idle: 90, 104, 130;
+
+  --pac-glow: #e08600;
+  --pac-mid: #f0a81e;
+  --pac-core: #6a4a00;
+  --pac-crest: #d98a12;
+  --pac-rage-glow: #e0114a;
+  --pac-rage-mid: #f2456a;
+  --pac-rage-core: #5c0018;
+  --pac-rage-crest: #e07a12;
+}
+
+:root[data-theme="dark"] {
+  --hero-bg: #0a0f1e;
+  --hero-fg: #ffffff;
+  --hero-fg-80: rgba(255, 255, 255, 0.90);
+  --hero-fg-60: rgba(255, 255, 255, 0.60);
+  --hero-fg-45: rgba(255, 255, 255, 0.45);
+  --hero-fg-30: rgba(255, 255, 255, 0.30);
+  --hero-line: rgba(255, 255, 255, 0.10);
+  --hero-line-soft: rgba(255, 255, 255, 0.07);
+  --hero-card-bg: rgba(255, 255, 255, 0.08);
+  --hero-card-border: rgba(255, 255, 255, 0.14);
+  --hero-strip: rgba(255, 255, 255, 0.04);
+  --hero-ghost-border: rgba(255, 255, 255, 0.20);
+  --hero-ghost-hover: rgba(255, 255, 255, 0.10);
+  --hero-glow: #4169e1;
+  --hero-glow-opacity: 0.18;
+
+  --hero-dot-0: #94a3b8;
+  --hero-dot-1: #3b82f6;
+  --hero-dot-2: #22d3ee;
+  --hero-dot-3: #34d399;
+  --hero-link-fwd: 148, 197, 255;
+  --hero-link-idle: 148, 163, 184;
+
+  --pac-glow: #ffb020;
+  --pac-mid: #ffd84d;
+  --pac-core: #fff8d6;
+  --pac-crest: #ffd84d;
+  --pac-rage-glow: #ff2d55;
+  --pac-rage-mid: #ff6b7a;
+  --pac-rage-core: #ffe4e8;
+  --pac-rage-crest: #ffb347;
+}
+
+.hero-surface { background: var(--hero-bg); }
+.hero-text    { color: var(--hero-fg); }
+.hero-strong  { color: var(--hero-fg-80); }
+.hero-dim     { color: var(--hero-fg-60); }
+.hero-dimmer  { color: var(--hero-fg-45); }
+.hero-faint   { color: var(--hero-fg-30); }
+.hero-line    { border-color: var(--hero-line); }
+.hero-line-soft { border-color: var(--hero-line-soft); }
+.hero-strip   { background: var(--hero-strip); }
+
+.hero-ghost-btn {
+  border: 1px solid var(--hero-ghost-border);
+  color: var(--hero-fg-80);
+}
+
+.hero-ghost-btn:hover { background: var(--hero-ghost-hover); }
+
+.hero-card {
+  background: var(--hero-card-bg);
+  border-color: var(--hero-card-border);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+}

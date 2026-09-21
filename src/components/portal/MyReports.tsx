@@ -38,7 +38,7 @@ export default function MyReports({ showEmpty = false }: { showEmpty?: boolean }
     <section id="my-reports" className="surface scroll-mt-24 rounded-xl border p-5">
       <h2 className="mb-4 flex items-center gap-2 text-base font-semibold">
         <LifeBuoy size={17} className="text-[var(--primary)]" aria-hidden="true" />
-        Reported issues
+        Report history
       </h2>
 
       {!reports.length && (

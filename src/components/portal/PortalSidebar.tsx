@@ -23,7 +23,7 @@ export default function PortalSidebar() {
     { href: "/me/my-cv",        icon: FolderOpen,      label: "My Documents",    mobileLabel: "Docs" },
     { href: "/me/cv",           icon: FileText,        label: "CV Builder",      mobileLabel: "Builder", badge: proBadge },
     { href: "/me/todos",        icon: ListTodo,        label: "To-Do list",      mobileLabel: "To-Do" },
-    { href: "/me/issues",       icon: LifeBuoy,        label: "Issue reports",   mobileLabel: "Issues",  hideMobile: true },
+    { href: "/me/issues",       icon: LifeBuoy,        label: "My Reported Issues", mobileLabel: "Reports", hideMobile: true },
     { href: "/tools",           icon: Wrench,          label: "Tools",           mobileLabel: "Tools" },
     { href: "/",                icon: Home,            label: "Home",            mobileLabel: "Home",    exact: true, hideMobile: true },
   ];
