@@ -2,8 +2,13 @@
 
 A job application tracker. Record the roles you apply for, move them through ten pipeline
 stages, keep every CV and cover letter in one library, and generate tailored Word documents
-per application. Six browser-side tools handle the fiddly parts of applying — headshots,
+per application. Eight browser-side tools handle the fiddly parts of applying — headshots,
 banners, PDFs, job-ad analysis — without uploading anything.
+
+Around that sit a notifications centre that surfaces ghost listings and upcoming interviews,
+a per-application interview-prep generator, a to-do list, in-app issue reporting that emails
+the maintainer, guided product tours, and accessibility controls. AI features run on a
+shared key or on a key the user brings themselves.
 
 Built with Next.js 16 (App Router), React 19, TypeScript, MongoDB/Mongoose, NextAuth 4 and
 Tailwind CSS 4.
@@ -32,7 +37,11 @@ Then open <http://localhost:3000>.
 | `GOOGLE_CLIENT_ID` | no | Enables "Sign in with Google". Omit both and only email/password works. |
 | `GOOGLE_CLIENT_SECRET` | no | Paired with the above. |
 | `NEXT_PUBLIC_SITE_URL` | recommended | Canonical origin for sitemap, robots and Open Graph tags. Falsy in production means wrong canonical URLs. |
-| `ANTHROPIC_API_KEY` | no | Powers AI CV tailoring and banner briefs. Without it those endpoints return 503; nothing else is affected. |
+| `ANTHROPIC_API_KEY` | no | Shared key for AI CV tailoring, interview questions and banner briefs. Without it those features fall back to a heuristic, or to a user's own key. |
+| `GEMINI_API_KEY` | no | Superadmin-only fallback — it spends one person's quota, so it is never offered to other accounts. |
+| `GEMINI_MODEL` | no | Overrides the default `gemini-3.6-flash`. |
+| `AI_KEY_SECRET` | no | Encrypts each user's own AI key (BYOK) at rest with AES-256-GCM. 16+ characters; `openssl rand -base64 32`. Without it users cannot save a key and the form says so. |
+| `WEB3FORMS_ACCESS_KEY` | no | Emails submitted issue reports. The key *is* the destination inbox — generate it at web3forms.com for the address that should receive them. |
 | `EXTENSION_ORIGIN` | no | Locks the extension CORS allowlist to one origin. Defaults to `*`. |
 
 ### Scripts
@@ -61,8 +70,8 @@ none should be added; `src/proxy.ts` covers the legacy `withAuth` paths.
 |---|---|---|
 | Public | `/`, `/tools/*`, `/faq`, `/terms`, `/privacy` | anyone |
 | Auth | `/login`, `/register` | signed out |
-| Portal | `/me`, `/me/applications`, `/me/my-cv`, `/me/cv` | any signed-in user |
-| Dashboard | `/dashboard`, `/applications`, `/analytics`, `/dashboard/cv`, `/dashboard/users` | editor and above |
+| Portal | `/me`, `/me/applications`, `/me/my-cv`, `/me/cv`, `/me/todos`, `/me/notifications`, `/me/issues`, `/me/ai-key` | any signed-in user |
+| Dashboard | `/dashboard`, `/applications`, `/analytics`, `/dashboard/cv`, `/dashboard/users`, `/dashboard/issues` | editor and above |
 | Dashboard (admin) | `/settings`, `/dashboard/rbac` | admin and above |
 
 `/profile` and `/users` are redirect-only aliases for `/me` and `/dashboard/users`.
@@ -132,7 +141,8 @@ documents for a job.
 ## Browser tools
 
 `/tools/bg-remover` · `/tools/profile-image` · `/tools/banner-generator` ·
-`/tools/jd-analyzer` · `/tools/image-optimizer` · `/tools/pdf-splitter`
+`/tools/jd-analyzer` · `/tools/image-optimizer` · `/tools/pdf-splitter` ·
+`/tools/pdf-editor` · `/tools/docx-editor`
 
 Every image and PDF is processed in the browser with Canvas — none is uploaded. The one
 call any tool makes to the server is the banner generator's optional AI brief
@@ -234,8 +244,114 @@ ran, and nothing runs them on deploy. Schema changes are additive-only in practi
   `Map`, so on Vercel each serverless instance has its own. The login throttle and the
   account-deletion limit are weaker in production than the numbers suggest; a shared store
   is needed for them to hold.
+- **`/dashboard` hits the database at build time.** It is a server component that calls
+  `dbConnect()` with no `export const dynamic = "force-dynamic"`, so Next tries to prerender
+  it and the build fails if the database is unreachable. Present since the first commit. Add
+  `force-dynamic` to that page to decouple builds from database availability.
 - **No preview-environment isolation is enforced** — it depends entirely on the Vercel env
   vars being set correctly.
+
+---
+
+## AI features and BYOK
+
+Five surfaces use a model: CV tailoring (`/api/cv/adapt`), the generate-preview review step,
+banner briefs, interview-question top-up, and the interview-questions route. All of them go
+through one layer, `src/lib/cv/ai/provider.ts`.
+
+`resolveCredentials()` returns an ordered chain; the first that can run, runs, and a later
+entry is tried only on failure:
+
+1. **The user's own key** — whatever provider they added
+2. **Shared `ANTHROPIC_API_KEY`** — the deployment's key, for every entitled user
+3. **Shared `GEMINI_API_KEY`** — superadmin only
+
+With none of the three, tailoring degrades to the reorder-only heuristic and says so on
+screen, and interview questions fall back to the curated bank.
+
+### Bring your own key
+
+Any signed-in user can add a key at `/me/ai-key` and unlock every AI surface on their own
+quota — no plan required. Three provider shapes are supported:
+
+| Provider | Default model | Notes |
+|---|---|---|
+| Google Gemini | `gemini-3.6-flash` | Free tier available; rate-limits under bursts. |
+| Anthropic | `claude-sonnet-5` | Pay as you go; Haiku 4.5 is the cheapest current model. |
+| OpenAI-compatible | `gpt-4o-mini` | One `/chat/completions` shape covers OpenRouter, Groq, Together, DeepSeek and Ollama. Takes a base URL. |
+
+Keys are probed before they are stored, so a bad one is rejected on the form rather than
+failing later inside a generation. Storage is AES-256-GCM (`src/lib/crypto/secretBox.ts`)
+under `AI_KEY_SECRET`, deliberately separate from `NEXTAUTH_SECRET` so rotating session
+signing does not make every stored key undecryptable. No endpoint ever returns the key —
+only provider, model, last four characters and status.
+
+**On token counts:** the header pill and the `/me/ai-key` page report tokens spent *through
+TrackMyself*, accumulated from what each response reports. They are not a provider balance.
+No provider exposes remaining credit to an ordinary API key — Anthropic's spend figures need
+a separate Admin key, and Gemini has no balance endpoint at all. Do not relabel these as
+"remaining".
+
+Failure classification is by status **and** response body: Gemini answers a bad key with
+HTTP 400 rather than 401, so status alone misreports it as a generic upstream error.
+
+---
+
+## Notifications, to-dos and issue reports
+
+### Notifications
+
+Hybrid by design. State-based items are **derived live** on every read from data that
+already exists, so they clear themselves the moment the underlying thing is resolved and
+nothing can go stale:
+
+| Derived (`src/lib/notifications/derive.ts`) | Stored (`Notification` model) |
+|---|---|
+| Ghost listings — `isPossibleGhost()`, 45 quiet days | Issue report triaged or replied to |
+| Duplicate applications — `computeDuplicateIds()` | New report → the whole backend team |
+| Interviews within 7 days | Plan, role or pause changes |
+| To-dos due or overdue | AI key failures |
+
+Derived items carry a stable synthetic id (`ghost:<appId>`), and read state for them lives in
+`User.notifSeen`. Bell and dropdown sit in the header, the full list is at
+`/me/notifications`, and new arrivals raise a toast. Liveness is a 60s visibility-aware poll
+plus a `BroadcastChannel` so tabs stay in step.
+
+### To-dos and issue reports
+
+`/me/todos` is a per-user list with optional due dates, which feed the notification above.
+It is also reachable as a modal from the quick bubble on any page.
+
+Submitting an issue stores it and emails it via Web3Forms in the same request, saving first
+so a mail failure never loses the report. Users see their own at `/me/issues`; editors triage
+everything at `/dashboard/issues`, where each row carries a **Mail Sent** badge and a
+**Resend** action.
+
+Two things worth knowing about the mail path: Web3Forms sits behind Cloudflare and
+**403s any request without a browser-like `User-Agent`**, and it intermittently challenges
+the first request on a fresh connection — so the sender retries up to four times with
+backoff. Without that, isolated reports were silently dropped.
+
+---
+
+## Quick bubble, tours and accessibility
+
+A draggable floating bubble appears on every page. It snaps to whichever side wall you drop
+it against, remembers its position, and holds To-Do, My Applications, Report an issue, Take
+the tour and Accessibility. Click to open — it deliberately does not expand on hover. A
+separate scroll-to-top control is pinned bottom-right and fills like water as you scroll.
+
+**Tours** come in three scopes, chosen by the page you are on: `home`, `portal` and
+`dashboard` (`scopeForPath()` in `src/lib/tour.ts`). Each auto-runs once for the audience it
+targets — free users on the homepage, premium on `/me`, editors and admins on the dashboard —
+and anyone can replay the one for their current page from the bubble. Each is individually
+switchable from `/settings`.
+
+**Accessibility** preferences — text scale, colour scheme, high contrast, reduce motion,
+dyslexia-friendly font, reading spacing, underlined links — are saved to the user account and
+mirrored to `localStorage`. A boot script in the root layout stamps them onto `<html>` before
+paint, so a reload never flashes the default.
+
 
 ---
 
@@ -279,7 +395,15 @@ store is needed if this is ever scaled horizontally.
 ## Data model
 
 `User` · `Application` · `Interview` · `Reminder` · `Document` · `CVProfile` · `CVFile` ·
-`AccessControl`
+`AccessControl` · `Todo` · `IssueReport` · `Notification` · `AppSettings`
+
+`Todo` and `IssueReport` are userId-scoped. `Notification` stores only event-driven items —
+ghost listings, duplicates, interviews and due to-dos are derived live instead (see
+Notifications below). `AppSettings` is a single `key: "default"` document holding feature
+flags, cached for 60s, mirroring how `AccessControl` works.
+
+`Reminder` is legacy and effectively dead: `reminderService.getReminders()` returns `[]` and
+rows are only ever deleted on cascade. Use `Todo` instead.
 
 A note that has caused real bugs: `Application.userId` and `Document.userId` are
 `ObjectId`, while `CVProfile.userId` and `CVFile.userId` are `String`. Mongoose casts
@@ -294,7 +418,9 @@ and admin delete paths use it.
 ## Not implemented
 
 - Test suite (CI checks types, lint and build only)
-- PDF export — documents are `.docx`; convert in Word or LibreOffice
-- Email and reminder notifications
+- Reminder notifications — the `Reminder` model exists but nothing reads it
 - Payments. `User.plan` is a manual admin toggle; a webhook would only need to write that field
 - CSV import
+
+PDF export **is** implemented (`src/lib/cv/pdf/`, `@react-pdf/renderer`, gated by
+`canExportPdf`); an earlier version of this file said otherwise.
