@@ -6,6 +6,8 @@ import {
   SPLIT_BOLT_FRAMES, boltColor,
   type BoltPreset, type MitosisType,
 } from "@/lib/tools/boltPresets";
+import { publishHeroField, type HeroNode } from "@/lib/hero/heroField";
+import { EAT_FLOOR } from "@/lib/hero/pacman";
 
 const STAGE_COLORS = ["#94a3b8", "#3b82f6", "#22d3ee", "#34d399"];
 
@@ -20,16 +22,7 @@ const MAX_SPEED = 0.42;
 const HIT_RADIUS_SQ = 34 * 34;
 const CHARGE_MS = 1100;
 
-type Node = {
-  x: number; y: number;
-  vx: number; vy: number;
-  radius: number;
-  stage: number;
-  phase: number;
-  wobble: number;
-  scale: number;
-  pulse: number;
-};
+type Node = HeroNode;
 
 type Segment = { x1: number; y1: number; x2: number; y2: number; depth: number };
 
@@ -257,6 +250,26 @@ export default function PipelineCanvas() {
         nodes.push(node);
       }
 
+      spawnBoltSequence(
+        x, y,
+        Math.round(rand(BIRTH_BOLT_FRAMES[0], BIRTH_BOLT_FRAMES[1])),
+        intensity,
+      );
+    }
+
+    function eat(node: Node) {
+      if (nodes.length <= EAT_FLOOR) return false;
+      if (press.active && press.target === node) return false;
+
+      const index = nodes.indexOf(node);
+      if (index < 0) return false;
+
+      nodes.splice(index, 1);
+      for (const s of splits) if (s.node === node) s.node = null;
+      return true;
+    }
+
+    function pop(x: number, y: number, intensity: number) {
       spawnBoltSequence(
         x, y,
         Math.round(rand(BIRTH_BOLT_FRAMES[0], BIRTH_BOLT_FRAMES[1])),
@@ -604,11 +617,20 @@ export default function PipelineCanvas() {
 
     seed();
 
+    const unpublish = publishHeroField({
+      nodes: () => nodes,
+      consume: eat,
+      burst: pop,
+    });
+
     if (reduced) {
       step();
       cancelAnimationFrame(frame);
       window.addEventListener("resize", seed);
-      return () => window.removeEventListener("resize", seed);
+      return () => {
+        unpublish();
+        window.removeEventListener("resize", seed);
+      };
     }
 
     frame = requestAnimationFrame(step);
@@ -620,6 +642,7 @@ export default function PipelineCanvas() {
     window.addEventListener("resize", resize);
 
     return () => {
+      unpublish();
       cancelAnimationFrame(frame);
       host.removeEventListener("pointermove", onMove);
       host.removeEventListener("pointerleave", onLeave);
