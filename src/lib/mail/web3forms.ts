@@ -1,7 +1,7 @@
 const ENDPOINT = "https://api.web3forms.com/submit";
 const TIMEOUT_MS = 8000;
-const ATTEMPTS = 3;
-const BACKOFF_MS = [0, 700, 1800];
+const ATTEMPTS = 4;
+const BACKOFF_MS = [0, 600, 1600, 3200];
 
 export type IssueMail = {
   category: string;
@@ -15,16 +15,22 @@ export type IssueMail = {
   reportId: string;
 };
 
+/* Prefer the unprefixed name: NEXT_PUBLIC_* is inlined at build time, so a key
+   added or rotated after the build is invisible to the running server. */
+function accessKey() {
+  return process.env.WEB3FORMS_ACCESS_KEY || process.env.NEXT_PUBLIC_WEB3FORMS_KEY || "";
+}
+
 export function web3formsConfigured() {
-  return Boolean(process.env.NEXT_PUBLIC_WEB3FORMS_KEY);
+  return Boolean(accessKey());
 }
 
 export async function sendIssueMail(issue: IssueMail): Promise<{ ok: boolean; error?: string }> {
-  const accessKey = process.env.NEXT_PUBLIC_WEB3FORMS_KEY;
-  if (!accessKey) return { ok: false, error: "NEXT_PUBLIC_WEB3FORMS_KEY is not set" };
+  const key = accessKey();
+  if (!key) return { ok: false, error: "WEB3FORMS_ACCESS_KEY is not set" };
 
   const payload = JSON.stringify({
-    access_key: accessKey,
+    access_key: key,
     subject: `[TrackMyself] ${issue.category} reported by ${issue.reporterName}`,
     from_name: "TrackMyself",
     replyto: issue.reporterEmail || undefined,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LifeBuoy, MailCheck, MailX, Trash2 } from "lucide-react";
+import { LifeBuoy, MailCheck, MailX, RefreshCw, Trash2 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
 import { announceIssueChange, onIssueChange } from "@/lib/issueSync";
@@ -42,6 +42,7 @@ export default function IssueReportsPanel() {
   const [reports, setReports] = useState<Report[]>([]);
   const [filter, setFilter] = useState<IssueStatus | "all">("open");
   const [loading, setLoading] = useState(true);
+  const [resending, setResending] = useState<string | null>(null);
 
   const manage = can("manage:issues");
 
@@ -83,6 +84,18 @@ export default function IssueReportsPanel() {
     }).catch(() => null);
     if (!res || !res.ok) setReports(before);
     else announceIssueChange();
+  };
+
+  const resend = async (report: Report) => {
+    setResending(report._id);
+    const res = await fetch(`/api/admin/issues/${report._id}/resend`, { method: "POST" }).catch(() => null);
+    const body = await res?.json().catch(() => null);
+    setResending(null);
+
+    if (body?.report) {
+      setReports((list) => list.map((r) => (r._id === report._id ? { ...r, ...body.report } : r)));
+      announceIssueChange();
+    }
   };
 
   const remove = async (report: Report) => {
@@ -175,6 +188,17 @@ export default function IssueReportsPanel() {
                     Mark {ISSUE_STATUS_LABELS[s].toLowerCase()}
                   </button>
                 ))}
+                {!report.notifiedAt && (
+                  <button
+                    type="button"
+                    onClick={() => resend(report)}
+                    disabled={resending === report._id}
+                    className="surface flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition hover:border-[var(--primary)] disabled:opacity-50"
+                  >
+                    <RefreshCw size={11} aria-hidden="true" />
+                    {resending === report._id ? "Sending…" : "Resend email"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => remove(report)}
