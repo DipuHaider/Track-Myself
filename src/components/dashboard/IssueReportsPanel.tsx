@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LifeBuoy, MailCheck, MailX, Trash2 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
+import { ISSUE_EVENT, ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
 
 type Report = {
   _id: string;
@@ -42,7 +42,7 @@ export default function IssueReportsPanel() {
 
   const manage = can("manage:issues");
 
-  useEffect(() => {
+  const load = useCallback(() => {
     const qs = filter === "all" ? "" : `?status=${filter}`;
     fetch(`/api/admin/issues${qs}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -50,6 +50,12 @@ export default function IssueReportsPanel() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [filter]);
+
+  useEffect(() => {
+    load();
+    window.addEventListener(ISSUE_EVENT, load);
+    return () => window.removeEventListener(ISSUE_EVENT, load);
+  }, [load]);
 
   const setStatus = async (report: Report, status: IssueStatus) => {
     const before = reports;

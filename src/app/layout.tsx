@@ -5,6 +5,7 @@ import { Josefin_Sans } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/providers/SessionProvider";
 import QuickBubble from "@/components/shared/QuickBubble";
+import TourGuide from "@/components/tour/TourGuide";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/seo";
 import { A11Y_BOOT_SCRIPT } from "@/lib/a11y";
 
@@ -89,6 +90,7 @@ export default function RootLayout({
         <SessionProvider>
           {children}
           <QuickBubble />
+          <TourGuide />
         </SessionProvider>
       </body>
     </html>

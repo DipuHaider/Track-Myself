@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Compass, Database, Loader2, Play, Shield, XCircle } from "lucide-react";
 import { PLAN_LABELS, ROLE_LABELS, type Plan, type Role } from "@/lib/permissions";
+import { TOUR_DESCRIPTIONS, TOUR_LABELS, TOUR_SCOPES, type TourScope } from "@/lib/tour";
 
 type SystemInfo = {
   env: {
@@ -57,68 +58,71 @@ function Flag({ ok, label, hint }: { ok: boolean; label: string; hint?: string }
 }
 
 function FeatureToggles() {
-  const [tourEnabled, setTourEnabled] = useState<boolean | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [tours, setTours] = useState<Record<TourScope, boolean> | null>(null);
+  const [saving, setSaving] = useState<TourScope | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/settings")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setTourEnabled(d ? d.tourEnabled !== false : true))
-      .catch(() => setTourEnabled(true));
+      .then((d) => setTours(d?.tours ?? { home: true, portal: true, dashboard: true }))
+      .catch(() => setTours({ home: true, portal: true, dashboard: true }));
   }, []);
 
-  const toggle = async () => {
-    if (tourEnabled === null || saving) return;
-    const next = !tourEnabled;
-    setSaving(true);
-    setTourEnabled(next);
+  const toggle = async (scope: TourScope) => {
+    if (!tours || saving) return;
+    const next = !tours[scope];
+    setSaving(scope);
+    setTours({ ...tours, [scope]: next });
 
     const res = await fetch("/api/admin/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tourEnabled: next }),
+      body: JSON.stringify({ tours: { [scope]: next } }),
     }).catch(() => null);
 
-    setSaving(false);
-    if (!res || !res.ok) setTourEnabled(!next);
+    setSaving(null);
+    if (!res || !res.ok) setTours({ ...tours, [scope]: !next });
   };
 
   return (
     <div className="surface rounded-xl border p-5">
-      <h3 className="mb-3 flex items-center gap-2 font-semibold">
+      <h3 className="mb-1 flex items-center gap-2 font-semibold">
         <Compass size={16} aria-hidden="true" />
-        Features
+        Quick tours
       </h3>
+      <p className="text-muted mb-3 text-xs">
+        Each tour runs once automatically for the audience it targets, and anyone can replay the
+        one for the page they are on from the quick bubble. Turning one off stops it entirely,
+        replay included.
+      </p>
 
-      <div className="flex items-start justify-between gap-4 border-b py-3 last:border-b-0">
-        <div className="min-w-0">
-          <p className="text-sm font-medium">New-user quick tour</p>
-          <p className="text-muted text-xs">
-            Runs once for each user the first time they open their overview — a free version and a
-            premium version. Everyone can replay it from the quick bubble. Turning this off stops it
-            firing for everyone, including the replay.
-          </p>
+      {TOUR_SCOPES.map((scope) => (
+        <div key={scope} className="flex items-start justify-between gap-4 border-b py-3 last:border-b-0">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">{TOUR_LABELS[scope]}</p>
+            <p className="text-muted text-xs">{TOUR_DESCRIPTIONS[scope]}</p>
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={tours?.[scope] === true}
+            aria-label={TOUR_LABELS[scope]}
+            onClick={() => toggle(scope)}
+            disabled={!tours || saving !== null}
+            className="relative h-6 w-11 shrink-0 rounded-full border transition disabled:opacity-50"
+            style={{
+              background: tours?.[scope] ? "var(--primary)" : "var(--surface-2)",
+              borderColor: tours?.[scope] ? "var(--primary)" : "var(--border)",
+            }}
+          >
+            <span
+              className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all"
+              style={{ left: tours?.[scope] ? "1.5rem" : "0.2rem" }}
+            />
+          </button>
         </div>
-
-        <button
-          type="button"
-          role="switch"
-          aria-checked={tourEnabled === true}
-          aria-label="New-user quick tour"
-          onClick={toggle}
-          disabled={tourEnabled === null || saving}
-          className="relative h-6 w-11 shrink-0 rounded-full border transition disabled:opacity-50"
-          style={{
-            background: tourEnabled ? "var(--primary)" : "var(--surface-2)",
-            borderColor: tourEnabled ? "var(--primary)" : "var(--border)",
-          }}
-        >
-          <span
-            className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all"
-            style={{ left: tourEnabled ? "1.5rem" : "0.2rem" }}
-          />
-        </button>
-      </div>
+      ))}
     </div>
   );
 }

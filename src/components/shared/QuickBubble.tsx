@@ -7,7 +7,7 @@ import { Briefcase, Compass, LifeBuoy, ListTodo, Settings2, Sparkles } from "luc
 import A11ySettingsModal from "@/components/shared/A11ySettingsModal";
 import ReportIssueModal from "@/components/shared/ReportIssueModal";
 import TodoModal from "@/components/portal/TodoModal";
-import { TOUR_EVENT, TOUR_PENDING_KEY } from "@/lib/tour";
+import { TOUR_EVENT, TOUR_PENDING_KEY, scopeForPath } from "@/lib/tour";
 
 const POS_KEY = "tm-bubble-pos";
 const ORB = 48;
@@ -103,6 +103,23 @@ export default function QuickBubble() {
   }, []);
 
   useEffect(() => {
+    if (!signedIn || tourChecked.current) return;
+    tourChecked.current = true;
+
+    let cancelled = false;
+    fetch("/api/user/tour")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) setTourUnseen(Boolean(d?.enabled) && !d?.seen);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
+
+  useEffect(() => {
     if (!pinned) return;
     const onDown = (e: PointerEvent) => {
       if (shellRef.current?.contains(e.target as Element)) return;
@@ -155,7 +172,6 @@ export default function QuickBubble() {
     if (!moved) {
       setPinned((v) => !v);
       setOpen((v) => !v);
-      checkTour();
       return;
     }
 
@@ -167,24 +183,15 @@ export default function QuickBubble() {
     });
   };
 
-  const checkTour = () => {
-    if (tourChecked.current || !signedIn) return;
-    tourChecked.current = true;
-    fetch("/api/user/tour")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setTourUnseen(Boolean(d?.enabled) && !d?.seen))
-      .catch(() => {});
-  };
-
   const startTour = () => {
     setOpen(false);
     setPinned(false);
-    if (window.location.pathname === "/me") {
+    if (scopeForPath(window.location.pathname)) {
       window.dispatchEvent(new Event(TOUR_EVENT));
       return;
     }
     try { sessionStorage.setItem(TOUR_PENDING_KEY, "1"); } catch {}
-    router.push("/me");
+    router.push(signedIn ? "/me" : "/");
   };
 
   const go = (href: string) => {
@@ -272,7 +279,11 @@ export default function QuickBubble() {
             : pos.side === "left"
               ? { left: EDGE }
               : { right: EDGE }),
-          top: pos.y,
+          /* Anchored by the bottom in the lower half so the menu grows upward;
+             anchoring by top there pushes the orb off the bottom of the screen. */
+          ...(above && !dragging
+            ? { bottom: Math.max(EDGE, window.innerHeight - pos.y - ORB) }
+            : { top: pos.y }),
           alignItems: pos.side === "left" ? "flex-start" : "flex-end",
           flexDirection: above ? "column-reverse" : "column",
         }}
@@ -281,6 +292,7 @@ export default function QuickBubble() {
           type="button"
           className="quick-bubble-orb"
           data-tour="bubble"
+          data-pulse={tourUnseen ? "extra" : "normal"}
           aria-label="Quick actions"
           aria-expanded={open}
           aria-haspopup="menu"

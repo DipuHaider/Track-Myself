@@ -1,12 +1,20 @@
 import dbConnect from "@/lib/db";
 import AppSettings from "@/models/AppSettings";
 
+import type { TourScope } from "@/lib/tour";
+
 export type AppFeatureSettings = {
-  tourEnabled: boolean;
+  tours: Record<TourScope, boolean>;
 };
 
 export const APP_SETTINGS_DEFAULTS: AppFeatureSettings = {
-  tourEnabled: true,
+  tours: { home: true, portal: true, dashboard: true },
+};
+
+const FIELD: Record<TourScope, "tourHome" | "tourPortal" | "tourDashboard"> = {
+  home: "tourHome",
+  portal: "tourPortal",
+  dashboard: "tourDashboard",
 };
 
 const CACHE_TTL_MS = 60 * 1000;
@@ -23,11 +31,18 @@ export async function getAppSettings(): Promise<AppFeatureSettings> {
   try {
     await dbConnect();
     const doc = (await AppSettings.findOne({ key: "default" }).lean()) as
-      | { tourEnabled?: boolean }
+      | { tourEnabled?: boolean; tourHome?: boolean; tourPortal?: boolean; tourDashboard?: boolean }
       | null;
 
+    /* A doc written before the split only has tourEnabled; honour it as the
+       baseline so an admin who turned tours off does not get them back on. */
+    const legacy = doc?.tourEnabled !== false;
     const value: AppFeatureSettings = {
-      tourEnabled: doc?.tourEnabled !== false,
+      tours: {
+        home: doc?.tourHome ?? legacy,
+        portal: doc?.tourPortal ?? legacy,
+        dashboard: doc?.tourDashboard ?? legacy,
+      },
     };
     cached = { value, at: Date.now() };
     return value;
@@ -37,19 +52,22 @@ export async function getAppSettings(): Promise<AppFeatureSettings> {
 }
 
 export async function saveAppSettings(
-  patch: Partial<AppFeatureSettings>,
+  patch: Partial<Record<TourScope, boolean>>,
   updatedBy: string,
 ): Promise<AppFeatureSettings> {
   await dbConnect();
   const update: Record<string, unknown> = { updatedBy };
-  if (typeof patch.tourEnabled === "boolean") update.tourEnabled = patch.tourEnabled;
 
-  const doc = await AppSettings.findOneAndUpdate({ key: "default" }, update, {
+  for (const scope of Object.keys(FIELD) as TourScope[]) {
+    if (typeof patch[scope] === "boolean") update[FIELD[scope]] = patch[scope];
+  }
+
+  await AppSettings.findOneAndUpdate({ key: "default" }, update, {
     new: true,
     upsert: true,
     setDefaultsOnInsert: true,
   }).lean();
 
   invalidateAppSettings();
-  return { tourEnabled: (doc as { tourEnabled?: boolean } | null)?.tourEnabled !== false };
+  return getAppSettings();
 }

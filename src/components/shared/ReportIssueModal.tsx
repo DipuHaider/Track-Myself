@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import Modal from "@/components/shared/Modal";
-import { ISSUE_CATEGORIES, ISSUE_MESSAGE_MAX, type IssueCategory } from "@/constants/issues";
+import { ISSUE_CATEGORIES, ISSUE_EVENT, ISSUE_MESSAGE_MAX, type IssueCategory } from "@/constants/issues";
 
 export default function ReportIssueModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [category, setCategory] = useState<IssueCategory>("Bug");
@@ -37,6 +37,7 @@ export default function ReportIssueModal({ open, onClose }: { open: boolean; onC
     }
 
     setSent(true);
+    window.dispatchEvent(new Event(ISSUE_EVENT));
   };
 
   return (

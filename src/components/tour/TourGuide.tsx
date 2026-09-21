@@ -1,11 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import {
-  TOUR_EVENT, TOUR_INTRO, TOUR_PENDING_KEY, TOUR_STEPS,
-  type TourStep, type TourVariant,
+  TOUR_AUTO_AUDIENCE, TOUR_EVENT, TOUR_INTRO, TOUR_PENDING_KEY,
+  scopeForPath, stepsFor,
+  type TourAudience, type TourScope, type TourStep,
 } from "@/lib/tour";
+
+type TourState = {
+  enabled: Record<TourScope, boolean>;
+  audience: TourAudience;
+  premium: boolean;
+  seen: TourScope[];
+};
 
 type Box = { top: number; left: number; width: number; height: number };
 
@@ -29,47 +38,46 @@ function measure(step: TourStep): Box | null {
 }
 
 export default function TourGuide() {
-  const [variant, setVariant] = useState<TourVariant>("free");
+  const pathname = usePathname();
+  const scope = scopeForPath(pathname ?? "/");
+
+  const [activeScope, setActiveScope] = useState<TourScope>("home");
   const [steps, setSteps] = useState<TourStep[]>([]);
   const [index, setIndex] = useState(0);
   const [box, setBox] = useState<Box | null>(null);
   const [running, setRunning] = useState(false);
+  const state = useRef<TourState | null>(null);
+  const autoDone = useRef<Set<TourScope>>(new Set());
 
-  const start = useCallback((v: TourVariant) => {
-    const list = TOUR_STEPS[v].filter((s) => visible(s.target));
+  const start = useCallback((next: TourScope, premium: boolean) => {
+    const list = stepsFor(next, premium).filter((s) => visible(s.target));
     if (!list.length) return;
-    setVariant(v);
+    setActiveScope(next);
     setSteps(list);
     setIndex(0);
     setRunning(true);
   }, []);
 
   useEffect(() => {
+    if (!scope) return;
     let cancelled = false;
 
-    const boot = async () => {
+    const load = async () => {
+      if (state.current) return state.current;
       const res = await fetch("/api/user/tour").catch(() => null);
-      if (!res || !res.ok || cancelled) return;
-      const data = await res.json().catch(() => null);
-      if (!data || cancelled) return;
+      if (!res || !res.ok) return null;
+      const data = (await res.json().catch(() => null)) as TourState | null;
+      if (data) state.current = data;
+      return data;
+    };
 
-      let pending = false;
-      try {
-        pending = sessionStorage.getItem(TOUR_PENDING_KEY) === "1";
-        if (pending) sessionStorage.removeItem(TOUR_PENDING_KEY);
-      } catch {}
-
-      if (!data.enabled) return;
-      if (!pending && data.seen) return;
-
-      const variantName = data.variant as TourVariant;
-      const first = TOUR_STEPS[variantName][0];
+    const waitForFirstStep = (next: TourScope, premium: boolean) => {
+      const first = stepsFor(next, premium)[0];
       const deadline = Date.now() + 10000;
-
       const attempt = () => {
         if (cancelled) return;
         if (visible(first.target) || Date.now() > deadline) {
-          start(variantName);
+          start(next, premium);
           return;
         }
         window.setTimeout(attempt, 250);
@@ -77,15 +85,32 @@ export default function TourGuide() {
       window.setTimeout(attempt, 400);
     };
 
+    const boot = async () => {
+      const data = await load();
+      if (!data || cancelled) return;
+      if (!data.enabled[scope]) return;
+
+      let pending = false;
+      try {
+        pending = sessionStorage.getItem(TOUR_PENDING_KEY) === "1";
+        if (pending) sessionStorage.removeItem(TOUR_PENDING_KEY);
+      } catch {}
+
+      if (!pending) {
+        if (autoDone.current.has(scope)) return;
+        if (data.seen.includes(scope)) return;
+        if (data.audience !== TOUR_AUTO_AUDIENCE[scope]) return;
+      }
+      autoDone.current.add(scope);
+      waitForFirstStep(scope, data.premium);
+    };
+
     boot();
 
-    const onReplay = () => {
-      fetch("/api/user/tour")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d?.enabled) start(d.variant as TourVariant);
-        })
-        .catch(() => {});
+    const onReplay = async () => {
+      const data = await load();
+      if (!data || cancelled || !data.enabled[scope]) return;
+      start(scope, data.premium);
     };
 
     window.addEventListener(TOUR_EVENT, onReplay);
@@ -93,7 +118,7 @@ export default function TourGuide() {
       cancelled = true;
       window.removeEventListener(TOUR_EVENT, onReplay);
     };
-  }, [start]);
+  }, [scope, start]);
 
   const step = steps[index];
 
@@ -129,13 +154,16 @@ export default function TourGuide() {
       setRunning(false);
       setBox(null);
       if (!completed) return;
+      if (state.current && !state.current.seen.includes(activeScope)) {
+        state.current.seen.push(activeScope);
+      }
       fetch("/api/user/tour", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ variant }),
+        body: JSON.stringify({ scope: activeScope }),
       }).catch(() => {});
     },
-    [variant],
+    [activeScope],
   );
 
   useEffect(() => {
@@ -190,7 +218,7 @@ export default function TourGuide() {
         </div>
 
         {index === 0 && (
-          <p className="tour-intro">{TOUR_INTRO[variant].body}</p>
+          <p className="tour-intro">{TOUR_INTRO[activeScope]}</p>
         )}
 
         <h3 className="tour-title">{step.title}</h3>

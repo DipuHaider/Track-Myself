@@ -947,3 +947,43 @@ select optgroup {
   background: rgba(251, 191, 36, 0.16);
   color: #fcd34d;
 }
+
+/* ── Quick bubble orb ─────────────────────────────────────────────────
+   Two intensities: an ambient breath that always runs so the orb never
+   reads as dead furniture, and a stronger ring while the tour is untaken.
+   ------------------------------------------------------------------- */
+@keyframes tm-orb-breathe {
+  0%, 100% { box-shadow: 0 8px 26px -10px rgba(15, 23, 41, 0.5), 0 0 0 0 color-mix(in srgb, var(--neon-1) 26%, transparent); }
+  55%      { box-shadow: 0 8px 26px -10px rgba(15, 23, 41, 0.5), 0 0 0 6px transparent; }
+}
+
+@keyframes tm-orb-pulse {
+  0%   { box-shadow: 0 8px 26px -10px rgba(15, 23, 41, 0.5), 0 0 0 0 color-mix(in srgb, var(--neon-1) 58%, transparent); }
+  70%  { box-shadow: 0 8px 26px -10px rgba(15, 23, 41, 0.5), 0 0 0 15px transparent; }
+  100% { box-shadow: 0 8px 26px -10px rgba(15, 23, 41, 0.5), 0 0 0 0 transparent; }
+}
+
+@keyframes tm-orb-icon {
+  0%, 100% { transform: scale(1); }
+  45%      { transform: scale(1.14); }
+}
+
+.quick-bubble-orb[data-pulse="normal"] {
+  animation: tm-orb-breathe 3.2s var(--ease-out) infinite;
+}
+
+.quick-bubble-orb[data-pulse="extra"] {
+  animation: tm-orb-pulse 1.7s var(--ease-out) infinite;
+}
+
+.quick-bubble-orb[data-pulse="extra"] svg {
+  animation: tm-orb-icon 1.7s var(--ease-out) infinite;
+}
+
+/* A hover or drag should read as direct manipulation, not ambient motion. */
+.quick-bubble-orb:hover,
+.quick-bubble-orb:hover svg,
+.quick-bubble-shell[data-dragging="true"] .quick-bubble-orb,
+.quick-bubble-shell[data-dragging="true"] .quick-bubble-orb svg {
+  animation: none;
+}

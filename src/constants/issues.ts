@@ -20,3 +20,5 @@ export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
 };
 
 export const ISSUE_MESSAGE_MAX = 2000;
+
+export const ISSUE_EVENT = "tm-issue-reported";

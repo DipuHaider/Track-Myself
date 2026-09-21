@@ -31,7 +31,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section data-tour="dash-stats" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Applications" value={stats.total} />
         <StatCard title="Interviews"         value={stats.interviews} />
         <StatCard title="Offers"             value={stats.offers} />

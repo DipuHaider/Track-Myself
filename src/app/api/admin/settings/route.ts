@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAdminAuth } from "@/lib/serverAuth";
 import { getAppSettings, saveAppSettings } from "@/lib/appSettings";
+import { TOUR_SCOPES, type TourScope } from "@/lib/tour";
 
 export async function GET() {
   const auth = await requireAdminAuth();
@@ -16,10 +17,16 @@ export async function PUT(req: Request) {
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json().catch(() => null);
-  if (typeof body?.tourEnabled !== "boolean") {
+  const patch: Partial<Record<TourScope, boolean>> = {};
+
+  for (const scope of TOUR_SCOPES) {
+    if (typeof body?.tours?.[scope] === "boolean") patch[scope] = body.tours[scope];
+  }
+
+  if (!Object.keys(patch).length) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
-  const saved = await saveAppSettings({ tourEnabled: body.tourEnabled }, auth.email ?? "");
+  const saved = await saveAppSettings(patch, auth.email ?? "");
   return NextResponse.json(saved);
 }

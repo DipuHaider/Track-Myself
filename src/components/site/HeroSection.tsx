@@ -69,7 +69,7 @@ export default function HeroSection() {
             attention today.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div data-tour="hero-cta" className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/register"
               className="btn-primary flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold"

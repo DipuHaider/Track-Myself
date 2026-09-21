@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LifeBuoy } from "lucide-react";
-import { ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
+import { ISSUE_EVENT, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
 
 type Report = {
   _id: string;
@@ -23,13 +23,19 @@ export default function MyReports({ showEmpty = false }: { showEmpty?: boolean }
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     fetch("/api/issues")
       .then((r) => (r.ok ? r.json() : []))
       .then((rows) => setReports(Array.isArray(rows) ? rows : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+    window.addEventListener(ISSUE_EVENT, load);
+    return () => window.removeEventListener(ISSUE_EVENT, load);
+  }, [load]);
 
   if (loading) return null;
   if (!reports.length && !showEmpty) return null;
