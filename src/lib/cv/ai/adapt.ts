@@ -1,4 +1,7 @@
-import { PROVIDER_LABELS, callProvider, providerChain, type AIProvider } from "./provider";
+import {
+  PROVIDER_LABELS, callProvider, resolveCredentials,
+  type AICredential, type AIProvider, type FailureKind, type TokenUsage,
+} from "./provider";
 import type { CVContent, CVSkillGroup } from "@/types/cv";
 
 export const JD_MAX = 24_000;
@@ -153,16 +156,19 @@ export async function runTailor(
     correction?: string;
     previousSummary?: string;
     superadmin?: boolean;
+    userKey?: AICredential | null;
+    onUsage?: (usage: TokenUsage | undefined, outcome: { ok: boolean; kind?: FailureKind; error?: string }) => void;
   } = {},
 ): Promise<TailorResult> {
-  const chain = providerChain({ superadmin: Boolean(opts.superadmin) });
+  const chain = resolveCredentials({ superadmin: Boolean(opts.superadmin), userKey: opts.userKey });
   if (!chain.length) return { ok: false, kind: "no-key", error: "AI service not configured." };
 
   const prompt = buildTailorPrompt(content, jobDescription, opts);
   const failures: string[] = [];
 
-  for (const provider of chain) {
-    const call = await callProvider(provider, prompt);
+  for (const cred of chain) {
+    const call = await callProvider(cred, prompt);
+    if (cred.source === "user") opts.onUsage?.(call.usage, call);
 
     if (!call.ok) {
       console.error("CV tailor provider failed:", call.error);
@@ -172,13 +178,13 @@ export async function runTailor(
 
     const value = parseTailorJson(content, call.text);
     if (!value) {
-      const why = `${PROVIDER_LABELS[provider]} returned something that was not CV JSON.`;
+      const why = `${PROVIDER_LABELS[cred.provider]} returned something that was not CV JSON.`;
       console.error("CV tailor parse failed:", why);
       failures.push(why);
       continue;
     }
 
-    return { ok: true, value, provider, providerLabel: PROVIDER_LABELS[provider] };
+    return { ok: true, value, provider: cred.provider, providerLabel: PROVIDER_LABELS[cred.provider] };
   }
 
   return {

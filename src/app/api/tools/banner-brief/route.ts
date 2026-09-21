@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
 import { isSuperAdmin } from "@/lib/permissions";
-import { callProvider, providerChain } from "@/lib/cv/ai/provider";
+import { callProvider, resolveCredentials } from "@/lib/cv/ai/provider";
+import { getUserCredential, recordUsage } from "@/lib/ai/userKey";
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 15;
@@ -174,7 +175,9 @@ export async function POST(req: Request) {
   const auth = await requireAuth();
   const superadmin = !(auth instanceof NextResponse) && isSuperAdmin(auth.role);
 
-  const chain = providerChain({ superadmin });
+  const userId = auth instanceof NextResponse ? "" : auth.id;
+  const userKey = userId ? await getUserCredential(userId) : null;
+  const chain = resolveCredentials({ superadmin, userKey });
   if (!chain.length) {
     return NextResponse.json(localBrief(prompt));
   }
@@ -197,8 +200,9 @@ Return ONLY this JSON object, no markdown:
 
   try {
     let text = "";
-    for (const provider of chain) {
-      const call = await callProvider(provider, instruction, 800);
+    for (const cred of chain) {
+      const call = await callProvider(cred, instruction, 800);
+      if (cred.source === "user") await recordUsage(userId, call.usage, call);
       if (call.ok) { text = call.text; break; }
       console.error("banner brief provider failed:", call.error);
     }

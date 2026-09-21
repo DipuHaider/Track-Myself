@@ -6,6 +6,7 @@ export const NOTIFICATION_TYPES = [
   "issue-update",
   "issue-new",
   "account",
+  "ai-key",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
 import CVFile from "@/models/CVFile";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { getUserCredential, recordUsage } from "@/lib/ai/userKey";
 import { isPremiumUser, isSuperAdmin } from "@/lib/permissions";
 import {
   checkGenerationGates, isTooThinToPrint, resolveGenerationContent,
@@ -76,6 +77,7 @@ export async function POST(req: Request) {
   let changedFields: string[] = [];
 
   const superadmin = isSuperAdmin(auth.role);
+  const userKey = await getUserCredential(auth.id);
   const premium = superadmin || isPremiumUser(auth.role, auth.plan);
   const jobDescription = appInfo ? jobDescriptionFrom(appInfo) : "";
 
@@ -87,10 +89,10 @@ export async function POST(req: Request) {
     upgrade = true;
     tailorNote =
       "Free plan: your CV is reordered to match this job, not rewritten. Upgrade to Premium for AI tailoring.";
-  } else if (!aiConfigured({ superadmin })) {
+  } else if (!aiConfigured({ superadmin, userKey })) {
     tailored = tailorToApplication(baseline, { ...appInfo });
     tailorMode = "heuristic";
-    tailorNote = anyProviderConfigured()
+    tailorNote = (anyProviderConfigured() || Boolean(userKey))
       ? "No AI provider is available for your account — showing the reorder-only version."
       : "AI tailoring is not configured on this deployment — showing the reorder-only version.";
   } else {
@@ -106,7 +108,8 @@ export async function POST(req: Request) {
       tailorNote = `AI tailoring limit reached for this hour — showing the reorder-only version. Try again in ${Math.ceil(rate.retryAfterSeconds / 60)} minutes.`;
     } else {
       const result = await runTailor(baseline, jobDescription, {
-        correction, previousSummary, superadmin,
+        correction, previousSummary, superadmin, userKey,
+        onUsage: (usage, outcome) => { void recordUsage(auth.id, usage, outcome); },
       });
       if (result.ok) {
         const applied = applyTailorOutput(baseline, result.value);

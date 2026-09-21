@@ -245,6 +245,13 @@ export const FAQ: FaqItem[] = [
     a: "Yes, and you can also use an email and password. If you sign in with Google we store your name, email and profile picture URL. Passwords, when used, are stored only as a bcrypt hash.",
   },
   {
+    id: "byok-ai-key",
+    category: "Account",
+    q: "Can I use the AI features without a paid plan?",
+    links: [{ label: "AI key", href: "/me/ai-key" }],
+    a: "Yes — add your own API key under AI key in your portal and every AI feature runs on your provider account instead of ours. Google Gemini has a free tier; Anthropic and OpenAI-compatible providers (OpenRouter, Groq, Together, DeepSeek, a local model) also work. Your key is encrypted before it is stored and only its last four characters are ever shown back to you. The usage figures we display are the tokens spent through TrackMyself, not your provider's remaining balance — no provider exposes that to an ordinary key.",
+  },
+  {
     id: "change-password",
     category: "Account",
     q: "How do I change my password?",

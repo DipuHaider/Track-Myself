@@ -1,4 +1,7 @@
-import { callProvider, providerChain } from "@/lib/cv/ai/provider";
+import {
+  callProvider, resolveCredentials,
+  type AICredential, type FailureKind, type TokenUsage,
+} from "@/lib/cv/ai/provider";
 import { QUESTION_SECTIONS, type QuestionSection } from "@/lib/interview/bank";
 
 export const AI_TARGET = 22;
@@ -12,8 +15,10 @@ export async function aiQuestions(opts: {
   companyName: string;
   jobDescription?: string;
   superadmin: boolean;
+  userKey?: AICredential | null;
+  onUsage?: (usage: TokenUsage | undefined, outcome: { ok: boolean; kind?: FailureKind; error?: string }) => void;
 }): Promise<Extra[]> {
-  const chain = providerChain({ superadmin: opts.superadmin });
+  const chain = resolveCredentials({ superadmin: opts.superadmin, userKey: opts.userKey });
   if (!chain.length) return [];
 
   const description = (opts.jobDescription ?? "").slice(0, 4000);
@@ -30,8 +35,9 @@ Favour specifics from the description over generic questions. No numbering, no p
 Return ONLY a JSON array, each element {"q":"...","s":"..."} where s is one of:
 ${QUESTION_SECTIONS.join(", ")}`;
 
-  for (const provider of chain) {
-    const call = await callProvider(provider, prompt, 2000);
+  for (const cred of chain) {
+    const call = await callProvider(cred, prompt, 2000);
+    if (cred.source === "user") opts.onUsage?.(call.usage, call);
     if (!call.ok) continue;
 
     const match = call.text.match(/\[[\s\S]*\]/);

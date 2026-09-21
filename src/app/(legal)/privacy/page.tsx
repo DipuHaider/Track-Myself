@@ -28,6 +28,7 @@ export default function PrivacyPage() {
         <p><strong>Account details.</strong> Your name, email address, and either a password (stored only as a bcrypt hash — we never see the original) or a Google account identifier. If you sign in with Google we also store the profile picture URL Google gives us. We record your role and plan.</p>
         <p><strong>Application records.</strong> Whatever you enter about the jobs you apply for: company, role, platform, status, dates, salary, contact details, job post links, notes, and any attachments you add.</p>
         <p><strong>Interview records.</strong> Stage names, statuses, scheduled dates, feedback and notes.</p>
+        <p><strong>Your AI provider key, if you supply one.</strong> Optional. If you paste an API key from Anthropic, Google or another provider to run the AI features on your own account, we store it encrypted (AES-256-GCM) and only ever show you its last four characters. We also count the tokens each request spends so you can see your own usage. Remove it at any time from AI key in your portal, and the stored value is deleted.</p>
         <p><strong>CV profile.</strong> The details you enter in the CV builder. Depending on which formats you use, this can include your address, date of birth, nationality and photograph, because the Europass and Lebenslauf formats expect them. These fields are optional — the ATS CV never prints them.</p>
         <p><strong>Documents you upload.</strong> CVs, resumes, cover letters, certificates, a profile picture and a cover image. These are stored in our database.</p>
         <p><strong>Technical data.</strong> Standard server and hosting logs, including IP address and browser type, kept for security and troubleshooting.</p>
@@ -156,9 +157,12 @@ export default function PrivacyPage() {
 
       <Clause n={10} title="Security">
         <p>
-          Passwords are hashed with bcrypt and never stored in readable form. Sessions use signed
-          tokens. Every route that returns your data checks your identity on the server and scopes
-          the query to your account.
+          Passwords are hashed with bcrypt and never stored in readable form. An AI provider key,
+          if you choose to add one, is encrypted with AES-256-GCM under a separate server-side
+          secret, is never returned by any endpoint, and is decrypted only in memory for the
+          moment a request is made on your behalf. Sessions use signed tokens. Every route that
+          returns your data checks your identity on the server and scopes the query to your
+          account.
         </p>
         <p>
           No service can promise perfect security. Use a strong, unique password, and be careful

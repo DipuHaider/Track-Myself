@@ -14,6 +14,7 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   "issue-update": "Issue updates",
   "issue-new": "New reports",
   account: "Account",
+  "ai-key": "AI key",
 };
 
 type Filter = "all" | "unread" | NotificationType;

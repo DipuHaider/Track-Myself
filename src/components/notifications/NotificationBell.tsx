@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Bell, BellOff, Briefcase, CalendarClock, CheckCheck, Copy,
-  Ghost, LifeBuoy, ListTodo, UserCog, X,
+  Ghost, KeyRound, LifeBuoy, ListTodo, UserCog, X,
 } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 import type { NotificationType } from "@/lib/notifications/types";
@@ -18,6 +18,7 @@ const ICONS: Record<NotificationType, React.ReactNode> = {
   "issue-update": <LifeBuoy size={14} aria-hidden="true" />,
   "issue-new": <Briefcase size={14} aria-hidden="true" />,
   account: <UserCog size={14} aria-hidden="true" />,
+  "ai-key": <KeyRound size={14} aria-hidden="true" />,
 };
 
 function ago(iso: string) {

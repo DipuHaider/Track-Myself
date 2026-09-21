@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requirePremiumAuth } from "@/lib/serverAuth";
 import { normaliseContent } from "@/lib/cv/content";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { getUserCredential, recordUsage } from "@/lib/ai/userKey";
 import { isSuperAdmin } from "@/lib/permissions";
 import { JD_MAX, runTailor } from "@/lib/cv/ai/adapt";
 import { aiConfigured } from "@/lib/cv/ai/provider";
@@ -50,11 +51,16 @@ export async function POST(req: Request) {
   }
 
   const superadmin = isSuperAdmin(auth.role);
-  if (!aiConfigured({ superadmin })) {
+  const userKey = await getUserCredential(auth.id);
+  if (!aiConfigured({ superadmin, userKey })) {
     return NextResponse.json({ error: "AI service not configured." }, { status: 503 });
   }
 
-  const result = await runTailor(content, jobDescription, { superadmin });
+  const result = await runTailor(content, jobDescription, {
+    superadmin,
+    userKey,
+    onUsage: (usage, outcome) => { void recordUsage(auth.id, usage, outcome); },
+  });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: STATUS[result.kind] ?? 500 });
   }
