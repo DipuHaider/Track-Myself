@@ -47,6 +47,7 @@ const ApplicationSchema = new Schema(
     attachments: [{ type: String }],
     favourite: { type: Boolean, default: false },
     isGhostJob: { type: Boolean, default: false },
+    interviewSeen: { type: [String], default: [] },
   },
   { timestamps: true },
 );

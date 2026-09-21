@@ -6,7 +6,13 @@ import AppDocModal, { type AppInfo } from "@/components/applications/AppDocModal
 
 export type { AppInfo } from "@/components/applications/AppDocModal";
 
-export default function AppDocButton({ info }: { info: AppInfo }) {
+export default function AppDocButton({
+  info,
+  applicationId,
+}: {
+  info: AppInfo;
+  applicationId?: string;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -22,7 +28,7 @@ export default function AppDocButton({ info }: { info: AppInfo }) {
         Generate
       </button>
 
-      {open && <AppDocModal info={info} onClose={() => setOpen(false)} />}
+      {open && <AppDocModal info={info} applicationId={applicationId} onClose={() => setOpen(false)} />}
     </>
   );
 }

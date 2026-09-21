@@ -215,6 +215,7 @@ export default function ApplicationTable({
                 {showDocs && (
                   <td className="px-4 py-3 text-center">
                     <AppDocButton
+                      applicationId={app._id}
                       info={{
                         companyName: app.companyName,
                         jobTitle: app.jobTitle,

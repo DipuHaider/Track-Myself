@@ -6,7 +6,10 @@ import { useSession } from "next-auth/react";
 import {
   AlertCircle, ArrowLeft, ChevronDown, Download, Eye, FileText,
   Loader2, Lock, RefreshCw, Sparkles, X,
+  MessagesSquare,
 } from "lucide-react";
+import InterviewQuestionsModal, { type QuestionPreview } from "@/components/applications/InterviewQuestionsModal";
+import { COUNT_MAX, COUNT_MIN, COUNT_STEP } from "@/lib/interview/select";
 import { isContentEmpty } from "@/lib/cv/content";
 import {
   DEFAULT_CV_PROFILE, downloadCVDocx, fetchCVProfile, getCachedCVProfile,
@@ -62,9 +65,11 @@ const FORMATS: { key: CVFormat; variant: CVVariant; label: string }[] = [
 
 export default function AppDocModal({
   info,
+  applicationId,
   onClose,
 }: {
   info: AppInfo;
+  applicationId?: string;
   onClose: () => void;
 }) {
   const { data: session } = useSession();
@@ -74,6 +79,10 @@ export default function AppDocModal({
   const [profile, setProfile] = useState<CVProfile | null>(getCachedCVProfile());
   const [fetching, setFetching] = useState(!getCachedCVProfile());
   const [openSection, setOpenSection] = useState<DocType>("cv");
+  const [qCount, setQCount] = useState(COUNT_MAX);
+  const [qFresh, setQFresh] = useState(false);
+  const [qPreview, setQPreview] = useState<QuestionPreview | null>(null);
+  const [qGenerated, setQGenerated] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
@@ -162,6 +171,73 @@ export default function AppDocModal({
       setCorrection("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not generate that document.");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function questionsRequest(mode: "preview" | "download") {
+    const res = await fetch("/api/user/interview-questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode,
+        output,
+        count: qCount,
+        fresh: qFresh,
+        applicationId: applicationId ?? "",
+        appInfo: info,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error ?? "Could not build the questions.");
+    }
+    return res;
+  }
+
+  async function viewQuestions() {
+    setBusyKey("questions-view");
+    setError("");
+    setDone("");
+    try {
+      const res = await questionsRequest("preview");
+      setQPreview((await res.json()) as QuestionPreview);
+      setQGenerated(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not build the questions.");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function downloadQuestions() {
+    setBusyKey("questions");
+    setError("");
+    setDone("");
+    try {
+      const res = await questionsRequest("download");
+      const blob = await res.blob();
+      const name = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1]
+        ?? `Interview-Questions.${output}`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      const ai = Number(res.headers.get("X-Question-AI") ?? 0);
+      const dry = res.headers.get("X-Question-Exhausted") === "true";
+      setQGenerated(true);
+      setDone(
+        `${name} downloaded${ai > 0 ? ` — ${ai} tailored to this posting` : ""}` +
+        `${dry ? " · the bank ran out of unseen questions, so some repeat" : ""}.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not build the questions.");
     } finally {
       setBusyKey(null);
     }
@@ -470,6 +546,78 @@ export default function AppDocModal({
                       </div>
                     );
                   })}
+
+                  {/* Interview prep needs no CV content and no diff review, so it
+                      sits outside the tailoring flow with its own direct download. */}
+                  <div className="border-t px-5 py-4">
+                    <div className="flex items-start gap-3">
+                      <MessagesSquare size={14} className="text-muted mt-0.5 shrink-0" aria-hidden="true" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">Interview Questions</p>
+                        <p className="text-muted text-[11px] leading-snug">
+                          100 questions for this role, grouped and with space to draft answers.
+                        </p>
+
+                        <label className="mt-3 block">
+                          <span className="text-muted flex items-center justify-between text-[11px]">
+                            <span>How many questions</span>
+                            <span className="font-mono font-semibold text-[var(--primary)]">{qCount}</span>
+                          </span>
+                          <input
+                            type="range"
+                            min={COUNT_MIN}
+                            max={COUNT_MAX}
+                            step={COUNT_STEP}
+                            value={qCount}
+                            onChange={(e) => setQCount(Number(e.target.value))}
+                            className="mt-1 w-full accent-[var(--primary)]"
+                            aria-label="Number of questions"
+                          />
+                          <span className="text-muted flex justify-between font-mono text-[9px]">
+                            <span>20</span><span>40</span><span>60</span><span>80</span><span>100</span>
+                          </span>
+                        </label>
+
+                        <label className="mt-2 flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            checked={qFresh}
+                            onChange={(e) => setQFresh(e.target.checked)}
+                            className="mt-0.5 accent-[var(--primary)]"
+                          />
+                          <span className="text-muted text-[11px] leading-snug">
+                            Only questions I have not had before for this application
+                          </span>
+                        </label>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={downloadQuestions}
+                            className="btn-primary flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                          >
+                            {busyKey === "questions"
+                              ? <><Loader2 size={12} className="animate-spin" aria-hidden="true" /> Building…</>
+                              : qGenerated
+                                ? <><RefreshCw size={12} aria-hidden="true" /> Regenerate</>
+                                : <><MessagesSquare size={12} aria-hidden="true" /> Generate {qCount} questions</>}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={viewQuestions}
+                            className="surface-muted flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                          >
+                            {busyKey === "questions-view"
+                              ? <><Loader2 size={12} className="animate-spin" aria-hidden="true" /> Loading…</>
+                              : <><Eye size={12} aria-hidden="true" /> View now</>}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
@@ -486,6 +634,14 @@ export default function AppDocModal({
           </>
         )}
       </div>
+
+      {qPreview && (
+        <InterviewQuestionsModal
+          data={qPreview}
+          title={`${info.jobTitle} · ${info.companyName}`}
+          onClose={() => setQPreview(null)}
+        />
+      )}
     </div>
   );
 }
