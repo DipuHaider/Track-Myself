@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import {
   Briefcase, FileText, FolderOpen, Home,
-  LayoutDashboard, LifeBuoy, ListTodo, Wrench,
+  Bell, LayoutDashboard, LifeBuoy, ListTodo, Wrench,
 } from "lucide-react";
 import AppSidebar, { type AppNavItem } from "@/components/layout/AppSidebar";
 import { isPremiumUser } from "@/lib/permissions";
@@ -23,6 +23,7 @@ export default function PortalSidebar() {
     { href: "/me/my-cv",        icon: FolderOpen,      label: "My Documents",    mobileLabel: "Docs" },
     { href: "/me/cv",           icon: FileText,        label: "CV Builder",      mobileLabel: "Builder", badge: proBadge },
     { href: "/me/todos",        icon: ListTodo,        label: "To-Do list",      mobileLabel: "To-Do" },
+    { href: "/me/notifications", icon: Bell,          label: "Notifications",   mobileLabel: "Alerts", hideMobile: true },
     { href: "/me/issues",       icon: LifeBuoy,        label: "My Reported Issues", mobileLabel: "Reports", hideMobile: true },
     { href: "/tools",           icon: Wrench,          label: "Tools",           mobileLabel: "Tools" },
     { href: "/",                icon: Home,            label: "Home",            mobileLabel: "Home",    exact: true, hideMobile: true },

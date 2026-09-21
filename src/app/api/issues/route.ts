@@ -6,6 +6,7 @@ import dbConnect from "@/lib/db";
 import IssueReport from "@/models/IssueReport";
 import User from "@/models/User";
 import { sendIssueMail } from "@/lib/mail/web3forms";
+import { notifyBackendTeam } from "@/lib/notifications/create";
 import { ISSUE_CATEGORIES, ISSUE_MESSAGE_MAX, type IssueCategory } from "@/constants/issues";
 
 export async function GET() {
@@ -73,6 +74,13 @@ export async function POST(req: Request) {
     reporterRole: auth.role,
     reportId: String(report._id),
   });
+
+  await notifyBackendTeam({
+    type: "issue-new",
+    title: `New ${category.toLowerCase()} report`,
+    body: `${reporter?.name ?? "A user"}: ${message.slice(0, 140)}`,
+    href: "/dashboard/issues",
+  }, auth.id);
 
   await IssueReport.findByIdAndUpdate(report._id, {
     notifiedAt: mail.ok ? new Date() : null,

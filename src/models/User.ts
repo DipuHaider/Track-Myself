@@ -27,6 +27,7 @@ const UserSchema = new Schema(
     bio: { type: String, default: "" },
     image: { type: String, default: "" },
     toursSeen: { type: [String], default: [] },
+    notifSeen: { type: [String], default: [] },
     a11y: {
       textScale: { type: String, enum: ["sm", "md", "lg", "xl"], default: "md" },
       scheme: { type: String, enum: ["light", "dark", "system"], default: "system" },

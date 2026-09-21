@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import SiteSearch from "@/components/site/SiteSearch";
 import UserMenu from "@/components/site/UserMenu";
+import NotificationBell from "@/components/notifications/NotificationBell";
 import { Logo } from "@/components/shared/Logo";
 
 const SITE_NAV = [
@@ -44,6 +45,7 @@ export default function SiteHeader() {
         {/* Right actions */}
         <div className="flex items-center gap-2">
           <SiteSearch />
+          <NotificationBell />
 
           {session ? (
             <UserMenu

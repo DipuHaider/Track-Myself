@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
+import { notify } from "@/lib/notifications/create";
 import { ACCOUNT_STATUSES, PLANS, ROLES, canDo } from "@/lib/permissions";
 import { requireAction, forbidden } from "@/lib/serverAuth";
 import { purgeUserData } from "@/lib/accountDeletion";
@@ -49,6 +50,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const updated = await User.findByIdAndUpdate(id, update, { new: true, select: "-password" });
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const changes: string[] = [];
+  if (role && role !== target.role) changes.push(`your role is now ${role}`);
+  if (plan && plan !== target.plan) {
+    changes.push(plan === "premium" ? "your account was upgraded to Premium" : "your account moved to the Free plan");
+  }
+  if (status && status !== target.status) {
+    changes.push(status === "paused" ? "your account was paused" : "your account was reactivated");
+  }
+
+  if (changes.length) {
+    await notify({
+      userId: String(id),
+      type: "account",
+      title: "Your account changed",
+      body: `${changes.join(", ")}.`,
+      href: "/me",
+    });
+  }
 
   invalidateClaims(updated.email);
 

@@ -13,6 +13,7 @@ type Todo = {
 export default function TodoList({ variant = "card" }: { variant?: "card" | "plain" }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [title, setTitle] = useState("");
+  const [dueAt, setDueAt] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +37,7 @@ export default function TodoList({ variant = "card" }: { variant?: "card" | "pla
     const res = await fetch("/api/user/todos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: value }),
+      body: JSON.stringify({ title: value, dueAt: dueAt || null }),
     }).catch(() => null);
     setBusy(false);
 
@@ -49,6 +50,7 @@ export default function TodoList({ variant = "card" }: { variant?: "card" | "pla
     const created = await res.json();
     setTodos((list) => [...list, created]);
     setTitle("");
+    setDueAt("");
   };
 
   const toggle = async (todo: Todo) => {
@@ -105,6 +107,14 @@ export default function TodoList({ variant = "card" }: { variant?: "card" | "pla
           aria-label="New to-do"
           className="surface-muted min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
         />
+        <input
+          type="date"
+          value={dueAt}
+          onChange={(e) => setDueAt(e.target.value)}
+          aria-label="Due date (optional)"
+          title="Due date — you'll get a notification when it is close"
+          className="surface-muted shrink-0 rounded-lg border px-2 py-2 text-sm"
+        />
         <button
           type="button"
           onClick={add}
@@ -143,6 +153,11 @@ export default function TodoList({ variant = "card" }: { variant?: "card" | "pla
 
             <span className={`min-w-0 flex-1 text-sm ${todo.done ? "text-muted line-through" : ""}`}>
               {todo.title}
+              {todo.dueAt && (
+                <span className="text-muted ml-2 text-xs">
+                  due {new Date(todo.dueAt).toLocaleDateString()}
+                </span>
+              )}
             </span>
 
             <button

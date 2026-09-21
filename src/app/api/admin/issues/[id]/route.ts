@@ -4,7 +4,8 @@ import { NextResponse } from "next/server";
 import { requireAction } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import IssueReport from "@/models/IssueReport";
-import { ISSUE_STATUSES, type IssueStatus } from "@/constants/issues";
+import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
+import { notify } from "@/lib/notifications/create";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAction("manage:issues");
@@ -24,6 +25,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const report = await IssueReport.findByIdAndUpdate(id, update, { new: true });
   if (!report) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (report.userId) {
+    const parts: string[] = [];
+    if (update.status) parts.push(`marked ${ISSUE_STATUS_LABELS[update.status as IssueStatus].toLowerCase()}`);
+    if (typeof update.note === "string" && update.note) parts.push("a reply was added");
+
+    if (parts.length) {
+      await notify({
+        userId: String(report.userId),
+        type: "issue-update",
+        title: "Your issue report was updated",
+        body: `${report.category}: ${parts.join(" and ")}.`,
+        href: "/me/issues",
+      });
+    }
+  }
 
   return NextResponse.json(report);
 }
