@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import IssueReport from "@/models/IssueReport";
 import User from "@/models/User";
-import { sendIssueMail } from "@/lib/mail/web3forms";
+import { sendIssueMail } from "@/lib/mail";
 import { notifyBackendTeam } from "@/lib/notifications/create";
 import { ISSUE_CATEGORIES, ISSUE_MESSAGE_MAX, type IssueCategory } from "@/constants/issues";
 

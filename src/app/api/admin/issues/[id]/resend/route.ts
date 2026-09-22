@@ -5,7 +5,7 @@ import { requireAction } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import IssueReport from "@/models/IssueReport";
 import User from "@/models/User";
-import { sendIssueMail } from "@/lib/mail/web3forms";
+import { sendIssueMail } from "@/lib/mail";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAction("manage:issues");

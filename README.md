@@ -41,7 +41,10 @@ Then open <http://localhost:3000>.
 | `GEMINI_API_KEY` | no | Superadmin-only fallback — it spends one person's quota, so it is never offered to other accounts. |
 | `GEMINI_MODEL` | no | Overrides the default `gemini-3.6-flash`. |
 | `AI_KEY_SECRET` | no | Encrypts each user's own AI key (BYOK) at rest with AES-256-GCM. 16+ characters; `openssl rand -base64 32`. Without it users cannot save a key and the form says so. |
-| `WEB3FORMS_ACCESS_KEY` | no | Emails submitted issue reports. The key *is* the destination inbox — generate it at web3forms.com for the address that should receive them. |
+| `RESEND_API_KEY` | recommended | Sends issue-report email. Used whenever it and `ISSUE_MAIL_TO` are both set. |
+| `ISSUE_MAIL_TO` | with Resend | Inbox that receives reports; comma-separate for several. |
+| `ISSUE_MAIL_FROM` | no | Sender address, e.g. `TrackMyself <alerts@yourdomain>`. Needs a domain verified in Resend. Blank uses `onboarding@resend.dev`, which only delivers to your own Resend account address. |
+| `WEB3FORMS_ACCESS_KEY` | no | Fallback when Resend is unset. The key *is* the destination inbox. Web3Forms throttles server-side senders for an hour at a time, so it drops reports under load — prefer Resend. |
 | `EXTENSION_ORIGIN` | no | Locks the extension CORS allowlist to one origin. Defaults to `*`. |
 
 ### Scripts

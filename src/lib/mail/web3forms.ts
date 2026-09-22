@@ -1,21 +1,9 @@
+import type { IssueMail, MailResult } from "./types";
+
 const ENDPOINT = "https://api.web3forms.com/submit";
 const TIMEOUT_MS = 8000;
 const ATTEMPTS = 3;
 const BACKOFF_MS = [0, 1000, 3000];
-
-export type IssueMail = {
-  category: string;
-  message: string;
-  url: string;
-  viewport: string;
-  userAgent: string;
-  reporterName: string;
-  reporterEmail: string;
-  reporterRole: string;
-  reportId: string;
-};
-
-export type MailResult = { ok: boolean; error?: string; retryable?: boolean };
 
 /* Prefer the unprefixed name: NEXT_PUBLIC_* is inlined at build time, so a key
    added or rotated after the build is invisible to the running server. */
@@ -76,7 +64,7 @@ function classify(status: number, raw: string): Verdict {
   };
 }
 
-export async function sendIssueMail(issue: IssueMail): Promise<MailResult> {
+export async function sendViaWeb3Forms(issue: IssueMail): Promise<MailResult> {
   const key = accessKey();
   if (!key) {
     return { ok: false, retryable: false, error: "WEB3FORMS_ACCESS_KEY is not set" };
