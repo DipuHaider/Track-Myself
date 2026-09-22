@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { issueEmail, passwordResetEmail, type Composed, type PasswordReset } from "./templates";
 import type { IssueMail, MailResult } from "./types";
 
 const ATTEMPTS = 3;
@@ -27,50 +28,6 @@ export function resendConfigured() {
   return Boolean(apiKey());
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function rows(issue: IssueMail): [string, string][] {
-  return [
-    ["Reported by", `${issue.reporterName} <${issue.reporterEmail || "no email"}>`],
-    ["Role", issue.reporterRole || "—"],
-    ["Category", issue.category],
-    ["Page", issue.url || "—"],
-    ["Viewport", issue.viewport || "—"],
-    ["Browser", issue.userAgent || "—"],
-    ["Report ID", issue.reportId],
-  ];
-}
-
-function textBody(issue: IssueMail) {
-  const meta = rows(issue)
-    .map(([label, value]) => `${label}: ${value}`)
-    .join("\n");
-  return `${meta}\n\n${issue.message}\n`;
-}
-
-function htmlBody(issue: IssueMail) {
-  const meta = rows(issue)
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:4px 12px 4px 0;color:#64748b;font-size:13px;white-space:nowrap;vertical-align:top">${escapeHtml(label)}</td>` +
-        `<td style="padding:4px 0;font-size:13px;word-break:break-word">${escapeHtml(value)}</td></tr>`,
-    )
-    .join("");
-
-  return `<div style="font-family:ui-sans-serif,system-ui,sans-serif;max-width:640px">
-<h2 style="margin:0 0 4px;font-size:17px">${escapeHtml(issue.category)} report</h2>
-<p style="margin:0 0 16px;color:#64748b;font-size:13px">via TrackMyself</p>
-<table style="border-collapse:collapse;margin-bottom:16px">${meta}</table>
-<div style="white-space:pre-wrap;border-left:3px solid #e2e8f0;padding:2px 0 2px 14px;font-size:14px;line-height:1.55">${escapeHtml(issue.message)}</div>
-</div>`;
-}
-
 /* Resend surfaces failures as a typed error rather than throwing. Only throttling
    and upstream faults are worth another attempt; a rejected key or an unverified
    sender domain fails the same way every time, so retrying just delays the report. */
@@ -84,12 +41,10 @@ const PERMANENT = new Set([
   "not_found",
 ]);
 
-export async function sendViaResend(issue: IssueMail): Promise<MailResult> {
+async function deliver(to: string[], mail: Composed, opts: { replyTo?: string; refId?: string }): Promise<MailResult> {
   const key = apiKey();
-  const to = recipients();
-
   if (!key) return { ok: false, retryable: false, error: "RESEND_API_KEY is not set" };
-  if (to.length === 0) return { ok: false, retryable: false, error: "ISSUE_MAIL_TO is not set" };
+  if (to.length === 0) return { ok: false, retryable: false, error: "No recipient address" };
 
   const client = new Resend(key);
   let lastError = "Could not reach Resend";
@@ -101,11 +56,11 @@ export async function sendViaResend(issue: IssueMail): Promise<MailResult> {
       const { data, error } = await client.emails.send({
         from: fromAddress(),
         to,
-        replyTo: issue.reporterEmail || undefined,
-        subject: `[TrackMyself] ${issue.category} reported by ${issue.reporterName}`,
-        text: textBody(issue),
-        html: htmlBody(issue),
-        headers: { "X-Entity-Ref-ID": issue.reportId },
+        replyTo: opts.replyTo || undefined,
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+        headers: opts.refId ? { "X-Entity-Ref-ID": opts.refId } : undefined,
       });
 
       if (data?.id) return { ok: true };
@@ -123,4 +78,18 @@ export async function sendViaResend(issue: IssueMail): Promise<MailResult> {
   }
 
   return { ok: false, retryable: true, error: `${lastError} after ${ATTEMPTS} attempts` };
+}
+
+export async function sendViaResend(issue: IssueMail): Promise<MailResult> {
+  const to = recipients();
+  if (to.length === 0) return { ok: false, retryable: false, error: "ISSUE_MAIL_TO is not set" };
+
+  return deliver(to, issueEmail(issue), { replyTo: issue.reporterEmail, refId: issue.reportId });
+}
+
+export async function sendPasswordResetViaResend(
+  to: string,
+  reset: PasswordReset,
+): Promise<MailResult> {
+  return deliver([to], passwordResetEmail(reset), {});
 }

@@ -36,14 +36,14 @@ Then open <http://localhost:3000>.
 | `NEXTAUTH_SECRET` | yes | Long random string; signs the session JWT. |
 | `GOOGLE_CLIENT_ID` | no | Enables "Sign in with Google". Omit both and only email/password works. |
 | `GOOGLE_CLIENT_SECRET` | no | Paired with the above. |
-| `NEXT_PUBLIC_SITE_URL` | recommended | Canonical origin for sitemap, robots and Open Graph tags. Falsy in production means wrong canonical URLs. |
+| `NEXT_PUBLIC_SITE_URL` | recommended | Canonical origin for sitemap, robots, Open Graph tags and password-reset links. Falsy in production means wrong canonical URLs and reset links pointing at the wrong host. |
 | `ANTHROPIC_API_KEY` | no | Shared key for AI CV tailoring, interview questions and banner briefs. Without it those features fall back to a heuristic, or to a user's own key. |
 | `GEMINI_API_KEY` | no | Superadmin-only fallback — it spends one person's quota, so it is never offered to other accounts. |
 | `GEMINI_MODEL` | no | Overrides the default `gemini-3.6-flash`. |
 | `AI_KEY_SECRET` | no | Encrypts each user's own AI key (BYOK) at rest with AES-256-GCM. 16+ characters; `openssl rand -base64 32`. Without it users cannot save a key and the form says so. |
-| `RESEND_API_KEY` | recommended | Sends issue-report email. Used whenever it and `ISSUE_MAIL_TO` are both set. |
+| `RESEND_API_KEY` | recommended | Sends issue-report email and password-reset links. Required for `/forgot-password` — Web3Forms can only mail the inbox that owns its key. |
 | `ISSUE_MAIL_TO` | with Resend | Inbox that receives reports; comma-separate for several. |
-| `ISSUE_MAIL_FROM` | no | Sender address, e.g. `TrackMyself <alerts@yourdomain>`. Needs a domain verified in Resend. Blank uses `onboarding@resend.dev`, which only delivers to your own Resend account address. |
+| `ISSUE_MAIL_FROM` | no | Sender for reports and reset links, e.g. `TrackMyself <alerts@yourdomain>`. Needs a domain verified in Resend. Blank uses `onboarding@resend.dev`, which only delivers to your own Resend account address — so password resets fail for everyone else. |
 | `WEB3FORMS_ACCESS_KEY` | no | Fallback when Resend is unset. The key *is* the destination inbox. Web3Forms throttles server-side senders for an hour at a time, so it drops reports under load — prefer Resend. |
 | `EXTENSION_ORIGIN` | no | Locks the extension CORS allowlist to one origin. Defaults to `*`. |
 

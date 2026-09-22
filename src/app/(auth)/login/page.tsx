@@ -107,6 +107,12 @@ function LoginForm() {
           />
         </div>
 
+        <div className="mt-2 text-right">
+          <Link href="/forgot-password" className="text-muted text-xs hover:underline">
+            Forgot password?
+          </Link>
+        </div>
+
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
 
         <button
