@@ -1,7 +1,7 @@
 const ENDPOINT = "https://api.web3forms.com/submit";
 const TIMEOUT_MS = 8000;
-const ATTEMPTS = 4;
-const BACKOFF_MS = [0, 600, 1600, 3200];
+const ATTEMPTS = 3;
+const BACKOFF_MS = [0, 1000, 3000];
 
 export type IssueMail = {
   category: string;
@@ -15,19 +15,72 @@ export type IssueMail = {
   reportId: string;
 };
 
+export type MailResult = { ok: boolean; error?: string; retryable?: boolean };
+
 /* Prefer the unprefixed name: NEXT_PUBLIC_* is inlined at build time, so a key
    added or rotated after the build is invisible to the running server. */
 function accessKey() {
-  return process.env.WEB3FORMS_ACCESS_KEY || process.env.NEXT_PUBLIC_WEB3FORMS_KEY || "";
+  return (process.env.WEB3FORMS_ACCESS_KEY || process.env.NEXT_PUBLIC_WEB3FORMS_KEY || "").trim();
 }
 
 export function web3formsConfigured() {
   return Boolean(accessKey());
 }
 
-export async function sendIssueMail(issue: IssueMail): Promise<{ ok: boolean; error?: string }> {
+type Verdict = { done: true; result: MailResult } | { done: false; error: string };
+
+/* Web3Forms throttles hard — one rejected submission can lock the key out for an
+   hour, and hammering past that trips the Cloudflare challenge in front of the
+   API. So only transport failures and 5xx are worth another attempt; every 4xx
+   is either permanent or a throttle that retrying would only deepen. */
+function classify(status: number, raw: string): Verdict {
+  let data: { success?: boolean; message?: string } | null = null;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    data = null;
+  }
+
+  if (status === 200 && data?.success) return { done: true, result: { ok: true } };
+
+  const challenged = raw.startsWith("<") || raw.includes("Just a moment");
+  if (challenged) {
+    return {
+      done: true,
+      result: {
+        ok: false,
+        retryable: true,
+        error: `Cloudflare challenged the request (HTTP ${status}) — the key has been sending too often. Wait an hour, then resend.`,
+      },
+    };
+  }
+
+  const message = data?.message?.trim();
+
+  if (status === 429 || (message && /rate limit/i.test(message))) {
+    return {
+      done: true,
+      result: {
+        ok: false,
+        retryable: true,
+        error: message || "Rate limited by Web3Forms. Wait an hour, then resend.",
+      },
+    };
+  }
+
+  if (status >= 500) return { done: false, error: message || `Web3Forms responded ${status}` };
+
+  return {
+    done: true,
+    result: { ok: false, retryable: false, error: message || `Web3Forms responded ${status}` },
+  };
+}
+
+export async function sendIssueMail(issue: IssueMail): Promise<MailResult> {
   const key = accessKey();
-  if (!key) return { ok: false, error: "WEB3FORMS_ACCESS_KEY is not set" };
+  if (!key) {
+    return { ok: false, retryable: false, error: "WEB3FORMS_ACCESS_KEY is not set" };
+  }
 
   const payload = JSON.stringify({
     access_key: key,
@@ -65,20 +118,9 @@ export async function sendIssueMail(issue: IssueMail): Promise<{ ok: boolean; er
         body: payload,
       });
 
-      const raw = await res.text();
-      let data: { success?: boolean; message?: string } | null = null;
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        data = null;
-      }
-
-      if (res.ok && data?.success) return { ok: true };
-
-      lastError = data?.message
-        ?? (raw.includes("Just a moment") || raw.startsWith("<")
-          ? `Blocked by Web3Forms' bot protection (HTTP ${res.status})`
-          : `Web3Forms responded ${res.status}`);
+      const verdict = classify(res.status, await res.text());
+      if (verdict.done) return verdict.result;
+      lastError = verdict.error;
     } catch (err) {
       const aborted = err instanceof Error && err.name === "AbortError";
       lastError = aborted ? "Web3Forms timed out" : "Could not reach Web3Forms";
@@ -87,5 +129,5 @@ export async function sendIssueMail(issue: IssueMail): Promise<{ ok: boolean; er
     }
   }
 
-  return { ok: false, error: `${lastError} after ${ATTEMPTS} attempts` };
+  return { ok: false, retryable: true, error: `${lastError} after ${ATTEMPTS} attempts` };
 }
