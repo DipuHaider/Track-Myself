@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
+import { JOB_TYPES, PLATFORMS } from "@/constants/applicationStatus";
 import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
 
 async function getExtensionUser(req: Request) {
@@ -68,14 +69,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "duplicate", existing }, { status: 409 });
   }
 
+  /* The scraper guesses these from page text, so anything outside the tracker's
+     own vocabulary is dropped rather than written through as a stray value. */
+  const str = (key: string) => (body[key] as string | undefined)?.trim() ?? "";
+  const oneOf = (value: string, allowed: readonly string[]) =>
+    allowed.find((a) => a.toLowerCase() === value.toLowerCase());
+
   const application = await Application.create({
     userId:            user.id,
     companyName,
     jobTitle,
-    location:          (body.location  as string | undefined)?.trim() ?? "",
-    jobType:           (body.jobType   as string | undefined)?.trim() || undefined,
-    jobPostUrl:        (body.jobPostUrl as string | undefined)?.trim() ?? "",
-    notes:             (body.notes     as string | undefined)?.trim() ?? "",
+    location:          str("location"),
+    platform:          oneOf(str("platform"), PLATFORMS),
+    jobType:           oneOf(str("jobType"), JOB_TYPES),
+    salary:            str("salary").slice(0, 120) || undefined,
+    jobPostUrl:        str("jobPostUrl"),
+    jobDescription:    str("jobDescription").slice(0, 24000) || undefined,
+    notes:             str("notes"),
     applicationStatus: "Wishlist",
   });
 

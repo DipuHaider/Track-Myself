@@ -10,6 +10,10 @@ interface JobData {
   location:    string;
   jobPostUrl:  string;
   notes:       string;
+  platform?:       string;
+  jobType?:        string;
+  salary?:         string;
+  jobDescription?: string;
 }
 
 interface UserInfo { name: string; email: string }
@@ -86,6 +90,41 @@ function applyButtonVisibility() {
     state.panelOpen = false;
     panelEl.classList.remove("open");
   }
+}
+
+/* The tracker stores one jobType from a fixed list, so LinkedIn's separate
+   employment type ("Full-time") and workplace type ("Remote") both have to map
+   onto it. Employment type wins — workplace type is folded into the location,
+   where it reads naturally. */
+const EMPLOYMENT_TYPES: [RegExp, string][] = [
+  [/full[\s_-]?time/i,    "Full-Time"],
+  [/part[\s_-]?time/i,    "Part-Time"],
+  [/contract(or)?/i,      "Contract"],
+  [/freelance/i,          "Freelance"],
+  [/intern(ship)?/i,      "Internship"],
+  [/working[\s_-]?student/i, "Working Student"],
+  [/apprentice(ship)?/i,  "Apprenticeship"],
+  [/temporary|temp\b/i,  "Temporary"],
+  [/volunteer/i,          "Volunteer"],
+];
+
+function normaliseJobType(raw: string): string {
+  for (const [re, label] of EMPLOYMENT_TYPES) if (re.test(raw)) return label;
+  return "";
+}
+
+function workplaceType(raw: string): string {
+  if (/\bremote\b/i.test(raw)) return "Remote";
+  if (/\bhybrid\b/i.test(raw)) return "Hybrid";
+  if (/on[\s-]?site|in[\s-]?office/i.test(raw)) return "On-site";
+  return "";
+}
+
+/* A company name lifted from <title> must never keep a pipe: LinkedIn writes
+   "Role - Stack | Company | LinkedIn", and splitting on the first dash used to
+   hand back "Stack | Company" as the employer. */
+function cleanCompany(raw: string): string {
+  return raw.split("|").pop()?.trim() ?? raw.trim();
 }
 
 // ── scrapers ──────────────────────────────────────────────────────────────
@@ -182,16 +221,45 @@ function scrapeLinkedIn(): JobData {
     ".tvm__text--low-emphasis",
   ) || ld.location || title.location || "";
 
-  const notes = qs(
+  const description = qs(
     "#job-details",
     ".jobs-description-content__text--stretch",
     ".jobs-description-content__text",
     ".jobs-description__content",
     ".jobs-box__html-content",
     "[class*='description__text']",
-  ).slice(0, 600) || ld.notes || "";
+  ) || ld.jobDescription || "";
 
-  return { jobTitle, companyName, location: jobLocation, jobPostUrl: location.href, notes };
+  /* The pills under the title carry employment type, workplace type and pay,
+     with no stable class between LinkedIn's layouts — so read them as one blob
+     and pattern-match rather than guessing at selectors. */
+  const insights = [
+    ...document.querySelectorAll(
+      ".job-details-jobs-unified-top-card__job-insight, .job-details-preferences-and-skills__pill, .jobs-unified-top-card__job-insight",
+    ),
+  ].map(el => el.textContent?.replace(/\s+/g, " ").trim() ?? "").filter(Boolean).join(" · ");
+
+  const jobType = normaliseJobType(insights) || normaliseJobType(ld.jobType ?? "");
+  const place   = workplaceType(insights) || workplaceType(jobLocation);
+
+  const salary = (insights.match(/[$€£₹]\s?[\d,.]+\s*(?:k|K)?(?:\s*\/\s*\w+)?(?:\s*[-–—]\s*[$€£₹]?\s?[\d,.]+\s*(?:k|K)?(?:\s*\/\s*\w+)?)?/) ?? [])[0]?.trim()
+    || ld.salary || "";
+
+  const withPlace = place && !new RegExp(place, "i").test(jobLocation)
+    ? [jobLocation, place].filter(Boolean).join(" · ")
+    : jobLocation;
+
+  return {
+    jobTitle,
+    companyName: cleanCompany(companyName),
+    location: withPlace,
+    jobPostUrl: location.href,
+    notes: description.slice(0, 600) || ld.notes || "",
+    platform: "LinkedIn",
+    jobType,
+    salary,
+    jobDescription: description.slice(0, 24000),
+  };
 }
 
 function scrapeIndeed(): JobData {
@@ -225,14 +293,35 @@ function scrapeIndeed(): JobData {
     "[class*='companyLocation']",
   ) || ld.location || title.location || "";
 
-  const notes = qs(
+  const description = qs(
     "#jobDescriptionText",
     "[data-testid='jobsearch-JobComponent-description']",
     ".jobsearch-jobDescriptionText",
     "#jobDetails",
-  ).slice(0, 600) || ld.notes || "";
+  ) || ld.jobDescription || "";
 
-  return { jobTitle, companyName, location: jobLocation, jobPostUrl: location.href, notes };
+  const pay = qs(
+    "#salaryInfoAndJobType",
+    "[data-testid='attribute_snippet_testid']",
+    "[class*='salary-snippet']",
+  );
+
+  const blob  = `${pay} ${jobLocation} ${description.slice(0, 400)}`;
+  const place = workplaceType(blob);
+
+  return {
+    jobTitle,
+    companyName: cleanCompany(companyName),
+    location: place && !new RegExp(place, "i").test(jobLocation)
+      ? [jobLocation, place].filter(Boolean).join(" · ")
+      : jobLocation,
+    jobPostUrl: location.href,
+    notes: description.slice(0, 600) || ld.notes || "",
+    platform: "Indeed",
+    jobType: normaliseJobType(`${pay} ${blob}`) || normaliseJobType(ld.jobType ?? ""),
+    salary: (pay.match(/[$€£₹]\s?[\d,.]+[^,|]*/) ?? [])[0]?.trim() || ld.salary || "",
+    jobDescription: description.slice(0, 24000),
+  };
 }
 
 /* The button is mounted from module scope, so a scraper that throws on an
@@ -326,6 +415,14 @@ shadow.appendChild(panelEl);
 
 // ── render ────────────────────────────────────────────────────────────────
 
+/* The pay, employment type and full description are saved but have no field in
+   this panel, so they would otherwise vanish silently. */
+function capturedLine(job: JobData): string {
+  const bits = [job.jobType, job.salary].filter(Boolean);
+  if (job.jobDescription && job.jobDescription.length > 600) bits.push("full description");
+  return bits.join(" · ");
+}
+
 function siteLabel() {
   if (state.site === "linkedin") return "LinkedIn";
   if (state.site === "indeed")   return "Indeed";
@@ -376,6 +473,7 @@ function renderPanel() {
       </div>
       <span class="tm-site-chip">${escHtml(siteLabel())}</span>
       <p class="tm-section-title">Job Details</p>
+      ${capturedLine(job) ? `<p class="tm-captured">Also saving: ${escHtml(capturedLine(job))}</p>` : ""}
       <div class="tm-field">
         <label class="tm-label" for="tm-company">Company *</label>
         <input id="tm-company" class="tm-input" type="text" placeholder="Company name" value="${escHtml(job.companyName)}">

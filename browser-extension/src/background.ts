@@ -12,6 +12,10 @@ interface JobPayload {
   location:    string;
   jobPostUrl:  string;
   notes:       string;
+  platform?:       string;
+  jobType?:        string;
+  salary?:         string;
+  jobDescription?: string;
 }
 
 type InMsg =
