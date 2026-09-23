@@ -1,11 +1,14 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import dbConnect from "@/lib/db";
+import DocumentModel from "@/models/Document";
 import { requireActiveAuth } from "@/lib/serverAuth";
+import { attachmentUrl } from "@/lib/attachments";
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10 MB per file
+/* Base64 inflates by a third, so this ceiling keeps a stored row well inside
+   MongoDB's 16 MB document limit. */
+const MAX_SIZE = 8 * 1024 * 1024;
 
 const ALLOWED: Record<string, string> = {
   "application/pdf": "pdf",
@@ -23,48 +26,40 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const companyName = (formData.get("companyName") as string | null) ?? "unknown";
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: `File exceeds 10 MB limit` }, { status: 400 });
+      return NextResponse.json({ error: "File exceeds the 8 MB limit" }, { status: 400 });
     }
-
-    const safeExt = ALLOWED[file.type];
-    if (!safeExt) {
+    if (!ALLOWED[file.type]) {
       return NextResponse.json(
         { error: "Only PDF, DOC, DOCX, PNG, JPG and WebP files are accepted" },
         { status: 400 },
       );
     }
 
-    const now = new Date();
-    const year = now.getFullYear().toString();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
+    const safeName =
+      file.name.replace(/[/\]/g, "-").replace(/[\u0000-\u001f]/g, "").slice(0, 120) || "file";
 
-    const safeCompany = companyName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "unknown";
+    await dbConnect();
 
-    const baseName = path
-      .basename(file.name, path.extname(file.name))
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()
-      .slice(0, 40) || "file";
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const doc = await DocumentModel.create({
+      userId: auth.id,
+      type: "attachment",
+      name: safeName,
+      size: file.size,
+      mimeType: file.type,
+      data: bytes.toString("base64"),
+    });
 
-    const fileName = `${safeCompany}-${baseName}-${Date.now()}.${safeExt}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads", year, month, day);
-
-    await mkdir(uploadDir, { recursive: true });
-    const bytes = await file.arrayBuffer();
-    await writeFile(path.join(uploadDir, fileName), Buffer.from(bytes));
-
-    const publicPath = `/uploads/${year}/${month}/${day}/${fileName}`;
-    return NextResponse.json({ path: publicPath, name: file.name, size: file.size });
+    return NextResponse.json({
+      path: attachmentUrl(String(doc._id), safeName),
+      name: safeName,
+      size: file.size,
+    });
   } catch (err) {
     console.error("[upload]", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
