@@ -14,10 +14,11 @@ export async function GET() {
   if (auth instanceof NextResponse) return auth;
 
   await dbConnect();
-  const user = await User.findById(auth.id, "-password").lean();
+  const user = (await User.findById(auth.id).lean()) as Record<string, unknown> | null;
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json(user);
+  const { password, ...safe } = user;
+  return NextResponse.json({ ...safe, hasPassword: Boolean(password) });
 }
 
 export async function PATCH(req: Request) {
@@ -34,6 +35,10 @@ export async function PATCH(req: Request) {
 
   await dbConnect();
 
+  const existing = (await User.findById(auth.id, "password").lean()) as { password?: string } | null;
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const hadPassword = Boolean(existing.password);
   const update: Record<string, string | Date> = {};
   if (name) update.name = name;
   if (typeof bio === "string") update.bio = bio;
@@ -53,26 +58,24 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const user = (await User.findById(auth.id, "password").lean()) as { password?: string } | null;
-    if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    /* Google accounts have no hash at all. bcrypt.compare throws on undefined,
-       which used to surface as a 500 instead of something the user can act on. */
-    if (!user.password) {
-      return NextResponse.json(
-        { error: "This account signs in with Google, so it has no password to change." },
-        { status: 400 },
-      );
-    }
-
-    const match = await bcrypt.compare(currentPassword ?? "", user.password);
-    if (!match) {
-      return NextResponse.json({ error: "That password is not correct." }, { status: 400 });
+    /* A Google account has no hash to prove against, so adding its first
+       password only needs the signed-in session. Replacing one still does. */
+    if (hadPassword) {
+      if (!currentPassword) {
+        return NextResponse.json({ error: "Current password is required." }, { status: 400 });
+      }
+      const match = await bcrypt.compare(currentPassword, existing.password as string);
+      if (!match) {
+        return NextResponse.json({ error: "That password is not correct." }, { status: 400 });
+      }
+      /* Replacing a credential retires every session that used the old one.
+         Adding a first password revokes nothing, so it must not sign the user
+         out of the session they are setting it from. */
+      update.sessionsValidFrom = new Date();
     }
 
     clearRateLimit(`profile-password:${auth.id}`);
     update.password = await bcrypt.hash(newPassword, 10);
-    update.sessionsValidFrom = new Date();
   }
 
   if (Object.keys(update).length === 0) {
@@ -82,5 +85,9 @@ export async function PATCH(req: Request) {
   const updated = await User.findByIdAndUpdate(auth.id, update, { new: true, select: "-password" });
   if (update.sessionsValidFrom) invalidateClaims(updated?.email);
 
-  return NextResponse.json(updated);
+  return NextResponse.json({
+    ...(updated?.toObject ? updated.toObject() : updated),
+    hasPassword: hadPassword || Boolean(newPassword),
+    passwordAdded: !hadPassword && Boolean(newPassword),
+  });
 }

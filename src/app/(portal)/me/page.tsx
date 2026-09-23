@@ -15,7 +15,7 @@ import Loading from "@/components/shared/Spinner";
 import AccountControls from "@/components/portal/AccountControls";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 
-type Profile = { name: string; email: string; role: string; plan: string; bio: string };
+type Profile = { name: string; email: string; role: string; plan: string; bio: string; hasPassword?: boolean };
 
 /* ── stat card ── */
 function StatCard({ label, value, icon, color, onClick }: {
@@ -79,6 +79,7 @@ export default function MePage() {
   const [newPw, setNewPw] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState("");
+  const [pwOk, setPwOk] = useState(false);
 
   /* stats modal */
   const [modal, setModal] = useState<{ title: string; apps: Application[] } | null>(null);
@@ -113,6 +114,7 @@ export default function MePage() {
   }, [apps]);
 
   const displayName = profile?.name ?? session?.user?.name ?? "User";
+  const hasPassword = profile?.hasPassword !== false;
   const role = (session?.user as { role?: string } | undefined)?.role ?? "free";
   const recent = apps.slice(0, 6);
 
@@ -150,15 +152,27 @@ export default function MePage() {
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
     if (newPw.length < 8) { setPwMsg("New password must be at least 8 characters."); return; }
-    setPwSaving(true); setPwMsg("");
+    setPwSaving(true); setPwMsg(""); setPwOk(false);
     const res = await fetch("/api/user/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword: curPw, newPassword: newPw }),
+      body: JSON.stringify(hasPassword ? { currentPassword: curPw, newPassword: newPw } : { newPassword: newPw }),
     });
     setPwSaving(false);
-    if (res.ok) { setPwMsg("Password changed."); setCurPw(""); setNewPw(""); }
-    else { const d = await res.json(); setPwMsg(d.error ?? "Failed."); }
+    if (res.ok) {
+      const d = await res.json();
+      setProfile((p) => (p ? { ...p, hasPassword: true } : p));
+      setPwOk(true);
+      setPwMsg(
+        d.passwordAdded
+          ? "Password set. You can now sign in with your email as well as with Google."
+          : "Password changed. Other devices have been signed out.",
+      );
+      setCurPw(""); setNewPw("");
+    } else {
+      const d = await res.json().catch(() => null);
+      setPwMsg(d?.error ?? "Failed.");
+    }
   }
 
   return (
@@ -338,24 +352,35 @@ export default function MePage() {
         )}
       </section>
 
-      {/* ── Change Password ── */}
+      {/* ── Password ── */}
       <section className="surface rounded-xl border p-5">
-        <h2 className="mb-4 font-semibold">Change Password</h2>
+        <h2 className="mb-1 font-semibold">{hasPassword ? "Change Password" : "Set a Password"}</h2>
+        <p className="text-muted mb-4 text-sm">
+          {hasPassword
+            ? "Changing it signs you out on your other devices."
+            : "You signed up with Google. Adding a password lets you sign in with your email too — Google keeps working either way."}
+        </p>
         <form onSubmit={changePassword} className="space-y-3">
+          {hasPassword && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">Current Password</label>
+              <input
+                type="password"
+                autoComplete="current-password"
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                value={curPw}
+                onChange={(e) => setCurPw(e.target.value)}
+                required
+              />
+            </div>
+          )}
           <div>
-            <label className="mb-1 block text-sm font-medium">Current Password</label>
+            <label className="mb-1 block text-sm font-medium">
+              {hasPassword ? "New Password" : "Password"}
+            </label>
             <input
               type="password"
-              className="w-full rounded-md border px-3 py-2 text-sm"
-              value={curPw}
-              onChange={(e) => setCurPw(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">New Password</label>
-            <input
-              type="password"
+              autoComplete="new-password"
               className="w-full rounded-md border px-3 py-2 text-sm"
               value={newPw}
               onChange={(e) => setNewPw(e.target.value)}
@@ -363,15 +388,13 @@ export default function MePage() {
             />
           </div>
           {pwMsg && (
-            <p className={`text-sm ${pwMsg.includes("changed") ? "text-green-600" : "text-red-600"}`}>
-              {pwMsg}
-            </p>
+            <p className={`text-sm ${pwOk ? "text-green-600" : "text-red-600"}`}>{pwMsg}</p>
           )}
           <button
             type="submit" disabled={pwSaving}
             className="btn-primary rounded-md px-4 py-2 text-sm disabled:opacity-60"
           >
-            {pwSaving ? "Saving…" : "Change Password"}
+            {pwSaving ? "Saving…" : hasPassword ? "Change Password" : "Set Password"}
           </button>
         </form>
       </section>
