@@ -23,7 +23,8 @@ type Screen =
   | "login"
   | "add"
   | "success"
-  | "duplicate";
+  | "duplicate"
+  | "stale";
 
 interface State {
   screen:        Screen;
@@ -46,10 +47,34 @@ interface State {
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
+/* Reloading or updating the extension orphans the script already running in an
+   open tab: chrome.runtime disappears underneath it and every call throws. That
+   is unrecoverable from here — only a page reload re-injects a live script — so
+   it is reported rather than left to reject into nothing. */
+function contextAlive(): boolean {
+  try {
+    return Boolean(chrome?.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
 function send(msg: object): Promise<Record<string, unknown>> {
-  return new Promise((resolve) =>
-    chrome.runtime.sendMessage(msg, (r) => resolve(r as Record<string, unknown>))
-  );
+  if (!contextAlive()) return Promise.resolve({ ok: false, stale: true });
+
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage(msg, (r) => {
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, stale: true });
+          return;
+        }
+        resolve(r as Record<string, unknown>);
+      });
+    } catch {
+      resolve({ ok: false, stale: true });
+    }
+  });
 }
 
 function qs(...sels: string[]): string {
@@ -566,6 +591,19 @@ function renderPanel() {
     `;
   }
 
+  else if (screen === "stale") {
+    body = `
+      <div class="tm-success" style="gap:8px;">
+        <div class="tm-success-icon" style="background:rgba(234,179,8,0.15);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </div>
+        <h3>Reload this page</h3>
+        <p>TrackMyself was updated or reloaded, so this tab is running an old copy. Reloading reconnects it — nothing is lost.</p>
+        <button id="tm-reload" class="tm-btn-primary" style="margin-top:6px;">Reload page</button>
+      </div>
+    `;
+  }
+
   else if (screen === "success") {
     body = `
       <div class="tm-success">
@@ -606,6 +644,8 @@ function renderPanel() {
 // ── event binding ─────────────────────────────────────────────────────────
 
 function bindEvents() {
+  shadow.getElementById("tm-reload")?.addEventListener("click", () => location.reload());
+
   shadow.getElementById("tm-close")?.addEventListener("click", () => {
     state.panelOpen = false;
     panelEl.classList.remove("open");
@@ -709,6 +749,11 @@ async function doAddJob(force = false) {
   };
   state.addBusy = false;
 
+  if ((res as { stale?: boolean }).stale) {
+    state.screen = "stale";
+    renderPanel();
+    return;
+  }
   if (res.authExpired) {
     state.user   = null;
     state.screen = "login";
@@ -749,7 +794,12 @@ toggleBtn.addEventListener("click", (e) => {
 });
 
 async function initAuth() {
-  const res = await send({ type: "GET_AUTH" }) as { ok: boolean; user?: UserInfo };
+  const res = await send({ type: "GET_AUTH" }) as { ok: boolean; user?: UserInfo; stale?: boolean };
+  if (res.stale) {
+    state.screen = "stale";
+    renderPanel();
+    return;
+  }
   if (res.ok && res.user) {
     state.user   = res.user;
     state.screen = "add";
