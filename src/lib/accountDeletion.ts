@@ -3,7 +3,11 @@ import CVFile from "@/models/CVFile";
 import CVProfile from "@/models/CVProfile";
 import Document from "@/models/Document";
 import Interview from "@/models/Interview";
+import IssueReport from "@/models/IssueReport";
+import Notification from "@/models/Notification";
+import PasswordResetToken from "@/models/PasswordResetToken";
 import Reminder from "@/models/Reminder";
+import Todo from "@/models/Todo";
 import User from "@/models/User";
 import { invalidateClaims } from "@/lib/auth";
 
@@ -14,19 +18,30 @@ export type PurgeSummary = {
   cvFiles: number;
   cvProfiles: number;
   documents: number;
+  todos: number;
+  notifications: number;
+  issueReports: number;
+  resetTokens: number;
 };
 
 export async function purgeUserData(userId: string, email?: string | null): Promise<PurgeSummary> {
   const applications = await Application.find({ userId }, "_id").lean();
   const applicationIds = applications.map((a) => a._id);
 
-  const [interviews, reminders, apps, files, profiles, documents] = await Promise.all([
+  const [
+    interviews, reminders, apps, files, profiles, documents,
+    todos, notifications, issueReports, resetTokens,
+  ] = await Promise.all([
     Interview.deleteMany({ applicationId: { $in: applicationIds } }),
     Reminder.deleteMany({ applicationId: { $in: applicationIds } }),
     Application.deleteMany({ userId }),
     CVFile.deleteMany({ userId }),
     CVProfile.deleteMany({ userId }),
     Document.deleteMany({ userId }),
+    Todo.deleteMany({ userId }),
+    Notification.deleteMany({ userId }),
+    IssueReport.deleteMany({ userId }),
+    PasswordResetToken.deleteMany({ userId }),
   ]);
 
   await User.findByIdAndDelete(userId);
@@ -39,5 +54,9 @@ export async function purgeUserData(userId: string, email?: string | null): Prom
     cvFiles: files.deletedCount ?? 0,
     cvProfiles: profiles.deletedCount ?? 0,
     documents: documents.deletedCount ?? 0,
+    todos: todos.deletedCount ?? 0,
+    notifications: notifications.deletedCount ?? 0,
+    issueReports: issueReports.deletedCount ?? 0,
+    resetTokens: resetTokens.deletedCount ?? 0,
   };
 }
