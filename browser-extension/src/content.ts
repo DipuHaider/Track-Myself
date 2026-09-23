@@ -1,6 +1,6 @@
 import PANEL_CSS from "./styles.css";
 
-const APP_URL = "https://track-myself.vercel.app";
+const APP_URL = "https://trackmyself.webarden.tech";
 
 // ── types ─────────────────────────────────────────────────────────────────
 

@@ -29,3 +29,12 @@ export const PUBLIC_ROUTES = [
 export const NOINDEX = {
   robots: { index: false, follow: false },
 } as const;
+
+/* Signed-in zones stay out of the index, but their pages still need a title —
+   without one every tab falls back to the marketing headline. */
+export function privateMetadata(title: string) {
+  return {
+    ...NOINDEX,
+    title: { default: title, template: `%s · ${SITE_NAME}` },
+  };
+}

@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# User-uploaded application attachments were served from here before they moved
+# into MongoDB. Nothing generated at runtime belongs in the repo.
+public/uploads/

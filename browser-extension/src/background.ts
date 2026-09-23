@@ -1,4 +1,4 @@
-const API_BASE = "https://track-myself.vercel.app";
+const API_BASE = "https://trackmyself.webarden.tech";
 
 interface AuthState {
   token: string;

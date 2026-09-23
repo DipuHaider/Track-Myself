@@ -5,9 +5,9 @@ import { isEditor } from "@/lib/permissions";
 import SiteHeader from "@/components/site/SiteHeader";
 import Sidebar from "@/components/layout/Sidebar";
 import SessionWatcher from "@/components/shared/SessionWatcher";
-import { NOINDEX } from "@/lib/seo";
+import { privateMetadata } from "@/lib/seo";
 
-export const metadata = NOINDEX;
+export const metadata = privateMetadata("Dashboard");
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await getSessionUser();

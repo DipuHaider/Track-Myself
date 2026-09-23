@@ -5,9 +5,9 @@ import SiteHeader from "@/components/site/SiteHeader";
 import PortalSidebar from "@/components/portal/PortalSidebar";
 import PausedBanner from "@/components/portal/PausedBanner";
 import SessionWatcher from "@/components/shared/SessionWatcher";
-import { NOINDEX } from "@/lib/seo";
+import { privateMetadata } from "@/lib/seo";
 
-export const metadata = NOINDEX;
+export const metadata = privateMetadata("My TrackMyself");
 
 export default async function PortalLayout({ children }: { children: ReactNode }) {
   const user = await getSessionUser();

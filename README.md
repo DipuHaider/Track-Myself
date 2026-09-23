@@ -178,11 +178,14 @@ at that root and points at `dist/*.js` and `icons/*`, and `build.js` does not co
 
 It authenticates against `/api/extension/auth` and posts to `/api/extension/jobs`, which
 honours the pause state and returns 423 with a readable message. The API host is hard-coded
-to `https://track-myself.vercel.app` in `src/background.ts:1`, `src/content.ts:3` and
-`manifest.json` (host permissions); change it there to point a local build at
-`localhost:3000`. Those three still name the old host — the app has moved to
-`https://trackmyself.webarden.tech`, and pointing them at it needs a rebuild and a Chrome Web
-Store re-submission, so it has been left as a deliberate follow-up.
+to `https://trackmyself.webarden.tech` in `src/background.ts:1` and `src/content.ts:3`;
+change it there to point a local build at `localhost:3000`. `manifest.json` grants host
+permissions for both that domain and the older `track-myself.vercel.app`, so an installed
+copy keeps working instead of being disabled pending a permission re-prompt.
+
+**These changes only reach users after `npm run build` in `browser-extension/` and a Chrome
+Web Store re-submission** — `dist/` is not committed, so the source change alone ships
+nothing.
 
 CI builds the extension on every push and uploads a `trackmyself-extension` artifact
 containing exactly `manifest.json`, `dist/` and `icons/` — that folder is what you upload to
