@@ -13,6 +13,10 @@ shared key or on a key the user brings themselves.
 Built with Next.js 16 (App Router), React 19, TypeScript, MongoDB/Mongoose, NextAuth 4 and
 Tailwind CSS 4.
 
+**Live at <https://trackmyself.webarden.tech>.** The older `track-myself.vercel.app` host still
+resolves and serves the same deployment, but canonical URLs, sitemap entries, OAuth redirects
+and transactional email all point at the `webarden.tech` subdomain.
+
 ---
 
 ## Getting started
@@ -174,8 +178,11 @@ at that root and points at `dist/*.js` and `icons/*`, and `build.js` does not co
 
 It authenticates against `/api/extension/auth` and posts to `/api/extension/jobs`, which
 honours the pause state and returns 423 with a readable message. The API host is hard-coded
-to `https://track-myself.vercel.app` in `src/background.ts` and `src/content.ts`; change it
-there to point a local build at `localhost:3000`.
+to `https://track-myself.vercel.app` in `src/background.ts:1`, `src/content.ts:3` and
+`manifest.json` (host permissions); change it there to point a local build at
+`localhost:3000`. Those three still name the old host — the app has moved to
+`https://trackmyself.webarden.tech`, and pointing them at it needs a rebuild and a Chrome Web
+Store re-submission, so it has been left as a deliberate follow-up.
 
 CI builds the extension on every push and uploads a `trackmyself-extension` artifact
 containing exactly `manifest.json`, `dist/` and `icons/` — that folder is what you upload to
