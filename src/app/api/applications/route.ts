@@ -1,10 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { authOptions } from "@/lib/auth";
 import { requireActiveAuth } from "@/lib/serverAuth";
 
 function escapeRegex(s: string) {
@@ -12,11 +10,9 @@ function escapeRegex(s: string) {
 }
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const userId = (session as { user?: { id?: string } } | null)?.user?.id;
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveAuth();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.id;
 
   await dbConnect();
 

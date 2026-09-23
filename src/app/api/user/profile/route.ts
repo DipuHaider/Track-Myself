@@ -1,58 +1,86 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { authOptions, invalidateClaims } from "@/lib/auth";
+import { invalidateClaims } from "@/lib/auth";
+import { requireActiveAuth } from "@/lib/serverAuth";
+import { profileUpdateSchema } from "@/schemas/profileSchema";
+import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const userId = (session as { user?: { id?: string } } | null)?.user?.id;
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireActiveAuth();
+  if (auth instanceof NextResponse) return auth;
 
   await dbConnect();
-  const user = await User.findById(userId, "-password").lean();
+  const user = await User.findById(auth.id, "-password").lean();
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json(user);
 }
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions);
-  const userId = (session as { user?: { id?: string } } | null)?.user?.id;
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireActiveAuth();
+  if (auth instanceof NextResponse) return auth;
+
+  const parsed = profileUpdateSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]?.message ?? "Check the form and try again";
+    return NextResponse.json({ error: issue }, { status: 400 });
+  }
+
+  const { name, bio, currentPassword, newPassword } = parsed.data;
 
   await dbConnect();
-  const body = await req.json();
-  const { name, bio, currentPassword, newPassword } = body;
 
   const update: Record<string, string | Date> = {};
-  if (name?.trim()) update.name = name.trim();
+  if (name) update.name = name;
   if (typeof bio === "string") update.bio = bio;
 
   if (newPassword) {
-    if (typeof newPassword !== "string" || newPassword.length < 8 || newPassword.length > 200) {
+    /* The current-password check is a guess against a secret, so it needs the
+       same throttle the sign-in paths get. */
+    const gate = checkRateLimit({
+      key: `profile-password:${auth.id}`,
+      limit: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!gate.ok) {
       return NextResponse.json(
-        { error: "New password must be at least 8 characters" },
+        { error: "Too many attempts. Try again shortly." },
+        { status: 429, headers: { "Retry-After": String(gate.retryAfterSeconds) } },
+      );
+    }
+
+    const user = (await User.findById(auth.id, "password").lean()) as { password?: string } | null;
+    if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    /* Google accounts have no hash at all. bcrypt.compare throws on undefined,
+       which used to surface as a 500 instead of something the user can act on. */
+    if (!user.password) {
+      return NextResponse.json(
+        { error: "This account signs in with Google, so it has no password to change." },
         { status: 400 },
       );
     }
-    if (!currentPassword) {
-      return NextResponse.json({ error: "Current password is required" }, { status: 400 });
-    }
-    const user = await User.findById(userId);
-    if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const match = await bcrypt.compare(currentPassword, user.password);
+
+    const match = await bcrypt.compare(currentPassword ?? "", user.password);
     if (!match) {
-      return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
+      return NextResponse.json({ error: "That password is not correct." }, { status: 400 });
     }
+
+    clearRateLimit(`profile-password:${auth.id}`);
     update.password = await bcrypt.hash(newPassword, 10);
     update.sessionsValidFrom = new Date();
   }
 
-  const updated = await User.findByIdAndUpdate(userId, update, { new: true, select: "-password" });
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+  }
+
+  const updated = await User.findByIdAndUpdate(auth.id, update, { new: true, select: "-password" });
   if (update.sessionsValidFrom) invalidateClaims(updated?.email);
+
   return NextResponse.json(updated);
 }

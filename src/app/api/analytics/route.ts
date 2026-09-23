@@ -1,17 +1,14 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
+import { requireActiveAuth } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { authOptions } from "@/lib/auth";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const userId = (session as { user?: { id?: string } } | null)?.user?.id;
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveAuth();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth.id;
 
   await dbConnect();
   const [totalApplications, interviewsScheduled, offersReceived, rejections] =
