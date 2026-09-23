@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { LifeBuoy, MailCheck, MailX, RefreshCw, Trash2 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
+import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueCounts, type IssueStatus } from "@/constants/issues";
 import { announceIssueChange, onIssueChange } from "@/lib/issueSync";
 
 type Report = {
@@ -24,6 +24,8 @@ type Report = {
 
 const POLL_MS = 30000;
 
+const EMPTY_COUNTS: IssueCounts = { open: 0, triaged: 0, closed: 0, all: 0 };
+
 const STATUS_STYLE: Record<IssueStatus, string> = {
   open: "status-submitted",
   triaged: "status-interview",
@@ -41,6 +43,7 @@ export default function IssueReportsPanel() {
   const { can } = usePermissions();
   const [reports, setReports] = useState<Report[]>([]);
   const [filter, setFilter] = useState<IssueStatus | "all">("open");
+  const [counts, setCounts] = useState<IssueCounts>(EMPTY_COUNTS);
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
 
@@ -50,7 +53,10 @@ export default function IssueReportsPanel() {
     const qs = filter === "all" ? "" : `?status=${filter}`;
     fetch(`/api/admin/issues${qs}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setReports(Array.isArray(data?.reports) ? data.reports : []))
+      .then((data) => {
+        setReports(Array.isArray(data?.reports) ? data.reports : []);
+        if (data?.counts) setCounts(data.counts);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [filter]);
@@ -126,6 +132,7 @@ export default function IssueReportsPanel() {
               }`}
             >
               {key}
+              <span className="ml-1.5 tabular-nums opacity-70">{counts[key]}</span>
             </button>
           ))}
         </div>
