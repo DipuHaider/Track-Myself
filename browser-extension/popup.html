@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TrackMyself</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    width: 268px; margin: 0; padding: 14px;
+    font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #ffffff; color: #0f172a;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0f1424; color: #e2e8f0; }
+    .muted { color: #94a3b8; }
+    .card { background: #161c30; border-color: #263048; }
+  }
+  .head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .head img { width: 20px; height: 20px; }
+  .head b { font-size: 14px; }
+  .muted { color: #64748b; }
+  .card {
+    border: 1px solid #e2e8f0; border-radius: 9px;
+    padding: 9px 10px; margin-bottom: 10px; background: #f8fafc;
+  }
+  .row { display: flex; align-items: center; gap: 7px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .ok { background: #10b981; } .off { background: #94a3b8; }
+  .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ol { margin: 0 0 10px; padding-left: 17px; }
+  li { margin-bottom: 3px; }
+  a.btn {
+    display: block; text-align: center; text-decoration: none;
+    background: #4f46e5; color: #fff; border-radius: 7px;
+    padding: 7px 10px; font-weight: 600;
+  }
+  a.btn:hover { opacity: .9; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <img src="icons/icon48.png" alt="">
+    <b>TrackMyself</b>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <span id="dot" class="dot off"></span>
+      <span id="status" class="name muted">Checking…</span>
+    </div>
+  </div>
+
+  <p class="muted" style="margin:0 0 6px">This extension works on the job page itself:</p>
+  <ol class="muted">
+    <li>Open a LinkedIn or Indeed job</li>
+    <li>Click the briefcase on the right edge</li>
+    <li>Sign in there and save the job</li>
+  </ol>
+
+  <a class="btn" id="open" href="https://trackmyself.webarden.tech/me/applications" target="_blank" rel="noopener">
+    Open my tracker
+  </a>
+
+  <script src="dist/popup.js"></script>
+</body>
+</html>

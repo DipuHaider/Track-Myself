@@ -64,6 +64,30 @@ function detectSite(): State["site"] {
   return "other";
 }
 
+/* The script is injected across the whole domain so that moving from a feed or
+   a search page into a posting — which never reloads the document — still gets
+   a button. Only the job pages should actually show one. */
+function isJobPage(site: State["site"]): boolean {
+  const path = location.pathname;
+  if (site === "linkedin") {
+    return path.startsWith("/jobs/") || new URLSearchParams(location.search).has("currentJobId");
+  }
+  if (site === "indeed") {
+    return path.startsWith("/viewjob") || path.startsWith("/job/") || path.startsWith("/jobs")
+      || new URLSearchParams(location.search).has("vjk");
+  }
+  return false;
+}
+
+function applyButtonVisibility() {
+  const show = isJobPage(state.site);
+  toggleBtn.style.display = show ? "" : "none";
+  if (!show && state.panelOpen) {
+    state.panelOpen = false;
+    panelEl.classList.remove("open");
+  }
+}
+
 // ── scrapers ──────────────────────────────────────────────────────────────
 
 // Strategy 1: JSON-LD structured data (most reliable — sites include this for SEO)
@@ -597,6 +621,8 @@ toggleBtn.addEventListener("pointerup", () => {
 
 // ── restore saved button position ────────────────────────────────────────
 
+applyButtonVisibility();
+
 chrome.storage.local.get("tm_btn_y").then((r) => {
   if (typeof r.tm_btn_y === "number") {
     state.btnY = r.tm_btn_y;
@@ -610,6 +636,7 @@ let lastUrl = location.href;
 const urlObserver = new MutationObserver(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
+    applyButtonVisibility();
     state.job = scrapeJob(state.site);
     if (state.screen === "add" || state.screen === "success" || state.screen === "duplicate") {
       state.screen   = "add";

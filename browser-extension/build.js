@@ -15,6 +15,7 @@ const ctx = await esbuild.context({
   entryPoints: {
     "dist/content":    "src/content.ts",
     "dist/background": "src/background.ts",
+    "dist/popup":      "src/popup.ts",
   },
   outdir:  ".",
   format:  "iife",

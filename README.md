@@ -187,9 +187,19 @@ copy keeps working instead of being disabled pending a permission re-prompt.
 Web Store re-submission** — `dist/` is not committed, so the source change alone ships
 nothing.
 
+The toolbar icon opens `popup.html`, which reports sign-in status and points at the job page
+— the saving UI itself is a floating button the content script injects on LinkedIn and Indeed
+job pages, not a browser popup.
+
+The content script is injected across both domains rather than only `/jobs/*`, because
+LinkedIn never reloads the document when you move from a feed or a search result into a
+posting. `isJobPage()` decides whether the button is shown, and re-runs on every SPA
+navigation.
+
 CI builds the extension on every push and uploads a `trackmyself-extension` artifact
-containing exactly `manifest.json`, `dist/` and `icons/` — that folder is what you upload to
-the Chrome Web Store.
+containing `manifest.json`, `popup.html`, `dist/` and `icons/` — that folder is what you
+upload to the Chrome Web Store. A packaging step asserts every file the manifest references
+is actually present, since a missing one installs fine and fails at the first click.
 
 ---
 

@@ -77,14 +77,35 @@ jobs:
       - name: Build
         run: npm run build
 
-      # manifest.json points at dist/*.js and icons/*, so the extension root is
-      # browser-extension/ — the zip must contain the manifest, dist and icons.
+      # manifest.json points at dist/*.js, icons/* and popup.html, so the
+      # extension root is browser-extension/ — the zip must contain all four.
       - name: Package loadable extension
         run: |
           test -f dist/content.js
           test -f dist/background.js
+          test -f dist/popup.js
+          test -f popup.html
           mkdir -p ../ext-package
-          cp -r manifest.json dist icons ../ext-package/
+          cp -r manifest.json popup.html dist icons ../ext-package/
+
+      # Every file the manifest references must exist in the package, or the
+      # extension installs and then fails at the first click.
+      - name: Packaged files match the manifest
+        run: |
+          cd ../ext-package
+          node -e '
+            const m = require("./manifest.json");
+            const fs = require("fs");
+            const refs = [
+              m.background.service_worker,
+              m.action.default_popup,
+              ...m.content_scripts.flatMap(c => c.js),
+              ...Object.values(m.icons),
+            ];
+            const missing = refs.filter(f => !fs.existsSync(f));
+            if (missing.length) { console.error("missing:", missing); process.exit(1); }
+            console.log("all " + refs.length + " referenced files present");
+          '
 
       - name: Manifest and package versions agree
         run: |
