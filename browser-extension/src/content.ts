@@ -127,6 +127,34 @@ function cleanCompany(raw: string): string {
   return raw.split("|").pop()?.trim() ?? raw.trim();
 }
 
+/* LinkedIn writes the line under the title as
+   "Berlin, Berlin, Germany · 7 months ago · Over 100 people clicked apply",
+   so only the first segment is the place. The rest is recency and social
+   proof, which must not end up in the location field. */
+const NOT_A_PLACE = /\bago\b|applicant|people clicked|alumni|响应|reposted|promoted/i;
+
+function firstSegment(raw: string): string {
+  const head = raw.split("\u00b7")[0].replace(/\s+/g, " ").trim();
+  return NOT_A_PLACE.test(head) ? "" : head;
+}
+
+/* Scoped deliberately to the header. The body of a post says things like
+   "work 100% remotely" or "a permanent contract", which would otherwise be
+   read as the workplace or employment type of the role itself. */
+function topCardText(): string {
+  const card = document.querySelector(
+    ".job-details-jobs-unified-top-card__container--two-pane, " +
+    ".job-details-jobs-unified-top-card, " +
+    ".jobs-unified-top-card, " +
+    ".jobs-search__job-details--container",
+  );
+  return (card as HTMLElement | null)?.innerText?.replace(/\s+/g, " ").trim().slice(0, 1200) ?? "";
+}
+
+function stripHeading(text: string): string {
+  return text.replace(/^\s*About the job\s*/i, "").trim();
+}
+
 // ── scrapers ──────────────────────────────────────────────────────────────
 
 // Strategy 1: JSON-LD structured data (most reliable — sites include this for SEO)
@@ -212,23 +240,23 @@ function scrapeLinkedIn(): JobData {
     "[data-tracking-will-navigate] a[href*='/company/']",
   ) || ld.companyName || title.companyName || "";
 
-  const jobLocation = qs(
+  const jobLocation = firstSegment(qs(
+    ".job-details-jobs-unified-top-card__primary-description-container",
+    ".job-details-jobs-unified-top-card__tertiary-description-container",
     ".tvm__text.tvm__text--positive.tvm__text--low-emphasis",
-    ".job-details-jobs-unified-top-card__workplace-type",
     ".job-details-jobs-unified-top-card__bullet",
     ".jobs-unified-top-card__bullet",
-    "[class*='jobs-unified-top-card__workplace']",
     ".tvm__text--low-emphasis",
-  ) || ld.location || title.location || "";
+  )) || ld.location || title.location || "";
 
-  const description = qs(
+  const description = stripHeading(qs(
     "#job-details",
     ".jobs-description-content__text--stretch",
     ".jobs-description-content__text",
     ".jobs-description__content",
     ".jobs-box__html-content",
     "[class*='description__text']",
-  ) || ld.jobDescription || "";
+  ) || ld.jobDescription || "");
 
   const extra = enrich(jobLocation, ld, [
     ".job-details-jobs-unified-top-card__job-insight",
@@ -264,12 +292,21 @@ function enrich(
       .flatMap(sel => [...document.querySelectorAll(sel)])
       .map(el => el.textContent?.replace(/\s+/g, " ").trim() ?? "")
       .filter(Boolean)
-      .join(" · ");
+      .join(" \u00b7 ");
 
-    const jobType = normaliseJobType(pills) || normaliseJobType(ld.jobType ?? "");
-    const place   = workplaceType(pills) || workplaceType(jobLocation);
+    /* Pill class names churn often, so the header's own text is the backstop.
+       The description is never searched: a post that offers "100% remote work"
+       as a perk would otherwise be recorded as a remote role. */
+    const header = `${pills} \u00b7 ${topCardText()}`;
 
-    const money = pills.match(/[$€£₹]\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?(?:\s*[-–—]\s*[$€£₹]?\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?)?/);
+    const jobType = normaliseJobType(pills)
+      || normaliseJobType(ld.jobType ?? "")
+      || normaliseJobType(header);
+    const place = workplaceType(pills)
+      || workplaceType(jobLocation)
+      || workplaceType(header);
+
+    const money = header.match(/[$€£₹]\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?(?:\s*[-–—]\s*[$€£₹]?\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?)?/);
     const salary = money?.[0]?.trim() || ld.salary || "";
 
     const hasPlace = place !== "" && jobLocation.toLowerCase().includes(place.toLowerCase());
