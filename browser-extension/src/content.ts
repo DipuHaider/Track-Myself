@@ -167,17 +167,44 @@ function firstSegment(raw: string): string {
    "work 100% remotely" or "a permanent contract", which would otherwise be
    read as the workplace or employment type of the role itself. */
 function topCardText(): string {
-  const card = document.querySelector(
+  const pane = jobPane();
+  const card = pane.querySelector(
     ".job-details-jobs-unified-top-card__container--two-pane, " +
     ".job-details-jobs-unified-top-card, " +
-    ".jobs-unified-top-card, " +
-    ".jobs-search__job-details--container",
-  );
-  return (card as HTMLElement | null)?.innerText?.replace(/\s+/g, " ").trim().slice(0, 1200) ?? "";
+    ".jobs-unified-top-card",
+  ) ?? (pane as HTMLElement);
+  return (card as HTMLElement).innerText?.replace(/\s+/g, " ").trim().slice(0, 1200) ?? "";
 }
 
 function stripHeading(text: string): string {
   return text.replace(/^\s*About the job\s*/i, "").trim();
+}
+
+/* On /jobs/search-results the posting is a pane beside the list, with markup
+   that does not match the standalone /jobs/view page. Everything is therefore
+   read relative to whichever container actually holds the posting. */
+function jobPane(): ParentNode {
+  const candidates = [
+    ".jobs-search__job-details--wrapper",
+    ".jobs-search__job-details",
+    ".job-details-jobs-unified-top-card__container--two-pane",
+    ".job-view-layout",
+    ".jobs-details",
+    "main",
+  ];
+  for (const sel of candidates) {
+    const el = document.querySelector(sel);
+    if (el) return el;
+  }
+  return document;
+}
+
+function textIn(root: ParentNode, ...selectors: string[]): string {
+  for (const sel of selectors) {
+    const t = root.querySelector(sel)?.textContent?.replace(/\s+/g, " ").trim();
+    if (t) return t;
+  }
+  return "";
 }
 
 // ── scrapers ──────────────────────────────────────────────────────────────
@@ -244,6 +271,7 @@ function metaAttr(names: string[]): string {
 function scrapeLinkedIn(): JobData {
   const ld    = parseJobLd();
   const title = parseTitleTag("linkedin");
+  const pane  = jobPane();
 
   const jobTitle = qs(
     ".job-details-jobs-unified-top-card__job-title h1",
@@ -253,7 +281,7 @@ function scrapeLinkedIn(): JobData {
     ".jobs-unified-top-card__job-title h1",
     "h1[class*='job-title']",
     ".job-details-jobs-unified-top-card__job-title",
-  ) || ld.jobTitle || title.jobTitle || "";
+  ) || textIn(pane, "h1", "h2 a", "h2") || ld.jobTitle || title.jobTitle || "";
 
   const companyName = qs(
     ".job-details-jobs-unified-top-card__company-name a",
@@ -263,16 +291,18 @@ function scrapeLinkedIn(): JobData {
     ".job-details-jobs-unified-top-card__primary-description-without-tagline a:first-of-type",
     "[data-test-id*='company-name'] a",
     "[data-tracking-will-navigate] a[href*='/company/']",
-  ) || ld.companyName || title.companyName || "";
+  ) || textIn(pane, "a[href*='/company/']") || ld.companyName || title.companyName || "";
 
-  const jobLocation = firstSegment(qs(
+  const locationLine = textIn(
+    pane,
     ".job-details-jobs-unified-top-card__primary-description-container",
     ".job-details-jobs-unified-top-card__tertiary-description-container",
     ".tvm__text.tvm__text--positive.tvm__text--low-emphasis",
     ".job-details-jobs-unified-top-card__bullet",
     ".jobs-unified-top-card__bullet",
     ".tvm__text--low-emphasis",
-  )) || ld.location || title.location || "";
+  );
+  const jobLocation = firstSegment(locationLine) || ld.location || title.location || "";
 
   const description = stripHeading(qs(
     "#job-details",
