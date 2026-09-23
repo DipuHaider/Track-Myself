@@ -235,7 +235,19 @@ function scrapeIndeed(): JobData {
   return { jobTitle, companyName, location: jobLocation, jobPostUrl: location.href, notes };
 }
 
+/* The button is mounted from module scope, so a scraper that throws on an
+   unexpected page layout would take the whole content script down with it and
+   leave no UI at all. Scraping is best-effort; never fatal. */
 function scrapeJob(site: State["site"]): JobData {
+  try {
+    return scrapeJobUnsafe(site);
+  } catch (err) {
+    console.warn("[TrackMyself] scrape failed on this page:", err);
+    return { companyName: "", jobTitle: "", location: "", jobPostUrl: location.href, notes: "" };
+  }
+}
+
+function scrapeJobUnsafe(site: State["site"]): JobData {
   if (site === "linkedin") return scrapeLinkedIn();
   if (site === "indeed")   return scrapeIndeed();
   // Generic: try JSON-LD first, then title tag
