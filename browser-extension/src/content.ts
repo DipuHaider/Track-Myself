@@ -230,36 +230,58 @@ function scrapeLinkedIn(): JobData {
     "[class*='description__text']",
   ) || ld.jobDescription || "";
 
-  /* The pills under the title carry employment type, workplace type and pay,
-     with no stable class between LinkedIn's layouts — so read them as one blob
-     and pattern-match rather than guessing at selectors. */
-  const insights = [
-    ...document.querySelectorAll(
-      ".job-details-jobs-unified-top-card__job-insight, .job-details-preferences-and-skills__pill, .jobs-unified-top-card__job-insight",
-    ),
-  ].map(el => el.textContent?.replace(/\s+/g, " ").trim() ?? "").filter(Boolean).join(" · ");
-
-  const jobType = normaliseJobType(insights) || normaliseJobType(ld.jobType ?? "");
-  const place   = workplaceType(insights) || workplaceType(jobLocation);
-
-  const salary = (insights.match(/[$€£₹]\s?[\d,.]+\s*(?:k|K)?(?:\s*\/\s*\w+)?(?:\s*[-–—]\s*[$€£₹]?\s?[\d,.]+\s*(?:k|K)?(?:\s*\/\s*\w+)?)?/) ?? [])[0]?.trim()
-    || ld.salary || "";
-
-  const withPlace = place && !new RegExp(place, "i").test(jobLocation)
-    ? [jobLocation, place].filter(Boolean).join(" · ")
-    : jobLocation;
+  const extra = enrich(jobLocation, ld, [
+    ".job-details-jobs-unified-top-card__job-insight",
+    ".job-details-preferences-and-skills__pill",
+    ".jobs-unified-top-card__job-insight",
+  ]);
 
   return {
     jobTitle,
     companyName: cleanCompany(companyName),
-    location: withPlace,
+    location: extra.location || jobLocation,
     jobPostUrl: location.href,
     notes: description.slice(0, 600) || ld.notes || "",
     platform: "LinkedIn",
-    jobType,
-    salary,
+    jobType: extra.jobType,
+    salary: extra.salary,
     jobDescription: description.slice(0, 24000),
   };
+}
+
+/* Employment type, workplace type and pay are read from loosely-structured
+   pills, which is the part most likely to break when a layout changes. It is
+   isolated so a failure here costs only the extras — the company, title and
+   description above are what the record actually depends on. */
+function enrich(
+  jobLocation: string,
+  ld: Partial<JobData>,
+  pillSelectors: string[],
+): { jobType: string; salary: string; location: string } {
+  const empty = { jobType: "", salary: "", location: jobLocation };
+  try {
+    const pills = pillSelectors
+      .flatMap(sel => [...document.querySelectorAll(sel)])
+      .map(el => el.textContent?.replace(/\s+/g, " ").trim() ?? "")
+      .filter(Boolean)
+      .join(" · ");
+
+    const jobType = normaliseJobType(pills) || normaliseJobType(ld.jobType ?? "");
+    const place   = workplaceType(pills) || workplaceType(jobLocation);
+
+    const money = pills.match(/[$€£₹]\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?(?:\s*[-–—]\s*[$€£₹]?\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?)?/);
+    const salary = money?.[0]?.trim() || ld.salary || "";
+
+    const hasPlace = place !== "" && jobLocation.toLowerCase().includes(place.toLowerCase());
+    const location = place && !hasPlace
+      ? [jobLocation, place].filter(Boolean).join(" · ")
+      : jobLocation;
+
+    return { jobType, salary, location };
+  } catch (err) {
+    console.warn("[TrackMyself] could not read the job pills:", err);
+    return empty;
+  }
 }
 
 function scrapeIndeed(): JobData {
@@ -300,26 +322,21 @@ function scrapeIndeed(): JobData {
     "#jobDetails",
   ) || ld.jobDescription || "";
 
-  const pay = qs(
+  const extra = enrich(jobLocation, ld, [
     "#salaryInfoAndJobType",
     "[data-testid='attribute_snippet_testid']",
     "[class*='salary-snippet']",
-  );
-
-  const blob  = `${pay} ${jobLocation} ${description.slice(0, 400)}`;
-  const place = workplaceType(blob);
+  ]);
 
   return {
     jobTitle,
     companyName: cleanCompany(companyName),
-    location: place && !new RegExp(place, "i").test(jobLocation)
-      ? [jobLocation, place].filter(Boolean).join(" · ")
-      : jobLocation,
+    location: extra.location || jobLocation,
     jobPostUrl: location.href,
     notes: description.slice(0, 600) || ld.notes || "",
     platform: "Indeed",
-    jobType: normaliseJobType(`${pay} ${blob}`) || normaliseJobType(ld.jobType ?? ""),
-    salary: (pay.match(/[$€£₹]\s?[\d,.]+[^,|]*/) ?? [])[0]?.trim() || ld.salary || "",
+    jobType: extra.jobType,
+    salary: extra.salary,
     jobDescription: description.slice(0, 24000),
   };
 }
@@ -332,7 +349,18 @@ function scrapeJob(site: State["site"]): JobData {
     return scrapeJobUnsafe(site);
   } catch (err) {
     console.warn("[TrackMyself] scrape failed on this page:", err);
-    return { companyName: "", jobTitle: "", location: "", jobPostUrl: location.href, notes: "" };
+    /* Fall back to the page title rather than nothing — an empty form blocks
+       the save outright, whereas a rough company and title can be corrected in
+       the panel before saving. */
+    const t = parseTitleTag(site);
+    return {
+      companyName: cleanCompany(t.companyName ?? ""),
+      jobTitle:    t.jobTitle ?? "",
+      location:    t.location ?? "",
+      jobPostUrl:  location.href,
+      notes:       "",
+      platform:    site === "linkedin" ? "LinkedIn" : site === "indeed" ? "Indeed" : "",
+    };
   }
 }
 
