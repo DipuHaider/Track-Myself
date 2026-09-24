@@ -10,6 +10,7 @@ import {
   checkGenerationGates, isTooThinToPrint, resolveGenerationContent,
 } from "@/lib/cv/generatePipeline";
 import { CORRECTION_MAX, JD_MAX, applyTailorOutput, runTailor } from "@/lib/cv/ai/adapt";
+import { draftHash, findDraft, saveDraft } from "@/lib/cv/draftCache";
 import { tailorToApplication } from "@/lib/cv/import/merge";
 import { textForFile } from "@/lib/cv/import/sources";
 import { contentToSections } from "@/lib/cv/diff/contentText";
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
   let upgrade = false;
   let providerLabel = "";
   let changedFields: string[] = [];
+  let reused = false;
 
   const superadmin = isSuperAdmin(auth.role);
   const userKey = await getUserCredential(auth.id);
@@ -97,13 +99,34 @@ export async function POST(req: Request) {
       : "AI tailoring is not configured on this deployment — showing the reorder-only version.";
   } else {
     {
-      const result = await runTailor(baseline, jobDescription, {
-        task: "cv.preview",
-        actor,
-        correction, previousSummary, userKey,
-        rate: { limit: TAILOR_LIMIT, windowMs: TAILOR_WINDOW_MS },
+      const hash = draftHash({
+        userId: auth.id, docType, format, variant, jobDescription, correction, baseline,
       });
-      if (result.ok) {
+
+      /* A draft the user already paid for. Reopening the modal, or reloading
+         after closing it, used to start a fresh billed call for an identical
+         request — the accepted draft only ever lived in React state. */
+      const cached = await findDraft(auth.id, hash);
+      if (cached) {
+        /* The stored draft is already the tailored result, so there is nothing
+           to apply. changedFields describes what this run rewrote and no run
+           happened, so it stays empty and the note says why. */
+        tailored = cached;
+        tailorMode = "ai";
+        tailorNote = "Reusing the tailored version already generated for this job.";
+        reused = true;
+      }
+
+      const result = reused
+        ? null
+        : await runTailor(baseline, jobDescription, {
+            task: "cv.preview",
+            actor,
+            correction, previousSummary, userKey,
+            rate: { limit: TAILOR_LIMIT, windowMs: TAILOR_WINDOW_MS },
+          });
+
+      if (result?.ok) {
         const applied = applyTailorOutput(baseline, result.value);
         tailored = applied.content;
         changedFields = applied.changedFields;
@@ -112,7 +135,8 @@ export async function POST(req: Request) {
         tailorNote = changedFields.length
           ? `${result.providerLabel} rewrote: ${changedFields.join(", ")}.`
           : `${result.providerLabel} returned no changes for this role.`;
-      } else {
+        await saveDraft(auth.id, hash, `${docType}-${format}-${variant}`, tailored);
+      } else if (result) {
         tailored = tailorToApplication(baseline, { ...appInfo });
         tailorMode = "heuristic";
         /* The gateway distinguishes a rate limit from an exhausted allowance
@@ -167,6 +191,7 @@ export async function POST(req: Request) {
   ).replace(/\.(docx|pdf)$/, output === "pdf" ? ".pdf" : ".docx");
 
   return NextResponse.json({
+    reused,
     tailoredContent: tailored,
     diff,
     leftSource,
