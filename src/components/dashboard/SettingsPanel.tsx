@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Compass, Database, Loader2, Play, Shield, XCircle } from "lucide-react";
 import { PLAN_LABELS, ROLE_LABELS, type Plan, type Role } from "@/lib/permissions";
 import { TOUR_DESCRIPTIONS, TOUR_LABELS, TOUR_SCOPES, type TourScope } from "@/lib/tour";
+import AiBudgetPanel from "@/components/dashboard/AiBudgetPanel";
 
 type SystemInfo = {
   env: {
@@ -198,6 +199,7 @@ export default function SettingsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
   return (
     <div className="space-y-6">
       <FeatureToggles />
+      <AiBudgetPanel />
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="surface rounded-xl border p-5">
