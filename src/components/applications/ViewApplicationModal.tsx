@@ -2,6 +2,7 @@
 
 import { FileText, Image as ImageIcon, File, ExternalLink } from "lucide-react";
 import Modal from "@/components/shared/Modal";
+import GapAnalysisSection from "@/components/applications/GapAnalysisSection";
 import StatusBadge from "@/components/applications/StatusBadge";
 import type { Application } from "@/types/application";
 
@@ -110,6 +111,8 @@ export default function ViewApplicationModal({
             <p className="mt-0.5 whitespace-pre-wrap text-sm">{application.notes}</p>
           </div>
         )}
+
+        <GapAnalysisSection applicationId={application._id} />
 
         {/* Attachments */}
         {att.length > 0 && (
