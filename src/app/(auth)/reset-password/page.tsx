@@ -11,7 +11,9 @@ function ResetForm() {
   const router = useRouter();
   const token = useSearchParams().get("token") ?? "";
 
-  const [checking, setChecking] = useState(true);
+  /* Derived rather than set inside the effect: with no token there is nothing to
+     check, and setting state synchronously in an effect costs a second render. */
+  const [checking, setChecking] = useState(token.length > 0);
   const [valid, setValid] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -20,10 +22,7 @@ function ResetForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      setChecking(false);
-      return;
-    }
+    if (!token) return;
     fetch(`/api/auth/reset-password?token=${encodeURIComponent(token)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setValid(Boolean(data?.valid)))
