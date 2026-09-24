@@ -3,10 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requirePremiumAuth } from "@/lib/serverAuth";
 import { normaliseContent } from "@/lib/cv/content";
-import { checkRateLimit } from "@/lib/rateLimit";
 import { getUserCredential } from "@/lib/ai/userKey";
 import { aiAvailableFor, type Actor } from "@/lib/ai/gateway";
-import { isSuperAdmin } from "@/lib/permissions";
 import { JD_MAX, runTailor } from "@/lib/cv/ai/adapt";
 
 /* Every call costs money, so this is capped per account rather than per IP. */
@@ -23,18 +21,6 @@ const STATUS: Record<string, number> = {
 export async function POST(req: Request) {
   const auth = await requirePremiumAuth();
   if (auth instanceof NextResponse) return auth;
-
-  const gate = checkRateLimit({
-    key: `cv-adapt:${auth.id}`,
-    limit: ADAPT_LIMIT,
-    windowMs: ADAPT_WINDOW_MS,
-  });
-  if (!gate.ok) {
-    return NextResponse.json(
-      { error: "You have used all your AI tailoring runs for this hour. Try again shortly." },
-      { status: 429, headers: { "Retry-After": String(gate.retryAfterSeconds) } },
-    );
-  }
 
   const body = await req.json().catch(() => ({}));
   const jobDescription = String(body.jobDescription ?? "");
@@ -60,6 +46,7 @@ export async function POST(req: Request) {
   const result = await runTailor(content, jobDescription, {
     actor,
     userKey,
+    rate: { limit: ADAPT_LIMIT, windowMs: ADAPT_WINDOW_MS },
   });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: STATUS[result.kind] ?? 500 });

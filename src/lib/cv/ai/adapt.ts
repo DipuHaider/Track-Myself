@@ -176,6 +176,7 @@ export async function runTailor(
     correction?: string;
     previousSummary?: string;
     userKey?: AICredential | null;
+    rate?: { limit: number; windowMs: number };
   },
 ): Promise<TailorResult> {
   const prompt = buildTailorPrompt(content, jobDescription, opts);
@@ -185,6 +186,7 @@ export async function runTailor(
     actor: opts.actor,
     prompt,
     userKey: opts.userKey,
+    rate: opts.rate,
   });
 
   if (!run.ok) return { ok: false, kind: tailorKind(run), error: run.message };

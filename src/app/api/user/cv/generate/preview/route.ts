@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
 import CVFile from "@/models/CVFile";
-import { checkRateLimit } from "@/lib/rateLimit";
 import { getUserCredential } from "@/lib/ai/userKey";
 import { aiAvailableFor, sharedProviderStatus, type Actor } from "@/lib/ai/gateway";
 import { isPremiumUser, isSuperAdmin } from "@/lib/permissions";
@@ -97,21 +96,12 @@ export async function POST(req: Request) {
       ? "No AI provider is available for your account — showing the reorder-only version."
       : "AI tailoring is not configured on this deployment — showing the reorder-only version.";
   } else {
-    const rate = checkRateLimit({
-      key: `cv-tailor:${auth.id}`,
-      limit: TAILOR_LIMIT,
-      windowMs: TAILOR_WINDOW_MS,
-    });
-
-    if (!rate.ok) {
-      tailored = tailorToApplication(baseline, { ...appInfo });
-      tailorMode = "heuristic";
-      tailorNote = `AI tailoring limit reached for this hour — showing the reorder-only version. Try again in ${Math.ceil(rate.retryAfterSeconds / 60)} minutes.`;
-    } else {
+    {
       const result = await runTailor(baseline, jobDescription, {
         task: "cv.preview",
         actor,
         correction, previousSummary, userKey,
+        rate: { limit: TAILOR_LIMIT, windowMs: TAILOR_WINDOW_MS },
       });
       if (result.ok) {
         const applied = applyTailorOutput(baseline, result.value);
@@ -125,7 +115,10 @@ export async function POST(req: Request) {
       } else {
         tailored = tailorToApplication(baseline, { ...appInfo });
         tailorMode = "heuristic";
-        tailorNote = "AI tailoring could not run just now — showing the reorder-only version.";
+        /* The gateway distinguishes a rate limit from an exhausted allowance
+           from an upstream failure, and its wording is more useful than a
+           single catch-all sentence. */
+        tailorNote = `${result.error} Showing the reorder-only version.`;
       }
     }
   }
