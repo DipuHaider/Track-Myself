@@ -62,15 +62,20 @@ function classifyFailure(status: number, body: string): FailureKind {
 }
 
 /** Ordered: the first that can run, runs. A later entry is tried only on failure. */
+/* sharedAllowed is deliberately required and has no default. The shared key used
+   to be appended whenever the env var existed, which meant an anonymous caller on
+   a public route spent the operator's Anthropic credit. Every caller must now
+   state who is asking; a signed-in session alone is not the answer to that. */
 export function resolveCredentials(opts: {
   superadmin: boolean;
+  sharedAllowed: boolean;
   userKey?: AICredential | null;
 }): AICredential[] {
   const chain: AICredential[] = [];
 
   if (opts.userKey?.apiKey) chain.push(opts.userKey);
 
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (opts.sharedAllowed && process.env.ANTHROPIC_API_KEY) {
     chain.push({
       provider: "anthropic",
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -79,7 +84,7 @@ export function resolveCredentials(opts: {
     });
   }
 
-  if (process.env.GEMINI_API_KEY && opts.superadmin) {
+  if (opts.sharedAllowed && process.env.GEMINI_API_KEY && opts.superadmin) {
     chain.push({
       provider: "gemini",
       apiKey: process.env.GEMINI_API_KEY,
@@ -91,7 +96,11 @@ export function resolveCredentials(opts: {
   return chain;
 }
 
-export function aiConfigured(opts: { superadmin: boolean; userKey?: AICredential | null }) {
+export function aiConfigured(opts: {
+  superadmin: boolean;
+  sharedAllowed: boolean;
+  userKey?: AICredential | null;
+}) {
   return resolveCredentials(opts).length > 0;
 }
 

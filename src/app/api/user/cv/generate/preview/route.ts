@@ -89,7 +89,7 @@ export async function POST(req: Request) {
     upgrade = true;
     tailorNote =
       "Free plan: your CV is reordered to match this job, not rewritten. Upgrade to Premium for AI tailoring.";
-  } else if (!aiConfigured({ superadmin, userKey })) {
+  } else if (!aiConfigured({ superadmin, sharedAllowed: true, userKey })) {
     tailored = tailorToApplication(baseline, { ...appInfo });
     tailorMode = "heuristic";
     tailorNote = (anyProviderConfigured() || Boolean(userKey))

@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
   const superadmin = isSuperAdmin(auth.role);
   const userKey = await getUserCredential(auth.id);
-  if (!aiConfigured({ superadmin, userKey })) {
+  if (!aiConfigured({ superadmin, sharedAllowed: true, userKey })) {
     return NextResponse.json({ error: "AI service not configured." }, { status: 503 });
   }
 

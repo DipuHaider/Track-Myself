@@ -18,7 +18,7 @@ export async function aiQuestions(opts: {
   userKey?: AICredential | null;
   onUsage?: (usage: TokenUsage | undefined, outcome: { ok: boolean; kind?: FailureKind; error?: string }) => void;
 }): Promise<Extra[]> {
-  const chain = resolveCredentials({ superadmin: opts.superadmin, userKey: opts.userKey });
+  const chain = resolveCredentials({ superadmin: opts.superadmin, sharedAllowed: true, userKey: opts.userKey });
   if (!chain.length) return [];
 
   const description = (opts.jobDescription ?? "").slice(0, 4000);

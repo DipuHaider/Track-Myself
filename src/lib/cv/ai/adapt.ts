@@ -160,7 +160,7 @@ export async function runTailor(
     onUsage?: (usage: TokenUsage | undefined, outcome: { ok: boolean; kind?: FailureKind; error?: string }) => void;
   } = {},
 ): Promise<TailorResult> {
-  const chain = resolveCredentials({ superadmin: Boolean(opts.superadmin), userKey: opts.userKey });
+  const chain = resolveCredentials({ superadmin: Boolean(opts.superadmin), sharedAllowed: true, userKey: opts.userKey });
   if (!chain.length) return { ok: false, kind: "no-key", error: "AI service not configured." };
 
   const prompt = buildTailorPrompt(content, jobDescription, opts);

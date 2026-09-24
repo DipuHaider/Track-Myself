@@ -173,11 +173,19 @@ export async function POST(req: Request) {
      requireAuth's 401 is read as "anonymous" instead of being returned. Gemini is
      the superadmin's personal key, so only a superadmin session unlocks it. */
   const auth = await requireAuth();
-  const superadmin = !(auth instanceof NextResponse) && isSuperAdmin(auth.role);
+  const signedIn = !(auth instanceof NextResponse);
 
-  const userId = auth instanceof NextResponse ? "" : auth.id;
-  const userKey = userId ? await getUserCredential(userId) : null;
-  const chain = resolveCredentials({ superadmin, userKey });
+  /* An anonymous visitor gets the local brief without a provider ever being
+     reached. The tool stays public and useful; it just stops being a way for the
+     internet to spend the operator's model credit. */
+  if (!signedIn) {
+    return NextResponse.json(localBrief(prompt));
+  }
+
+  const superadmin = isSuperAdmin(auth.role);
+  const userId = auth.id;
+  const userKey = await getUserCredential(userId);
+  const chain = resolveCredentials({ superadmin, sharedAllowed: true, userKey });
   if (!chain.length) {
     return NextResponse.json(localBrief(prompt));
   }
