@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { SUPERADMIN_EMAILS, isPremiumRole, type AccountStatus, type Plan } from "@/lib/permissions";
-import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
+import { checkRateLimitDb, clearRateLimitDb } from "@/lib/rateLimitStore";
 
 export const CLAIMS_TTL_MS = 5 * 60 * 1000;
 
@@ -118,7 +118,7 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials.password) return null;
 
         const throttleKey = `login:${credentials.email.toLowerCase().trim()}`;
-        const gate = checkRateLimit({
+        const gate = await checkRateLimitDb({
           key: throttleKey,
           limit: 8,
           windowMs: 15 * 60 * 1000,
@@ -132,7 +132,7 @@ export const authOptions: NextAuthOptions = {
         const match = await bcrypt.compare(credentials.password, user.password);
         if (!match) return null;
 
-        clearRateLimit(throttleKey);
+        await clearRateLimitDb(throttleKey);
 
         const role = effectiveRole(user.email, user.role);
 

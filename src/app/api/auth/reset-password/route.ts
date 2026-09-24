@@ -6,7 +6,8 @@ import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import PasswordResetToken from "@/models/PasswordResetToken";
 import { resetPasswordSchema } from "@/schemas/passwordResetSchema";
-import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/rateLimit";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
 import { hashResetToken } from "@/lib/passwordReset";
 import { invalidateClaims } from "@/lib/auth";
 
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const gate = checkRateLimit({
+  const gate = await checkRateLimitDb({
     key: `reset-password:${clientIp(req)}`,
     limit: 10,
     windowMs: 60 * 60 * 1000,

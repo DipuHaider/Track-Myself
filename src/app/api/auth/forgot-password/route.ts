@@ -5,7 +5,8 @@ import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import PasswordResetToken from "@/models/PasswordResetToken";
 import { forgotPasswordSchema } from "@/schemas/passwordResetSchema";
-import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/rateLimit";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
 import { sendPasswordResetMail } from "@/lib/mail";
 import { RESET_TTL_MINUTES, createResetToken, resetUrl } from "@/lib/passwordReset";
 
@@ -16,7 +17,7 @@ const ACCEPTED = { ok: true, message: "If that address has an account, a reset l
 export async function POST(req: Request) {
   const ip = clientIp(req);
 
-  const gate = checkRateLimit({
+  const gate = await checkRateLimitDb({
     key: `forgot-password:${ip}`,
     limit: 5,
     windowMs: 60 * 60 * 1000,
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
       return NextResponse.json(ACCEPTED);
     }
 
-    const perAccount = checkRateLimit({
+    const perAccount = await checkRateLimitDb({
       key: `forgot-password:user:${String(user._id)}`,
       limit: 3,
       windowMs: 60 * 60 * 1000,

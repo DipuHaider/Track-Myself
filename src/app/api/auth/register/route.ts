@@ -5,10 +5,11 @@ import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { registerSchema } from "@/schemas/authSchema";
-import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/rateLimit";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
 
 export async function POST(req: Request) {
-  const gate = checkRateLimit({
+  const gate = await checkRateLimitDb({
     key: `register:${clientIp(req)}`,
     limit: 5,
     windowMs: 60 * 60 * 1000,

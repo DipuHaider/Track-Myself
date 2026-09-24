@@ -5,10 +5,11 @@ import { requireAuth } from "@/lib/serverAuth";
 import { isSuperAdmin } from "@/lib/permissions";
 import { getUserCredential } from "@/lib/ai/userKey";
 import { runAiTask } from "@/lib/ai/gateway";
+import { clientIp } from "@/lib/rateLimit";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 15;
-const hits = new Map<string, number[]>();
 
 const STYLES = ["gradient", "mesh", "grid", "dots", "waves", "solid"];
 const LAYOUTS = ["left", "center", "split"];
@@ -62,28 +63,6 @@ const STOP_WORDS = new Set([
   "am", "is", "are", "banner", "profile", "linkedin", "github", "make", "create",
   "generate", "please", "want", "need", "who", "that", "this", "at", "as", "by",
 ]);
-
-function clientKey(req: Request) {
-  const forwarded = req.headers.get("x-forwarded-for") ?? "";
-  return forwarded.split(",")[0].trim() || req.headers.get("x-real-ip") || "anonymous";
-}
-
-function rateLimited(key: string) {
-  const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_PER_WINDOW) {
-    hits.set(key, recent);
-    return true;
-  }
-  recent.push(now);
-  hits.set(key, recent);
-  if (hits.size > 5000) {
-    for (const [k, times] of hits) {
-      if (times.every((t) => now - t >= WINDOW_MS)) hits.delete(k);
-    }
-  }
-  return false;
-}
 
 function titleCase(text: string) {
   return text.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -154,10 +133,18 @@ function sanitisePalette(raw: unknown): Palette {
 }
 
 export async function POST(req: Request) {
-  if (rateLimited(clientKey(req))) {
+  /* Was a second, per-instance copy of the shared limiter. On a serverless host
+     that capped nothing in particular — the real ceiling was the limit times
+     however many lambdas happened to be warm. */
+  const gate = await checkRateLimitDb({
+    key: `banner-brief:${clientIp(req)}`,
+    limit: MAX_PER_WINDOW,
+    windowMs: WINDOW_MS,
+  });
+  if (!gate.ok) {
     return NextResponse.json(
       { error: "Too many requests from this address. Please try again in a few minutes." },
-      { status: 429 },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfterSeconds) } },
     );
   }
 

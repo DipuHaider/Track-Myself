@@ -2,7 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { importFromLegacy, isContentEmpty } from "@/lib/cv/content";
-import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+import { clientIp } from "@/lib/rateLimit";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
 import { PDF_MIME, cvPdfFileName, renderCVPdf } from "@/lib/cv/pdf";
 import type { CVFormat, CVVariant } from "@/types/cv";
 
@@ -18,7 +19,7 @@ const FIELDS = [
 ] as const;
 
 export async function POST(req: Request) {
-  const gate = checkRateLimit({
+  const gate = await checkRateLimitDb({
     key: `cv-sample:${clientIp(req)}`,
     limit: MAX_PER_WINDOW,
     windowMs: WINDOW_MS,
