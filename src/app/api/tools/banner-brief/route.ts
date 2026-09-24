@@ -3,8 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
 import { isSuperAdmin } from "@/lib/permissions";
-import { callProvider, resolveCredentials } from "@/lib/cv/ai/provider";
-import { getUserCredential, recordUsage } from "@/lib/ai/userKey";
+import { getUserCredential } from "@/lib/ai/userKey";
+import { runAiTask } from "@/lib/ai/gateway";
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 15;
@@ -185,10 +185,6 @@ export async function POST(req: Request) {
   const superadmin = isSuperAdmin(auth.role);
   const userId = auth.id;
   const userKey = await getUserCredential(userId);
-  const chain = resolveCredentials({ superadmin, sharedAllowed: true, userKey });
-  if (!chain.length) {
-    return NextResponse.json(localBrief(prompt));
-  }
 
   const instruction = `You design profile banners. Turn the request below into a banner brief for ${platform}.
 
@@ -207,16 +203,21 @@ Return ONLY this JSON object, no markdown:
 {"headline":"","subheadline":"","tagline":"","keywords":[],"palette":{"background":"#","backgroundAlt":"#","accent":"#","text":"#","muted":"#"},"style":"","layout":""}`;
 
   try {
-    let text = "";
-    for (const cred of chain) {
-      const call = await callProvider(cred, instruction, 800);
-      if (cred.source === "user") await recordUsage(userId, call.usage, call);
-      if (call.ok) { text = call.text; break; }
-      console.error("banner brief provider failed:", call.error);
+    const run = await runAiTask({
+      task: "tools.banner-brief",
+      actor: { kind: "user", id: userId, role: auth.role, plan: auth.plan },
+      prompt: instruction,
+      maxOutputTokens: 800,
+      userKey,
+    });
+
+    /* Every refusal here degrades to the local brief rather than erroring: the
+       tool is meant to work without a model at all. */
+    if (!run.ok) {
+      return NextResponse.json(localBrief(prompt));
     }
 
-    /* Every provider declined, so fall back to the local brief rather than erroring —
-       this tool has always degraded silently and a banner is not worth a 502. */
+    const text = run.text;
     if (!text) return NextResponse.json(localBrief(prompt));
 
     const match = text.match(/\{[\s\S]*\}/);

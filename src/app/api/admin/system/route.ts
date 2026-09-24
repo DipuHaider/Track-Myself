@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
+import { sharedProviderStatus } from "@/lib/ai/gateway";
 import Application from "@/models/Application";
 import CVFile from "@/models/CVFile";
 import CVProfile from "@/models/CVProfile";
@@ -37,14 +38,16 @@ export async function GET() {
   for (const plan of PLANS) byPlan[plan] = 0;
   for (const row of planRows) if (row._id) byPlan[row._id] = row.count;
 
+  const aiKeys = sharedProviderStatus();
+
   return NextResponse.json({
     env: {
       googleOAuth: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
       nextAuthSecret: Boolean(process.env.NEXTAUTH_SECRET),
       nextAuthUrl: Boolean(process.env.NEXTAUTH_URL),
-      aiTailoring: Boolean(process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY),
-      aiProviderPrimary: process.env.ANTHROPIC_API_KEY ? "anthropic" : "",
-      aiProviderFallback: process.env.GEMINI_API_KEY ? "gemini (superadmin only)" : "",
+      aiTailoring: aiKeys.anthropic || aiKeys.gemini,
+      aiProviderPrimary: aiKeys.anthropic ? "anthropic" : aiKeys.openai ? "openai" : "",
+      aiProviderFallback: aiKeys.gemini ? "gemini (superadmin only)" : "",
       nodeEnv: process.env.NODE_ENV ?? "unknown",
     },
     database: {

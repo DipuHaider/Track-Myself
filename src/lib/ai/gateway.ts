@@ -93,6 +93,29 @@ function sharedCredential(spec: ModelSpec): AICredential | null {
   } as AICredential;
 }
 
+/* Diagnostics and pre-checks want to know whether a model is reachable, not what
+   the key is. Exposing that here keeps every env read inside the gateway. */
+export function sharedProviderStatus(): {
+  anthropic: boolean;
+  openai: boolean;
+  gemini: boolean;
+} {
+  return {
+    anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
+    openai: Boolean(process.env.OPENAI_API_KEY),
+    gemini: Boolean(process.env.GEMINI_API_KEY),
+  };
+}
+
+export async function aiAvailableFor(actor: Actor, userKey?: AICredential | null): Promise<boolean> {
+  if (userKey?.apiKey) return true;
+  const cfg = await getAiConfig();
+  if (!cfg.enabled || actor.kind !== "user") return false;
+  const id = modelForTask(cfg, "cv.adapt");
+  const spec = id ? modelSpec(id) : null;
+  return Boolean(spec && sharedCredential(spec));
+}
+
 function denial(reason: AiDenialReason, message: string, extra: Partial<AiRunResult> = {}): AiRunResult {
   return { ok: false, reason, message, ...extra } as AiRunResult;
 }

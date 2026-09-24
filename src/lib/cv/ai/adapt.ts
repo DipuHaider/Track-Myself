@@ -1,5 +1,7 @@
+import { runAiTask, type Actor } from "@/lib/ai/gateway";
+import type { AiTaskId } from "@/lib/ai/config";
 import {
-  PROVIDER_LABELS, callProvider, resolveCredentials,
+  PROVIDER_LABELS,
   type AICredential, type AIProvider, type FailureKind, type TokenUsage,
 } from "./provider";
 import type { CVContent, CVSkillGroup } from "@/types/cv";
@@ -149,49 +151,54 @@ function parseTailorJson(content: CVContent, text: string): TailorOutput | null 
  * Walks the provider chain and returns the first success. Never throws — every
  * failure is a typed result so callers can degrade rather than 500.
  */
+/* Credential choice, budget and metering moved to the gateway; what is left here
+   is the part that is actually about tailoring — building the prompt and reading
+   the answer back. */
+/* The gateway speaks in denial reasons; TailorResult speaks in a narrower set
+   the callers already branch on. "disabled" and "no-route" mean no model was
+   available, which is what "no-key" has always meant to them, so the existing
+   heuristic fallback still fires. An exhausted allowance is an "error" carrying
+   a message worth showing, not a silent degradation. */
+function tailorKind(
+  run: Extract<Awaited<ReturnType<typeof runAiTask>>, { ok: false }>,
+): "no-key" | "upstream" | "unparsable" | "error" {
+  if (run.reason === "disabled" || run.reason === "no-route") return "no-key";
+  if (run.reason === "upstream") return run.kind === "empty" ? "unparsable" : "upstream";
+  return "error";
+}
+
 export async function runTailor(
   content: CVContent,
   jobDescription: string,
   opts: {
+    actor: Actor;
+    task?: AiTaskId;
     correction?: string;
     previousSummary?: string;
-    superadmin?: boolean;
     userKey?: AICredential | null;
-    onUsage?: (usage: TokenUsage | undefined, outcome: { ok: boolean; kind?: FailureKind; error?: string }) => void;
-  } = {},
+  },
 ): Promise<TailorResult> {
-  const chain = resolveCredentials({ superadmin: Boolean(opts.superadmin), sharedAllowed: true, userKey: opts.userKey });
-  if (!chain.length) return { ok: false, kind: "no-key", error: "AI service not configured." };
-
   const prompt = buildTailorPrompt(content, jobDescription, opts);
-  const failures: string[] = [];
 
-  for (const cred of chain) {
-    const call = await callProvider(cred, prompt);
-    if (cred.source === "user") opts.onUsage?.(call.usage, call);
+  const run = await runAiTask({
+    task: opts.task ?? "cv.adapt",
+    actor: opts.actor,
+    prompt,
+    userKey: opts.userKey,
+  });
 
-    if (!call.ok) {
-      console.error("CV tailor provider failed:", call.error);
-      failures.push(call.error);
-      continue;
-    }
+  if (!run.ok) return { ok: false, kind: tailorKind(run), error: run.message };
 
-    const value = parseTailorJson(content, call.text);
-    if (!value) {
-      const why = `${PROVIDER_LABELS[cred.provider]} returned something that was not CV JSON.`;
-      console.error("CV tailor parse failed:", why);
-      failures.push(why);
-      continue;
-    }
-
-    return { ok: true, value, provider: cred.provider, providerLabel: PROVIDER_LABELS[cred.provider] };
+  const value = parseTailorJson(content, run.text);
+  if (!value) {
+    return {
+      ok: false,
+      kind: "unparsable",
+      error: `${run.providerLabel} returned something that was not CV JSON.`,
+    };
   }
 
-  return {
-    ok: false,
-    kind: "upstream",
-    error: failures[failures.length - 1] ?? "AI request failed.",
-  };
+  return { ok: true, value, provider: "anthropic", providerLabel: run.providerLabel };
 }
 
 /** Applies only the fields the model is allowed to touch, and reports which moved. */

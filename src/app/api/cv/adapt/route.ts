@@ -4,10 +4,10 @@ import { NextResponse } from "next/server";
 import { requirePremiumAuth } from "@/lib/serverAuth";
 import { normaliseContent } from "@/lib/cv/content";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { getUserCredential, recordUsage } from "@/lib/ai/userKey";
+import { getUserCredential } from "@/lib/ai/userKey";
+import { aiAvailableFor, type Actor } from "@/lib/ai/gateway";
 import { isSuperAdmin } from "@/lib/permissions";
 import { JD_MAX, runTailor } from "@/lib/cv/ai/adapt";
-import { aiConfigured } from "@/lib/cv/ai/provider";
 
 /* Every call costs money, so this is capped per account rather than per IP. */
 const ADAPT_LIMIT = 20;
@@ -50,16 +50,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const superadmin = isSuperAdmin(auth.role);
   const userKey = await getUserCredential(auth.id);
-  if (!aiConfigured({ superadmin, sharedAllowed: true, userKey })) {
+  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan };
+
+  if (!(await aiAvailableFor(actor, userKey))) {
     return NextResponse.json({ error: "AI service not configured." }, { status: 503 });
   }
 
   const result = await runTailor(content, jobDescription, {
-    superadmin,
+    actor,
     userKey,
-    onUsage: (usage, outcome) => { void recordUsage(auth.id, usage, outcome); },
   });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: STATUS[result.kind] ?? 500 });

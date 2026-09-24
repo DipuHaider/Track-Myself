@@ -4,13 +4,13 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
 import CVFile from "@/models/CVFile";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { getUserCredential, recordUsage } from "@/lib/ai/userKey";
+import { getUserCredential } from "@/lib/ai/userKey";
+import { aiAvailableFor, sharedProviderStatus, type Actor } from "@/lib/ai/gateway";
 import { isPremiumUser, isSuperAdmin } from "@/lib/permissions";
 import {
   checkGenerationGates, isTooThinToPrint, resolveGenerationContent,
 } from "@/lib/cv/generatePipeline";
 import { CORRECTION_MAX, JD_MAX, applyTailorOutput, runTailor } from "@/lib/cv/ai/adapt";
-import { aiConfigured, anyProviderConfigured } from "@/lib/cv/ai/provider";
 import { tailorToApplication } from "@/lib/cv/import/merge";
 import { textForFile } from "@/lib/cv/import/sources";
 import { contentToSections } from "@/lib/cv/diff/contentText";
@@ -79,6 +79,7 @@ export async function POST(req: Request) {
   const superadmin = isSuperAdmin(auth.role);
   const userKey = await getUserCredential(auth.id);
   const premium = superadmin || isPremiumUser(auth.role, auth.plan);
+  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan };
   const jobDescription = appInfo ? jobDescriptionFrom(appInfo) : "";
 
   if (!appInfo || !jobDescription.trim()) {
@@ -89,10 +90,10 @@ export async function POST(req: Request) {
     upgrade = true;
     tailorNote =
       "Free plan: your CV is reordered to match this job, not rewritten. Upgrade to Premium for AI tailoring.";
-  } else if (!aiConfigured({ superadmin, sharedAllowed: true, userKey })) {
+  } else if (!(await aiAvailableFor(actor, userKey))) {
     tailored = tailorToApplication(baseline, { ...appInfo });
     tailorMode = "heuristic";
-    tailorNote = (anyProviderConfigured() || Boolean(userKey))
+    tailorNote = (sharedProviderStatus().anthropic || Boolean(userKey))
       ? "No AI provider is available for your account — showing the reorder-only version."
       : "AI tailoring is not configured on this deployment — showing the reorder-only version.";
   } else {
@@ -108,8 +109,9 @@ export async function POST(req: Request) {
       tailorNote = `AI tailoring limit reached for this hour — showing the reorder-only version. Try again in ${Math.ceil(rate.retryAfterSeconds / 60)} minutes.`;
     } else {
       const result = await runTailor(baseline, jobDescription, {
-        correction, previousSummary, superadmin, userKey,
-        onUsage: (usage, outcome) => { void recordUsage(auth.id, usage, outcome); },
+        task: "cv.preview",
+        actor,
+        correction, previousSummary, userKey,
       });
       if (result.ok) {
         const applied = applyTailorOutput(baseline, result.value);

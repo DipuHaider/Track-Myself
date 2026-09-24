@@ -1,7 +1,5 @@
-import {
-  callProvider, resolveCredentials,
-  type AICredential, type FailureKind, type TokenUsage,
-} from "@/lib/cv/ai/provider";
+import { runAiTask, type Actor } from "@/lib/ai/gateway";
+import type { AICredential } from "@/lib/cv/ai/provider";
 import { QUESTION_SECTIONS, type QuestionSection } from "@/lib/interview/bank";
 
 export const AI_TARGET = 22;
@@ -14,13 +12,9 @@ export async function aiQuestions(opts: {
   jobTitle: string;
   companyName: string;
   jobDescription?: string;
-  superadmin: boolean;
+  actor: Actor;
   userKey?: AICredential | null;
-  onUsage?: (usage: TokenUsage | undefined, outcome: { ok: boolean; kind?: FailureKind; error?: string }) => void;
 }): Promise<Extra[]> {
-  const chain = resolveCredentials({ superadmin: opts.superadmin, sharedAllowed: true, userKey: opts.userKey });
-  if (!chain.length) return [];
-
   const description = (opts.jobDescription ?? "").slice(0, 4000);
 
   const prompt = `You are preparing a candidate for a job interview.
@@ -35,27 +29,31 @@ Favour specifics from the description over generic questions. No numbering, no p
 Return ONLY a JSON array, each element {"q":"...","s":"..."} where s is one of:
 ${QUESTION_SECTIONS.join(", ")}`;
 
-  for (const cred of chain) {
-    const call = await callProvider(cred, prompt, 2000);
-    if (cred.source === "user") opts.onUsage?.(call.usage, call);
-    if (!call.ok) continue;
+  const run = await runAiTask({
+    task: "interview.questions",
+    actor: opts.actor,
+    prompt,
+    maxOutputTokens: 2000,
+    userKey: opts.userKey,
+  });
 
-    const match = call.text.match(/\[[\s\S]*\]/);
-    if (!match) continue;
-
-    try {
-      const parsed = JSON.parse(match[0]) as { q?: unknown; s?: unknown }[];
-      const rows = parsed
-        .filter((r) => typeof r?.q === "string" && (r.q as string).trim().length > 10)
-        .map((r) => ({
-          text: (r.q as string).trim().slice(0, 300),
-          section: (QUESTION_SECTIONS.includes(r.s as QuestionSection)
-            ? r.s
-            : "role") as QuestionSection,
-        }));
-      if (rows.length) return rows.slice(0, AI_TARGET);
-    } catch {
-      /* Try the next provider. */
+  if (run.ok) {
+    const match = run.text.match(/\[[\s\S]*\]/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]) as { q?: unknown; s?: unknown }[];
+        const rows = parsed
+          .filter((r) => typeof r?.q === "string" && (r.q as string).trim().length > 10)
+          .map((r) => ({
+            text: (r.q as string).trim().slice(0, 300),
+            section: (QUESTION_SECTIONS.includes(r.s as QuestionSection)
+              ? r.s
+              : "role") as QuestionSection,
+          }));
+        if (rows.length) return rows.slice(0, AI_TARGET);
+      } catch {
+        /* Fall through to the static bank. */
+      }
     }
   }
 

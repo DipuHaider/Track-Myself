@@ -10,7 +10,8 @@ import { canExportPdf, canUseAppDocs, isSuperAdmin } from "@/lib/permissions";
 import { buildInterviewQuestions } from "@/lib/cv/docx/interviewQuestions";
 import { InterviewQuestionsDocument } from "@/lib/cv/pdf/interviewQuestions";
 import { aiQuestions } from "@/lib/interview/ai";
-import { getUserCredential, recordUsage } from "@/lib/ai/userKey";
+import { getUserCredential } from "@/lib/ai/userKey";
+import type { Actor } from "@/lib/ai/gateway";
 import { buildQuestionSet, clampCount } from "@/lib/interview/select";
 import { SECTION_LABELS } from "@/lib/interview/bank";
 import { isoToday, slugPart } from "@/lib/cv/fileName";
@@ -69,9 +70,8 @@ export async function POST(req: Request) {
     jobTitle: info.jobTitle,
     companyName: info.companyName,
     jobDescription: info.jobDescription,
-    superadmin: isSuperAdmin(auth.role),
+    actor: { kind: "user", id: auth.id, role: auth.role, plan: auth.plan } as Actor,
     userKey: await getUserCredential(auth.id),
-    onUsage: (usage, outcome) => { void recordUsage(auth.id, usage, outcome); },
   });
 
   const set = buildQuestionSet({

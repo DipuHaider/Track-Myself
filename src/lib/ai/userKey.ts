@@ -59,60 +59,6 @@ export async function getUserCredential(userId: string): Promise<AICredential | 
   }
 }
 
-export async function recordUsage(
-  userId: string,
-  usage: TokenUsage | undefined,
-  outcome: { ok: boolean; kind?: FailureKind; error?: string },
-) {
-  if (!userId) return;
-
-  try {
-    await dbConnect();
-    const row = (await User.findById(userId, "aiUsage").lean()) as { aiUsage?: StoredUsage } | null;
-    const now = new Date();
-    const key = monthKey(now);
-    const sameMonth = row?.aiUsage?.monthKey === key;
-
-    const input = usage?.inputTokens ?? 0;
-    const output = usage?.outputTokens ?? 0;
-
-    const inc: Record<string, number> = {
-      "aiUsage.inputTokens": input,
-      "aiUsage.outputTokens": output,
-      "aiUsage.calls": 1,
-    };
-
-    /* Month counters reset by being overwritten when the month changes, so no cron. */
-    const set: Record<string, unknown> = {
-      "aiUsage.lastCallAt": now,
-      "aiKey.lastCheckedAt": now,
-      "aiKey.status": outcome.ok ? "ok" : statusFor(outcome.kind),
-      "aiKey.lastError": outcome.ok ? "" : (outcome.error ?? "").slice(0, 300),
-    };
-
-    if (sameMonth) {
-      inc["aiUsage.monthInputTokens"] = input;
-      inc["aiUsage.monthOutputTokens"] = output;
-      inc["aiUsage.monthCalls"] = 1;
-    } else {
-      set["aiUsage.monthKey"] = key;
-      set["aiUsage.monthInputTokens"] = input;
-      set["aiUsage.monthOutputTokens"] = output;
-      set["aiUsage.monthCalls"] = 1;
-    }
-
-    await User.updateOne({ _id: userId }, { $inc: inc, $set: set });
-  } catch {
-    /* Metering must never break the feature it is measuring. */
-  }
-}
-
-function statusFor(kind?: FailureKind) {
-  if (kind === "invalid") return "invalid";
-  if (kind === "rate-limited") return "rate-limited";
-  if (kind === "quota") return "quota";
-  return "error";
-}
 
 /* A one-token probe so the form can reject a bad key immediately rather than
    letting it fail later inside a CV generation the user has already waited for. */
