@@ -41,6 +41,19 @@ const UserSchema = new Schema(
       lastError: { type: String, default: "" },
       lastCheckedAt: { type: Date, default: null },
     },
+    /* Shared-key usage is counted apart from aiUsage, which the AI-key page
+       presents as "your key's usage". Merging them would misreport a user's own
+       consumption and let a shared-key failure mark their key invalid. */
+    aiSharedUsage: {
+      inputTokens: { type: Number, default: 0 },
+      outputTokens: { type: Number, default: 0 },
+      calls: { type: Number, default: 0 },
+      lastCallAt: { type: Date, default: null },
+      monthKey: { type: String, default: "" },
+      monthInputTokens: { type: Number, default: 0 },
+      monthOutputTokens: { type: Number, default: 0 },
+      monthCalls: { type: Number, default: 0 },
+    },
     aiUsage: {
       inputTokens: { type: Number, default: 0 },
       outputTokens: { type: Number, default: 0 },
