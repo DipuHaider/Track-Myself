@@ -38,6 +38,10 @@ export const JOB_TYPES = [
   "On-site",
 ] as const;
 
+export const WORKPLACE_TYPES = ["Remote", "Hybrid", "On-site"] as const;
+
+export type WorkplaceType = (typeof WORKPLACE_TYPES)[number];
+
 export const FACEBOOK_PLATFORMS: ReadonlySet<string> = new Set([
   "Facebook Page",
   "Facebook Group",

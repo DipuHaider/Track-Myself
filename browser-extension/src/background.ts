@@ -14,6 +14,7 @@ interface JobPayload {
   notes:       string;
   platform?:       string;
   jobType?:        string;
+  workplaceType?:  string;
   salary?:         string;
   jobDescription?: string;
 }

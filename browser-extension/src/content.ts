@@ -12,6 +12,7 @@ interface JobData {
   notes:       string;
   platform?:       string;
   jobType?:        string;
+  workplaceType?:  string;
   salary?:         string;
   jobDescription?: string;
 }
@@ -207,6 +208,51 @@ function textIn(root: ParentNode, ...selectors: string[]): string {
   return "";
 }
 
+/* The pane also holds LinkedIn's own controls, so a bare h1/h2 lookup can come
+   back with something like "Are these results helpful?". In the split view the
+   posting's title is a link to its own /jobs/view page, which is a far better
+   anchor than any heading. */
+const UI_CHROME = /are these results|results helpful|jobs you may|search results|people also viewed|similar jobs|premium|sign in|dismiss/i;
+
+function jobTitleFrom(pane: ParentNode): string {
+  const candidates = [
+    "a[href*='/jobs/view/']",
+    "h1",
+    "h2 a",
+    "h2",
+  ];
+  for (const sel of candidates) {
+    for (const el of [...pane.querySelectorAll(sel)].slice(0, 4)) {
+      const t = el.textContent?.replace(/\s+/g, " ").trim() ?? "";
+      if (t && t.length < 160 && !UI_CHROME.test(t)) return t;
+    }
+  }
+  return "";
+}
+
+/* "Remote" on its own is a working arrangement, not a place — it belongs to
+   workplace type, and letting it stand as the location loses the city. */
+function placeOnly(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  if (/^(remote|hybrid|on[\s-]?site|in[\s-]?office)$/i.test(t)) return "";
+  return t;
+}
+
+/* Falls back to the header text, where the place is the segment that reads like
+   one — "Berlin, Berlin, Germany" — rather than a date or an applicant count. */
+function placeFromHeader(): string {
+  for (const part of topCardText().split("\u00b7")) {
+    const t = part.replace(/\s+/g, " ").trim();
+    if (!t || t.length > 80) continue;
+    if (NOT_A_PLACE.test(t) || UI_CHROME.test(t)) continue;
+    if (!t.includes(",")) continue;
+    if (/\d{4}|\$|€|£|₹/.test(t)) continue;
+    return placeOnly(t);
+  }
+  return "";
+}
+
 // ── scrapers ──────────────────────────────────────────────────────────────
 
 // Strategy 1: JSON-LD structured data (most reliable — sites include this for SEO)
@@ -281,7 +327,7 @@ function scrapeLinkedIn(): JobData {
     ".jobs-unified-top-card__job-title h1",
     "h1[class*='job-title']",
     ".job-details-jobs-unified-top-card__job-title",
-  ) || textIn(pane, "h1", "h2 a", "h2") || ld.jobTitle || title.jobTitle || "";
+  ) || jobTitleFrom(pane) || ld.jobTitle || title.jobTitle || "";
 
   const companyName = qs(
     ".job-details-jobs-unified-top-card__company-name a",
@@ -302,7 +348,11 @@ function scrapeLinkedIn(): JobData {
     ".jobs-unified-top-card__bullet",
     ".tvm__text--low-emphasis",
   );
-  const jobLocation = firstSegment(locationLine) || ld.location || title.location || "";
+  const jobLocation = placeOnly(firstSegment(locationLine))
+    || placeFromHeader()
+    || placeOnly(ld.location ?? "")
+    || placeOnly(title.location ?? "")
+    || "";
 
   const description = stripHeading(qs(
     "#job-details",
@@ -324,9 +374,10 @@ function scrapeLinkedIn(): JobData {
     companyName: cleanCompany(companyName),
     location: extra.location || jobLocation,
     jobPostUrl: location.href,
-    notes: description.slice(0, 600) || ld.notes || "",
+    notes: "",
     platform: "LinkedIn",
     jobType: extra.jobType,
+    workplaceType: extra.workplaceType,
     salary: extra.salary,
     jobDescription: description.slice(0, 24000),
   };
@@ -340,8 +391,8 @@ function enrich(
   jobLocation: string,
   ld: Partial<JobData>,
   pillSelectors: string[],
-): { jobType: string; salary: string; location: string } {
-  const empty = { jobType: "", salary: "", location: jobLocation };
+): { jobType: string; salary: string; workplaceType: string; location: string } {
+  const empty = { jobType: "", salary: "", workplaceType: "", location: jobLocation };
   try {
     const pills = pillSelectors
       .flatMap(sel => [...document.querySelectorAll(sel)])
@@ -364,12 +415,8 @@ function enrich(
     const money = header.match(/[$€£₹]\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?(?:\s*[-–—]\s*[$€£₹]?\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?)?/);
     const salary = money?.[0]?.trim() || ld.salary || "";
 
-    const hasPlace = place !== "" && jobLocation.toLowerCase().includes(place.toLowerCase());
-    const location = place && !hasPlace
-      ? [jobLocation, place].filter(Boolean).join(" · ")
-      : jobLocation;
-
-    return { jobType, salary, location };
+    /* Workplace type has its own field now, so the location stays a place. */
+    return { jobType, salary, workplaceType: place, location: jobLocation };
   } catch (err) {
     console.warn("[TrackMyself] could not read the job pills:", err);
     return empty;
@@ -425,9 +472,10 @@ function scrapeIndeed(): JobData {
     companyName: cleanCompany(companyName),
     location: extra.location || jobLocation,
     jobPostUrl: location.href,
-    notes: description.slice(0, 600) || ld.notes || "",
+    notes: "",
     platform: "Indeed",
     jobType: extra.jobType,
+    workplaceType: extra.workplaceType,
     salary: extra.salary,
     jobDescription: description.slice(0, 24000),
   };
@@ -538,8 +586,8 @@ shadow.appendChild(panelEl);
 /* The pay, employment type and full description are saved but have no field in
    this panel, so they would otherwise vanish silently. */
 function capturedLine(job: JobData): string {
-  const bits = [job.jobType, job.salary].filter(Boolean);
-  if (job.jobDescription && job.jobDescription.length > 600) bits.push("full description");
+  const bits = [job.jobType, job.workplaceType, job.salary].filter(Boolean);
+  if (job.jobDescription) bits.push("job description");
   return bits.join(" · ");
 }
 
@@ -612,7 +660,7 @@ function renderPanel() {
       </div>
       <div class="tm-field">
         <label class="tm-label" for="tm-notes">Notes</label>
-        <textarea id="tm-notes" class="tm-textarea" placeholder="Key requirements, salary, etc.">${escHtml(job.notes)}</textarea>
+        <textarea id="tm-notes" class="tm-textarea" placeholder="Your own notes — the job description is saved separately">${escHtml(job.notes)}</textarea>
       </div>
       ${addError ? `<p class="tm-error">${escHtml(addError)}</p>` : ""}
       <button id="tm-add-btn" class="tm-btn-primary" style="margin-top:4px;" ${addBusy ? "disabled" : ""}>

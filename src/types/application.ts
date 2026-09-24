@@ -8,6 +8,7 @@ export interface Application {
   platform?: string;
   platformDetail?: string;
   jobType?: string;
+  workplaceType?: string;
   applicationType?: string;
   submissionMethod?: string;
   applicationStatus: (typeof APPLICATION_STATUSES)[number];

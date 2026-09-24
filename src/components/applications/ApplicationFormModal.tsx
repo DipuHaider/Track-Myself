@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
-import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, PLATFORMS } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, WORKPLACE_TYPES, PLATFORMS } from "@/constants/applicationStatus";
 import type { Application } from "@/types/application";
 
 /* ── helpers ─────────────────────────────────────── */
@@ -64,6 +64,7 @@ type FormData = {
   platform: string;
   platformDetail: string;
   jobType: string;
+  workplaceType: string;
   applicationStatus: string;
   city: string;
   country: string;
@@ -86,6 +87,7 @@ const EMPTY: FormData = {
   platform: "",
   platformDetail: "",
   jobType: "",
+  workplaceType: "",
   applicationStatus: "Wishlist",
   city: "",
   country: "",
@@ -109,6 +111,7 @@ function toForm(app: Application): FormData {
     platform: app.platform ?? "",
     platformDetail: app.platformDetail ?? "",
     jobType: app.jobType ?? "",
+    workplaceType: app.workplaceType ?? "",
     applicationStatus: app.applicationStatus,
     city: app.city ?? "",
     country: app.country ?? "",
@@ -252,6 +255,7 @@ export default function ApplicationFormModal({
       platform: form.platform || undefined,
       platformDetail: form.platformDetail || undefined,
       jobType: form.jobType || undefined,
+      workplaceType: form.workplaceType || undefined,
       applicationStatus: form.applicationStatus,
       city: form.city || undefined,
       country: form.country || undefined,
@@ -403,6 +407,15 @@ export default function ApplicationFormModal({
             <select className={inputCls} value={form.jobType} onChange={set("jobType")}>
               <option value="">Select job type</option>
               {JOB_TYPES.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Workplace">
+            <select className={inputCls} value={form.workplaceType} onChange={set("workplaceType")}>
+              <option value="">Select workplace</option>
+              {WORKPLACE_TYPES.map((t) => (
                 <option key={t}>{t}</option>
               ))}
             </select>

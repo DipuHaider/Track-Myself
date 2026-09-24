@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { JOB_TYPES, PLATFORMS } from "@/constants/applicationStatus";
+import { JOB_TYPES, PLATFORMS, WORKPLACE_TYPES } from "@/constants/applicationStatus";
 import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
 
 async function getExtensionUser(req: Request) {
@@ -82,6 +82,7 @@ export async function POST(req: Request) {
     location:          str("location"),
     platform:          oneOf(str("platform"), PLATFORMS),
     jobType:           oneOf(str("jobType"), JOB_TYPES),
+    workplaceType:     oneOf(str("workplaceType"), WORKPLACE_TYPES),
     salary:            str("salary").slice(0, 120) || undefined,
     jobPostUrl:        str("jobPostUrl"),
     jobDescription:    str("jobDescription").slice(0, 24000) || undefined,
