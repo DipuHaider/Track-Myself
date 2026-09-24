@@ -1,6 +1,7 @@
 "use client";
 
 import { FileText, Image as ImageIcon, File, ExternalLink } from "lucide-react";
+import { postingAge } from "@/lib/applicationFlags";
 import Modal from "@/components/shared/Modal";
 import GapAnalysisSection from "@/components/applications/GapAnalysisSection";
 import StatusBadge from "@/components/applications/StatusBadge";
@@ -44,11 +45,12 @@ function formatDateTime(d?: Date | string) {
    from text like "7 months ago", so the original phrase is shown rather than a
    false-precision date. Rows with no value are hidden by Row itself. */
 function postedLabel(app: Application): string {
-  if (app.postedAgeText && app.postingPrecision === "approximate") {
-    return `${app.postedAgeText} (approx.)`;
-  }
-  if (!app.postedAt) return "";
-  return new Date(app.postedAt).toLocaleDateString();
+  const age = postingAge(app);
+  if (!age.known) return "";
+  /* The phrase the posting itself used, where there is one, plus the derived
+     reading. "7 months ago · older posting" is more honest than a date we
+     inferred from those words. */
+  return app.postedAgeText ? `${app.postedAgeText} · ${age.label}` : age.label;
 }
 
 export default function ViewApplicationModal({

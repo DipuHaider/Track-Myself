@@ -32,3 +32,63 @@ export function computeDuplicateIds(applications: Application[]): Set<string> {
   }
   return ids;
 }
+
+/* Posting age is a different question from the ghost rule above, and conflating
+   them would be wrong in both directions. isPossibleGhost asks how long YOU have
+   waited without a reply; this asks how long the LISTING has been up. A posting
+   from last week can sit unanswered for months, and a year-old posting can be
+   filled the day you apply.
+
+   It reports what was observed and nothing more. There is no probability here,
+   and no claim that an old posting is fake — that would need outcomes to
+   validate against, which nothing in this app has. */
+export type PostingAge = {
+  known: boolean;
+  days: number | null;
+  label: string;
+  tone: "neutral" | "caution";
+  approximate: boolean;
+};
+
+const OLD_DAYS = 30;
+const VERY_OLD_DAYS = 90;
+
+export function postingAge(app: Application): PostingAge {
+  const unknown: PostingAge = {
+    known: false,
+    days: null,
+    label: "Posting age unknown",
+    tone: "neutral",
+    approximate: false,
+  };
+
+  if (!app.postedAt) return unknown;
+
+  const at = new Date(app.postedAt).getTime();
+  if (Number.isNaN(at)) return unknown;
+
+  const days = Math.floor((Date.now() - at) / 86_400_000);
+  if (days < 0) return unknown;
+
+  const approximate = app.postingPrecision !== "exact";
+  const about = approximate ? "about " : "";
+
+  if (days >= VERY_OLD_DAYS) {
+    return {
+      known: true, days, approximate, tone: "caution",
+      label: `Posted ${about}${Math.round(days / 30)} months ago — current availability unconfirmed`,
+    };
+  }
+
+  if (days >= OLD_DAYS) {
+    return {
+      known: true, days, approximate, tone: "caution",
+      label: `Posted ${about}${Math.round(days / 7)} weeks ago — older posting`,
+    };
+  }
+
+  return {
+    known: true, days, approximate, tone: "neutral",
+    label: days <= 1 ? "Posted in the last day" : `Posted ${about}${days} days ago`,
+  };
+}

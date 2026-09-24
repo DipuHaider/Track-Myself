@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lucide-react";
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
-import { isPossibleGhost } from "@/lib/applicationFlags";
+import { isPossibleGhost, postingAge } from "@/lib/applicationFlags";
 import AppDocButton from "@/components/applications/AppDocButton";
 import { useSession } from "next-auth/react";
 import { canUseAppDocs } from "@/lib/permissions";
@@ -141,6 +141,21 @@ export default function ApplicationTable({
                     {duplicateIds?.has(app._id) && (
                       <span className="role-badge badge-dup px-1.5 py-0.5 text-[10px]">Dup</span>
                     )}
+                    {(() => {
+                      /* Only shown once a posting has actually been observed as
+                         old. An unobserved posting says nothing, which is not the
+                         same as saying it is fine. */
+                      const age = postingAge(app);
+                      if (!age.known || age.tone !== "caution") return null;
+                      return (
+                        <span
+                          className="role-badge status-no-resp px-1.5 py-0.5 text-[10px]"
+                          title={age.label}
+                        >
+                          Old listing
+                        </span>
+                      );
+                    })()}
                   </span>
                 </td>
                 <td className="px-4 py-3">{app.jobTitle}</td>
