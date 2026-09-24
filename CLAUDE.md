@@ -2,7 +2,9 @@
 
 # TrackMyself — Project Reference
 
-Job application tracker. Next.js 16.2.5, React 19, TypeScript, MongoDB/Mongoose, NextAuth 4, Tailwind CSS 4, Zod 4, React Hook Form, TanStack Table, Recharts, Three.js, pdf-lib, docx.
+Job application tracker. Next.js 16.3.4, React 19, TypeScript, MongoDB/Mongoose, NextAuth 4,
+Tailwind CSS 4, Zod 4, React Hook Form, TanStack Table, Recharts, Three.js, pdf-lib, docx,
+@react-pdf/renderer, Resend.
 
 Path alias: `@/` → `src/`. Theme: CSS custom properties via `data-theme` on `<html>`. Fonts: Geist Sans + Geist Mono.
 
@@ -12,8 +14,8 @@ Path alias: `@/` → `src/`. Theme: CSS custom properties via `data-theme` on `<
 |---|---|---|
 | Public | `/`, `/tools/*` | None |
 | Auth | `/(auth)/login`, `/register`, `/redirect` | Redirect if already authed |
-| Portal | `/(portal)/me`, `/me/applications`, `/me/my-cv`, `/me/cv` | Any session → layout redirects to `/login` |
-| Dashboard | `/(dashboard)/dashboard`, `/applications`, `/analytics`, `/users`, `/dashboard/cv`, `/profile` | editor+ → layout redirects to `/me` |
+| Portal | `/(portal)/me`, `/me/applications`, `/me/my-cv`, `/me/cv`, `/me/todos`, `/me/issues`, `/me/notifications`, `/me/ai-key` | Any session → layout redirects to `/login` |
+| Dashboard | `/(dashboard)/dashboard`, `/applications` (+ `/create`, `/edit/[id]`, `/[id]`), `/analytics`, `/users`, `/dashboard/cv`, `/dashboard/issues`, `/dashboard/users`, `/profile` | editor+ → layout redirects to `/me` |
 | Dashboard (admin) | `/settings`, `/dashboard/rbac` | admin+ → page redirects to `/dashboard` |
 | Admin | `/admin/*` | Superadmin only (legacy, kept for compatibility) |
 
@@ -88,11 +90,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 `dbConnect()` singleton with global cache. Pool: 10. Call before every Mongoose query.
 
-Models in `src/models/`:
-- `User` — name, email, password?, googleId, role, plan, bio, image
+Models in `src/models/` — all thirteen:
+`AccessControl`, `AppSettings`, `Application`, `CVFile`, `CVProfile`, `Document`, `Interview`,
+`IssueReport`, `Notification`, `PasswordResetToken`, `Reminder`, `Todo`, `User`.
+
+- `User` — name, email, password?, googleId, role, plan, status, bio, image, aiKey, a11y
 - `Application` — full job record, userId-scoped (see `src/types/application.ts`)
 - `Interview` — applicationId, stageName, status, scheduledDate, feedback, notes
-- `Document` — userId, type, name, url
+- `Document` — application attachments: userId, name, size, mimeType, base64 `data`
+  (`url` is legacy). Served by `/api/attachments/[...parts]`, owner-scoped
+- `Todo`, `Notification`, `IssueReport`, `PasswordResetToken` — all userId-indexed, and all
+  purged by `src/lib/accountDeletion.ts`
 - `Reminder` — applicationId, title, remindAt, completed
 - `CVProfile` — one per user: structured `content` (CVContent), `primary` file slots, legacy flat fields
 - `CVFile` — one document per uploaded file (base64 `data`, `category`), userId-indexed
@@ -169,7 +177,13 @@ src/
     chartTheme.ts       useChartTheme() — validated light/dark chart palette
     cvFileTypes.ts      Accepted mimes, size caps, resolveFileMime(), fileTypeLabel() (client-safe)
     cvFiles.ts          CV file DB helpers, legacy migration; re-exports cvFileTypes
-    cv/                 content.ts (model + legacy import) and docx/ builders
+    cv/                 content.ts, docx/ and pdf/ builders, ai/provider.ts, import/, diff/
+    mail/               index.ts dispatcher, resend.ts, web3forms.ts (fallback), templates.ts
+    notifications/      create.ts — writes in-app Notification rows
+    passwordReset.ts    token create/hash/expiry for the reset flow
+    attachments.ts      attachmentUrl() for /api/attachments/<id>/<name>
+    accountDeletion.ts  purgeUserData() — must cover every userId-scoped collection
+    rateLimit.ts        checkRateLimit(), clientIp() — in-process, per key
     utils.ts            cn() className helper
   models/               User, Application, Interview, Document, Reminder, CVProfile, CVFile, AccessControl
   types/
@@ -223,13 +237,44 @@ public/uploads/   Server filesystem uploads (organized by year/month)
 cross-env NODE_OPTIONS=--max-old-space-size=4096 next build
 ```
 
-`next.config.ts`: `serverExternalPackages: ["mongoose", "bcryptjs"]`, `typescript.ignoreBuildErrors: true`, `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+`next.config.ts`: `serverExternalPackages: ["mongoose", "bcryptjs", "@react-pdf/renderer",
+"unpdf", "word-extractor"]`, `typescript.ignoreBuildErrors: true`, and
+`NODE_TLS_REJECT_UNAUTHORIZED=0` **only when `NODE_ENV !== "production"`** — it exists for
+corporate TLS-inspection proxies in dev and must never reach production.
 
 ## What Does Not Exist
 
-- `src/middleware.ts` — do not create
+Verified against the repository — do not extend this list from memory.
+
+- `src/middleware.ts` — do not create (confirmed absent)
 - `src/lib/cvDownload.ts` — deleted; the HTML-as-.doc generator is gone, use `src/lib/cv/docx/`
-- Email/reminder notifications
-- Payment/Stripe integration (plan is a manual admin toggle; a webhook only needs to write `User.plan`)
-- PDF export (documents are `.docx`; convert in Word or LibreOffice)
-- Test suite
+- Payment/Stripe integration (no `stripe` dependency; plan is a manual admin toggle, and a
+  webhook would only need to write `User.plan`)
+- Test suite (no `test` script in `package.json`, no runner installed)
+
+### Previously listed here, but they do exist
+
+- **PDF export** — `src/lib/cv/pdf/` renders with `@react-pdf/renderer` (`ats.tsx`,
+  `designer.tsx`, `coverLetter.tsx`), gated by `canExportPdf()` in permissions. Interview
+  questions also render to PDF via `renderToBuffer`.
+- **Notifications** — in-app only: the `Notification` model, `/api/notifications`,
+  `/me/notifications` and `src/lib/notifications/`. There is still no scheduler, so nothing
+  fires on a timer; notifications are written when something happens.
+- **Transactional email** — `src/lib/mail/` sends issue reports and password-reset links
+  through Resend, with Web3Forms as a fallback for issue reports only. Still no digest or
+  reminder email.
+
+## AI
+
+Three providers, one interface in `src/lib/cv/ai/provider.ts`. Model IDs live in
+`src/lib/ai/shared.ts` — read them there rather than assuming:
+
+| Provider | Default model | Key |
+|---|---|---|
+| `anthropic` | `claude-sonnet-5` | `ANTHROPIC_API_KEY`, or the user's own |
+| `gemini` | `gemini-3.6-flash` (`GEMINI_MODEL` overrides) | `GEMINI_API_KEY` — superadmin fallback only |
+| `openai-compatible` | `gpt-4o-mini` | user's own key only |
+
+Users may bring their own key (BYOK), encrypted at rest with AES-256-GCM under
+`AI_KEY_SECRET` and stored on `User.aiKey`. Without any key the AI features fall back to a
+heuristic rather than failing.
