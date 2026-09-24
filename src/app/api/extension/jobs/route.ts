@@ -4,7 +4,8 @@ import { NextResponse } from "next/server";
 import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { JOB_TYPES, PLATFORMS, WORKPLACE_TYPES } from "@/constants/applicationStatus";
+import { initialHistory } from "@/lib/applicationHistory";
+import { DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, WORKPLACE_TYPES } from "@/constants/applicationStatus";
 import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
 
 async function getExtensionUser(req: Request) {
@@ -75,6 +76,18 @@ export async function POST(req: Request) {
   const oneOf = (value: string, allowed: readonly string[]) =>
     allowed.find((a) => a.toLowerCase() === value.toLowerCase());
 
+  /* The scraper sends an ISO string it derived from relative text, so it is
+     parsed rather than trusted. A date in the future, or one older than the web,
+     means the derivation went wrong and is dropped rather than stored. */
+  const postedDate = (raw: string) => {
+    if (!raw) return null;
+    const at = new Date(raw);
+    if (Number.isNaN(at.getTime())) return null;
+    if (at.getTime() > Date.now() + 86400000) return null;
+    if (at.getFullYear() < 1995) return null;
+    return at;
+  };
+
   const application = await Application.create({
     userId:            user.id,
     companyName,
@@ -86,8 +99,13 @@ export async function POST(req: Request) {
     salary:            str("salary").slice(0, 120) || undefined,
     jobPostUrl:        str("jobPostUrl"),
     jobDescription:    str("jobDescription").slice(0, 24000) || undefined,
+    postedAt:          postedDate(str("postedAt")),
+    postedAgeText:     str("postedAgeText").slice(0, 60),
+    postingObservedAt: str("postedAt") || str("postedAgeText") ? new Date() : null,
+    postingPrecision:  oneOf(str("postingPrecision"), ["exact", "approximate"]),
     notes:             str("notes"),
-    applicationStatus: "Wishlist",
+    applicationStatus: DEFAULT_APPLICATION_STATUS,
+    statusHistory: initialHistory(DEFAULT_APPLICATION_STATUS),
   });
 
   return NextResponse.json(application, { status: 201 });

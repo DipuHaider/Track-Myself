@@ -48,6 +48,27 @@ const ApplicationSchema = new Schema(
     attachments: [{ type: String }],
     favourite: { type: Boolean, default: false },
     isGhostJob: { type: Boolean, default: false },
+
+    postedAt: { type: Date, default: null },
+    postedAgeText: { type: String, default: "" },
+    postingObservedAt: { type: Date, default: null },
+    postingPrecision: { type: String, enum: ["exact", "approximate"] },
+
+    statusHistory: {
+      type: [
+        {
+          _id: false,
+          status: { type: String, required: true },
+          at: { type: Date, required: true },
+          kind: {
+            type: String,
+            enum: ["created", "transition", "observed_baseline"],
+            default: "transition",
+          },
+        },
+      ],
+      default: [],
+    },
     interviewSeen: { type: [String], default: [] },
   },
   { timestamps: true },

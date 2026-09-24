@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
+import { updateApplication } from "@/lib/applicationHistory";
 import Interview from "@/models/Interview";
 import Reminder from "@/models/Reminder";
 import { requireActiveAuth } from "@/lib/serverAuth";
@@ -38,11 +39,7 @@ export async function PUT(req: Request, { params }: Params) {
     update[key] = value;
   }
 
-  const updated = await Application.findOneAndUpdate(
-    { _id: id, userId },
-    update,
-    { new: true },
-  );
+  const updated = await updateApplication({ _id: id, userId }, update);
 
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(updated);

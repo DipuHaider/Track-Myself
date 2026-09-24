@@ -11,6 +11,10 @@ export const APPLICATION_STATUSES = [
   "Rejected",
 ] as const;
 
+/* What a newly captured job starts as. Named rather than positional so the list
+   can be reordered without silently changing what the extension saves. */
+export const DEFAULT_APPLICATION_STATUS = "Wishlist" as const;
+
 export const PLATFORMS = [
   "LinkedIn",
   "Indeed",

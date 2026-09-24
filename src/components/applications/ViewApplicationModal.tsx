@@ -39,6 +39,17 @@ function formatDateTime(d?: Date | string) {
   });
 }
 
+/* Shows what was observed, not a computed certainty. An approximate date came
+   from text like "7 months ago", so the original phrase is shown rather than a
+   false-precision date. Rows with no value are hidden by Row itself. */
+function postedLabel(app: Application): string {
+  if (app.postedAgeText && app.postingPrecision === "approximate") {
+    return `${app.postedAgeText} (approx.)`;
+  }
+  if (!app.postedAt) return "";
+  return new Date(app.postedAt).toLocaleDateString();
+}
+
 export default function ViewApplicationModal({
   open,
   onClose,
@@ -71,6 +82,7 @@ export default function ViewApplicationModal({
           <Row label="Platform" value={application.platform} />
           <Row label="Job Type" value={application.jobType} />
           <Row label="Workplace" value={application.workplaceType} />
+          <Row label="Posted" value={postedLabel(application)} />
           <Row label="Priority" value={application.priority} />
           <Row label="Contact Number" value={application.contactNumber} />
           <Row label="Applied" value={formatDateTime(application.appliedDate)} />

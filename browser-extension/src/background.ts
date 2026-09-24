@@ -17,6 +17,9 @@ interface JobPayload {
   workplaceType?:  string;
   salary?:         string;
   jobDescription?: string;
+  postedAt?:          string;
+  postedAgeText?:     string;
+  postingPrecision?:  "exact" | "approximate";
 }
 
 type InMsg =

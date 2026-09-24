@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
+import { initialHistory } from "@/lib/applicationHistory";
 import { requireActiveAuth } from "@/lib/serverAuth";
 
 function escapeRegex(s: string) {
@@ -55,6 +56,10 @@ export async function POST(req: Request) {
 
   const { force: _force, ...data } = body;
   for (const key of ["_id", "userId", "createdAt", "updatedAt"]) delete data[key];
-  const application = await Application.create({ ...data, userId });
+  const application = await Application.create({
+    ...data,
+    userId,
+    statusHistory: initialHistory(data.applicationStatus),
+  });
   return NextResponse.json(application, { status: 201 });
 }

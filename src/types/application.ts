@@ -9,6 +9,11 @@ export interface Application {
   platformDetail?: string;
   jobType?: string;
   workplaceType?: string;
+  postedAt?: string | Date | null;
+  postedAgeText?: string;
+  postingObservedAt?: string | Date | null;
+  postingPrecision?: "exact" | "approximate";
+  statusHistory?: { status: string; at: string | Date; kind: string }[];
   applicationType?: string;
   submissionMethod?: string;
   applicationStatus: (typeof APPLICATION_STATUSES)[number];

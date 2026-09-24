@@ -15,6 +15,9 @@ interface JobData {
   workplaceType?:  string;
   salary?:         string;
   jobDescription?: string;
+  postedAt?:          string;
+  postedAgeText?:     string;
+  postingPrecision?:  "exact" | "approximate";
 }
 
 interface UserInfo { name: string; email: string }
@@ -157,6 +160,34 @@ function cleanCompany(raw: string): string {
    "Berlin, Berlin, Germany · 7 months ago · Over 100 people clicked apply",
    so only the first segment is the place. The rest is recency and social
    proof, which must not end up in the location field. */
+/* firstSegment() throws away everything after the location, which is where the
+   posting's age lives — "Berlin, Berlin, Germany · 7 months ago · Over 100
+   people clicked apply". An age is worth keeping: a months-old listing is the
+   strongest ghost-job signal available, and it was being parsed purely to be
+   discarded. Relative text yields an approximate date anchored to now, so the
+   raw phrase is preserved alongside it rather than replaced by it. */
+const AGE_TEXT = /\b(?:(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago|(yesterday|today))\b/i;
+
+const AGE_DAYS: Record<string, number> = {
+  minute: 1 / 1440, hour: 1 / 24, day: 1, week: 7, month: 30.44, year: 365.25,
+};
+
+export function postingAge(raw: string): { text: string; postedAt: string } | null {
+  const m = raw.match(AGE_TEXT);
+  if (!m) return null;
+
+  const text = m[0].trim();
+  if (m[3]) {
+    const days = m[3].toLowerCase() === "today" ? 0 : 1;
+    return { text, postedAt: new Date(Date.now() - days * 86400000).toISOString() };
+  }
+
+  const n = Number(m[1]);
+  const unit = AGE_DAYS[m[2].toLowerCase()];
+  if (!Number.isFinite(n) || !unit) return null;
+  return { text, postedAt: new Date(Date.now() - n * unit * 86400000).toISOString() };
+}
+
 const NOT_A_PLACE = /\bago\b|applicant|people clicked|alumni|响应|reposted|promoted/i;
 
 function firstSegment(raw: string): string {
@@ -271,11 +302,34 @@ function parseJobLd(): Partial<JobData> {
         const locParts = [addr.addressLocality, addr.addressRegion, addr.addressCountry].filter(Boolean);
         const rawDesc  = (typeof d.description === "string" ? d.description : "") as string;
         const notes    = rawDesc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 600);
+        const employment = Array.isArray(d.employmentType)
+          ? d.employmentType.join(" ")
+          : typeof d.employmentType === "string" ? d.employmentType : "";
+
+        const pay    = (d.baseSalary ?? {}) as Record<string, unknown>;
+        const amount = (pay.value ?? {}) as Record<string, unknown>;
+        const low    = amount.value ?? amount.minValue ?? "";
+        const high   = amount.maxValue ?? "";
+        const salary = low
+          ? [`${pay.currency ?? ""} ${low}`.trim(), high ? String(high) : ""]
+              .filter(Boolean).join(" – ")
+            + (amount.unitText ? ` / ${String(amount.unitText).toLowerCase()}` : "")
+          : "";
+
+        /* datePosted is a real date rather than "7 months ago", so it is the one
+           source precise enough to record as exact. */
+        const posted = typeof d.datePosted === "string" ? d.datePosted.trim() : "";
+
         return {
           jobTitle:    typeof d.title       === "string" ? d.title.trim()    : "",
           companyName: typeof org?.name     === "string" ? org.name.trim()   : "",
           location:    locParts.join(", "),
           notes,
+          jobDescription: rawDesc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 24000),
+          jobType: employment,
+          salary,
+          postedAt: posted,
+          postingPrecision: posted ? "exact" : undefined,
         };
       }
     }
@@ -363,6 +417,8 @@ function scrapeLinkedIn(): JobData {
     "[class*='description__text']",
   ) || ld.jobDescription || "");
 
+  const age = postingAge(locationLine) ?? postingAge(topCardText());
+
   const extra = enrich(jobLocation, ld, [
     ".job-details-jobs-unified-top-card__job-insight",
     ".job-details-preferences-and-skills__pill",
@@ -380,6 +436,9 @@ function scrapeLinkedIn(): JobData {
     workplaceType: extra.workplaceType,
     salary: extra.salary,
     jobDescription: description.slice(0, 24000),
+    postedAt: ld.postedAt || age?.postedAt || "",
+    postedAgeText: age?.text ?? "",
+    postingPrecision: ld.postedAt ? "exact" : age ? "approximate" : undefined,
   };
 }
 
@@ -587,6 +646,7 @@ shadow.appendChild(panelEl);
    this panel, so they would otherwise vanish silently. */
 function capturedLine(job: JobData): string {
   const bits = [job.jobType, job.workplaceType, job.salary].filter(Boolean);
+  if (job.postedAgeText) bits.push(`posted ${job.postedAgeText}`);
   if (job.jobDescription) bits.push("job description");
   return bits.join(" · ");
 }
