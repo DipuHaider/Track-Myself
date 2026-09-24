@@ -15,22 +15,86 @@ export function isPossibleGhost(app: Application): boolean {
   return days > GHOST_DAYS && GHOST_STATUSES.has(app.applicationStatus);
 }
 
-export function computeDuplicateIds(applications: Application[]): Set<string> {
-  const groups = new Map<string, string[]>();
+/* Legal form is not identity: "Blotato" and "Blotato GmbH" are one employer.
+   Stripped only from the end, so a company actually called "Limited Books" keeps
+   its name. */
+const COMPANY_SUFFIX =
+  /[\s,.]+(gmbh|ag|ug|kg|ohg|mbh|ltd|limited|llc|l\.l\.c|inc|incorporated|corp|corporation|co|plc|bv|b\.v|nv|sa|s\.a|srl|s\.r\.l|oy|ab|as|aps|pty|pte|sdn|bhd|group|holding|holdings)\.?$/i;
+
+export function normaliseCompany(raw: string): string {
+  let out = (raw ?? "").toLowerCase().replace(/[^a-z0-9&\s.,-]/g, " ").replace(/\s+/g, " ").trim();
+  for (let i = 0; i < 3; i++) {
+    const next = out.replace(COMPANY_SUFFIX, "").trim();
+    if (next === out) break;
+    out = next;
+  }
+  return out.replace(/[.,\-\s]+$/, "").trim();
+}
+
+/* Punctuation and spacing only. Seniority and bracketed qualifiers are left
+   alone on purpose — "Senior Engineer" is not "Engineer", and "Engineer
+   (Backend)" is not "Engineer (Frontend)". Collapsing those would merge roles
+   the user genuinely applied to separately. */
+export function normaliseTitle(raw: string): string {
+  return (raw ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9+#()\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/* The posting's own id, where the URL carries one. Two rows pointing at the
+   same LinkedIn or Indeed posting are the same job regardless of how the
+   company name was typed, which makes this the strongest signal available. */
+export function postingIdentity(app: Application): string | null {
+  const url = (app.jobPostUrl ?? "").trim();
+  if (!url) return null;
+
+  const linkedin = url.match(/linkedin\.com\/jobs\/view\/(\d+)/i)?.[1]
+    ?? url.match(/[?&]currentJobId=(\d+)/i)?.[1];
+  if (linkedin) return `linkedin:${linkedin}`;
+
+  const indeed = url.match(/[?&](?:jk|vjk)=([a-z0-9]+)/i)?.[1];
+  if (indeed) return `indeed:${indeed}`;
+
+  return null;
+}
+
+export type DuplicateKind = "same-posting" | "same-role";
+
+/* Candidates for the user to look at, never a merge. Two openings with one
+   title at one company are a real thing, as are subsidiaries sharing a name, so
+   nothing here may delete, combine or rewrite a record on its own. */
+export function computeDuplicateGroups(applications: Application[]): Map<string, DuplicateKind> {
+  const byPosting = new Map<string, string[]>();
+  const byRole = new Map<string, string[]>();
+
   for (const app of applications) {
-    const company = (app.companyName ?? "").toLowerCase().trim();
-    const title = (app.jobTitle ?? "").toLowerCase().trim();
+    const posting = postingIdentity(app);
+    if (posting) {
+      byPosting.set(posting, [...(byPosting.get(posting) ?? []), app._id]);
+    }
+
+    const company = normaliseCompany(app.companyName ?? "");
+    const title = normaliseTitle(app.jobTitle ?? "");
     if (!company && !title) continue;
     const key = `${company}|${title}`;
-    const arr = groups.get(key) ?? [];
-    arr.push(app._id);
-    groups.set(key, arr);
+    byRole.set(key, [...(byRole.get(key) ?? []), app._id]);
   }
-  const ids = new Set<string>();
-  for (const group of groups.values()) {
-    if (group.length > 1) group.forEach((id) => ids.add(id));
+
+  const out = new Map<string, DuplicateKind>();
+  for (const group of byRole.values()) {
+    if (group.length > 1) group.forEach((id) => out.set(id, "same-role"));
   }
-  return ids;
+  /* Set second so the stronger signal wins where both apply. */
+  for (const group of byPosting.values()) {
+    if (group.length > 1) group.forEach((id) => out.set(id, "same-posting"));
+  }
+  return out;
+}
+
+export function computeDuplicateIds(applications: Application[]): Set<string> {
+  return new Set(computeDuplicateGroups(applications).keys());
 }
 
 /* Posting age is a different question from the ghost rule above, and conflating

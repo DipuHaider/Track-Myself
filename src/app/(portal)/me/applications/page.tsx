@@ -9,7 +9,7 @@ import { useApplications } from "@/hooks/useApplications";
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES, JOB_TYPES } from "@/constants/applicationStatus";
 import type { QuickField } from "@/components/applications/ApplicationTable";
-import { computeDuplicateIds, isPossibleGhost } from "@/lib/applicationFlags";
+import { computeDuplicateGroups, isPossibleGhost } from "@/lib/applicationFlags";
 import Loading, { InlineSpinner } from "@/components/shared/Spinner";
 import Pagination, { PAGE_SIZE, usePagination } from "@/components/shared/Pagination";
 
@@ -30,7 +30,8 @@ function PortalApplicationsContent() {
   const [filterGhost, setFilterGhost] = useState<"" | "auto" | "manual">("");
   const [filterDuplicates, setFilterDuplicates] = useState(false);
 
-  const duplicateIds = useMemo(() => computeDuplicateIds(applications), [applications]);
+  const duplicateKinds = useMemo(() => computeDuplicateGroups(applications), [applications]);
+  const duplicateIds = useMemo(() => new Set(duplicateKinds.keys()), [duplicateKinds]);
 
   const filtered = useMemo(() => {
     let result = applications;
@@ -215,6 +216,7 @@ function PortalApplicationsContent() {
         onDelete={handleDelete}
         onQuickUpdate={handleQuickUpdate}
         duplicateIds={duplicateIds}
+        duplicateKinds={duplicateKinds}
       />
 
       {/* Pagination */}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lucide-react";
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
-import { isPossibleGhost, postingAge } from "@/lib/applicationFlags";
+import { isPossibleGhost, postingAge, type DuplicateKind } from "@/lib/applicationFlags";
 import AppDocButton from "@/components/applications/AppDocButton";
 import { useSession } from "next-auth/react";
 import { canUseAppDocs } from "@/lib/permissions";
@@ -62,6 +62,7 @@ export default function ApplicationTable({
   onDelete,
   onQuickUpdate,
   duplicateIds,
+  duplicateKinds,
   showOwner = false,
 }: {
   applications: Application[];
@@ -72,6 +73,7 @@ export default function ApplicationTable({
   onDelete?: (app: Application) => void;
   onQuickUpdate?: (id: string, field: QuickField, value: string | boolean) => Promise<void>;
   duplicateIds?: Set<string>;
+  duplicateKinds?: Map<string, DuplicateKind>;
 }) {
   const { data: session } = useSession();
   const viewer = session?.user as { role?: string; plan?: string } | undefined;
@@ -139,7 +141,16 @@ export default function ApplicationTable({
                   <span className="flex flex-wrap items-center gap-1.5">
                     {app.companyName}
                     {duplicateIds?.has(app._id) && (
-                      <span className="role-badge badge-dup px-1.5 py-0.5 text-[10px]">Dup</span>
+                      <span
+                        className="role-badge badge-dup px-1.5 py-0.5 text-[10px]"
+                        title={
+                          duplicateKinds?.get(app._id) === "same-posting"
+                            ? "Another row points at this exact job posting"
+                            : "Another row has the same company and job title — check before removing either"
+                        }
+                      >
+                        {duplicateKinds?.get(app._id) === "same-posting" ? "Same post" : "Dup"}
+                      </span>
                     )}
                     {(() => {
                       /* Only shown once a posting has actually been observed as

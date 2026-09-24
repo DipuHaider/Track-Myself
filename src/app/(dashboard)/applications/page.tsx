@@ -10,7 +10,7 @@ import Loading, { InlineSpinner } from "@/components/shared/Spinner";
 import Pagination, { PAGE_SIZE, usePagination } from "@/components/shared/Pagination";
 import { useAllApplications, type AdminApplication } from "@/hooks/useAllApplications";
 import { usePermissions } from "@/hooks/usePermissions";
-import { computeDuplicateIds } from "@/lib/applicationFlags";
+import { computeDuplicateGroups } from "@/lib/applicationFlags";
 import type { Application } from "@/types/application";
 
 
@@ -63,7 +63,8 @@ function ApplicationsContent() {
     });
   }, [applications, search, ownerFilter]);
 
-  const duplicateIds = useMemo(() => computeDuplicateIds(filtered), [filtered]);
+  const duplicateKinds = useMemo(() => computeDuplicateGroups(filtered), [filtered]);
+  const duplicateIds = useMemo(() => new Set(duplicateKinds.keys()), [duplicateKinds]);
 
   const { page: safePage, setPage: goToPage, totalPages, pageItems, startIndex } =
     usePagination(filtered, PAGE_SIZE);
@@ -167,6 +168,7 @@ function ApplicationsContent() {
         startIndex={startIndex}
         showOwner
         duplicateIds={duplicateIds}
+        duplicateKinds={duplicateKinds}
         onView={(app) => setViewTarget(app as AdminApplication)}
         onEdit={canEdit ? (app) => setEditTarget(app as AdminApplication) : undefined}
         onDelete={canDelete ? handleDelete : undefined}
