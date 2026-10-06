@@ -685,6 +685,7 @@ function renderPanel() {
       <button id="tm-login-btn" class="tm-btn-primary" style="margin-top:12px;" ${loginBusy ? "disabled" : ""}>
         ${loginBusy ? `<span class="tm-spinner"></span> Signing in…` : "Sign In"}
       </button>
+      <button id="tm-google-btn" class="tm-btn-ghost">Continue with Google</button>
       <a href="${APP_URL}/login" target="_blank" class="tm-btn-ghost" id="tm-open-web" style="text-decoration:none;margin-top:8px;">Open TrackMyself</a>
     `;
   }
@@ -837,6 +838,10 @@ function bindEvents() {
     renderPanel();
   });
 
+  shadow.getElementById("tm-google-btn")?.addEventListener("click", () => {
+    send({ type: "OPEN_CONNECT" });
+  });
+
   // Job form fields
   (["tm-company","tm-title","tm-location","tm-url","tm-notes"] as const).forEach(id => {
     const el = shadow.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
@@ -952,6 +957,15 @@ async function initAuth() {
     renderPanel();
   }
 }
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !("tm_auth" in changes)) return;
+  const signedIn = Boolean(changes.tm_auth.newValue);
+  if (signedIn && state.screen === "login") {
+    state.screen = "loading";
+    if (state.panelOpen) initAuth();
+  }
+});
 
 // ── draggable toggle button ───────────────────────────────────────────────
 

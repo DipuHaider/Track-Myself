@@ -35,6 +35,9 @@
     padding: 7px 10px; font-weight: 600;
   }
   a.btn:hover { opacity: .9; }
+  [hidden] { display: none !important; }
+  a.btn.ghost { background: transparent; color: inherit; border: 1px solid #cbd5e1; margin-bottom: 8px; }
+  @media (prefers-color-scheme: dark) { a.btn.ghost { border-color: #334155; } }
 </style>
 </head>
 <body>
@@ -56,6 +59,8 @@
     <li>Click the briefcase on the right edge</li>
     <li>Sign in there and save the job</li>
   </ol>
+
+  <a class="btn ghost" id="google" href="#" hidden>Continue with Google</a>
 
   <a class="btn" id="open" href="https://trackmyself.webarden.tech/me/applications" target="_blank" rel="noopener">
     Open my tracker

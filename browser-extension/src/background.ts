@@ -1,4 +1,5 @@
 const API_BASE = "https://trackmyself.webarden.tech";
+const TRUSTED_ORIGINS = [API_BASE, "https://track-myself.vercel.app"];
 
 interface AuthState {
   token: string;
@@ -26,6 +27,7 @@ type InMsg =
   | { type: "GET_AUTH" }
   | { type: "LOGIN";   email: string; password: string }
   | { type: "LOGOUT" }
+  | { type: "OPEN_CONNECT" }
   | { type: "ADD_JOB"; job: JobPayload };
 
 // ── storage helpers ──────────────────────────────────────────────────────────
@@ -42,6 +44,25 @@ async function setAuth(a: AuthState) {
 async function clearAuth() {
   await chrome.storage.local.remove("tm_auth");
 }
+
+// ── sign-in handed over by the website (Google and other web logins) ─────────
+
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  const msg = message as { type?: string; token?: unknown; name?: unknown; email?: unknown };
+  if (!sender.origin || !TRUSTED_ORIGINS.includes(sender.origin)) return;
+  if (msg?.type !== "TM_CONNECT" || typeof msg.token !== "string" || !msg.token) {
+    sendResponse({ ok: false });
+    return;
+  }
+  setAuth({
+    token: msg.token,
+    name:  typeof msg.name  === "string" ? msg.name  : "",
+    email: typeof msg.email === "string" ? msg.email : "",
+  })
+    .then(() => sendResponse({ ok: true }))
+    .catch(() => sendResponse({ ok: false }));
+  return true;
+});
 
 // ── message handler ──────────────────────────────────────────────────────────
 
@@ -78,6 +99,11 @@ async function handle(msg: InMsg): Promise<unknown> {
         email: (data.email as string) ?? msg.email,
       });
       return { ok: true, user: { name: data.name, email: data.email } };
+    }
+
+    case "OPEN_CONNECT": {
+      await chrome.tabs.create({ url: `${API_BASE}/extension/connect?ext=${chrome.runtime.id}` });
+      return { ok: true };
     }
 
     case "LOGOUT": {

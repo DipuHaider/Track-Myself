@@ -15,6 +15,13 @@
     "https://track-myself.vercel.app/*"
   ],
 
+  "externally_connectable": {
+    "matches": [
+      "https://trackmyself.webarden.tech/*",
+      "https://track-myself.vercel.app/*"
+    ]
+  },
+
   "background": {
     "service_worker": "dist/background.js"
   },

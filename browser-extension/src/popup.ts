@@ -5,6 +5,12 @@ type AuthReply = { ok?: boolean; user?: { name?: string; email?: string } };
 const dot = document.getElementById("dot");
 const status = document.getElementById("status");
 const open = document.getElementById("open") as HTMLAnchorElement | null;
+const google = document.getElementById("google") as HTMLAnchorElement | null;
+
+google?.addEventListener("click", (e) => {
+  e.preventDefault();
+  chrome.runtime.sendMessage({ type: "OPEN_CONNECT" }).finally(() => window.close());
+});
 
 if (open) open.href = `${APP_URL}/me/applications`;
 
@@ -23,6 +29,7 @@ chrome.runtime
       return;
     }
     if (status) status.textContent = "Not signed in";
+    if (google) google.hidden = false;
   })
   .catch(() => {
     if (status) status.textContent = "Not connected";
