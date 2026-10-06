@@ -81,6 +81,9 @@ export default function ViewApplicationModal({
   if (!application) return null;
 
   const att = application.attachments ?? [];
+  const documents = (application.providedDocuments ?? [])
+    .map((d) => `${d.name} (${d.format || ".pdf"})`)
+    .join(", ");
   const contacts = (application.contacts ?? []).filter((c) => c.name || c.email || c.phone);
   const appliedVia = [application.submissionMethod, application.submissionDetail].filter(Boolean).join(" — ");
   const links = [application.jobPostUrl, ...(application.additionalJobPostUrls ?? [])]
@@ -108,6 +111,7 @@ export default function ViewApplicationModal({
           <Row label="Priority" value={application.priority} />
           {!contacts.length && <Row label="Contact Number" value={application.contactNumber} />}
           <Row label="Applied via" value={appliedVia} />
+          <Row label="Documents provided" value={documents} />
           <Row label="Applied" value={formatDateTime(application.appliedDate)} />
           <Row label="Follow Up" value={formatDate(application.followUpDate)} />
           <Row label="Response Status" value={application.responseStatus} />

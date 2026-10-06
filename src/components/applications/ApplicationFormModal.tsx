@@ -4,8 +4,9 @@ import { useMemo, useRef, useState } from "react";
 import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import {
-  APPLICATION_STATUSES, CONTACT_ROLES, FACEBOOK_PLATFORMS, JOB_TYPES, MAX_CONTACTS, PLATFORMS, SUBMISSION_METHODS,
-  joinJobTypes, parseJobTypes,
+  APPLICATION_STATUSES, CONTACT_FIRST_METHODS, CONTACT_ROLES, DEFAULT_DOCUMENT_FORMAT, DOCUMENT_FORMATS,
+  FACEBOOK_PLATFORMS, JOB_TYPES, MAX_CONTACTS, PLATFORMS, PROVIDED_DOCUMENTS, SUBMISSION_DETAIL_HINTS,
+  SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, joinJobTypes, parseJobTypes,
 } from "@/constants/applicationStatus";
 import type { Application, ApplicationContact } from "@/types/application";
 import { formatLocation, splitLocation } from "@/lib/applicationLocation";
@@ -86,13 +87,12 @@ type FormData = {
   followUpDate: string;
   priority: string;
   notes: string;
+  documents: Record<string, string>;
 };
 
 type ContactRow = { role: string; name: string; email: string; phone: string };
 
 const EMPTY_CONTACT: ContactRow = { role: "", name: "", email: "", phone: "" };
-
-const CONTACT_FIRST_METHODS = new Set(["Email to Contact", "Message / Call"]);
 
 function toContactRows(app: Application): ContactRow[] {
   const rows = (app.contacts ?? []).map((c: ApplicationContact) => ({
@@ -134,6 +134,7 @@ const EMPTY: FormData = {
   followUpDate: "",
   priority: "Medium",
   notes: "",
+  documents: {},
 };
 
 function toForm(app: Application): FormData {
@@ -161,6 +162,9 @@ function toForm(app: Application): FormData {
     followUpDate: toDateTimeStr(app.followUpDate).slice(0, 10),
     priority: app.priority ?? "Medium",
     notes: app.notes ?? "",
+    documents: Object.fromEntries(
+      (app.providedDocuments ?? []).map((d) => [d.name, d.format || DEFAULT_DOCUMENT_FORMAT]),
+    ),
   };
 }
 
@@ -266,6 +270,17 @@ export default function ApplicationFormModal({
   const addContact = () =>
     setForm((f) => (f.contacts.length >= MAX_CONTACTS ? f : { ...f, contacts: [...f.contacts, { ...EMPTY_CONTACT }] }));
 
+  const toggleDocument = (name: string) =>
+    setForm((f) => {
+      const documents = { ...f.documents };
+      if (documents[name]) delete documents[name];
+      else documents[name] = DEFAULT_DOCUMENT_FORMAT;
+      return { ...f, documents };
+    });
+
+  const setDocumentFormat = (name: string, format: string) =>
+    setForm((f) => ({ ...f, documents: { ...f.documents, [name]: format } }));
+
   const removeContact = (i: number) =>
     setForm((f) => ({ ...f, contacts: f.contacts.filter((_, j) => j !== i) }));
 
@@ -340,7 +355,7 @@ export default function ApplicationFormModal({
       salaryMin: form.salaryType === "range" ? parseAmount(form.salaryMin) : null,
       salaryMax: form.salaryType === "range" ? parseAmount(form.salaryMax) : null,
       submissionMethod: form.submissionMethod || null,
-      submissionDetail: form.submissionMethod === "In Person" ? form.submissionDetail.trim() : "",
+      submissionDetail: SUBMISSION_DETAIL_METHODS.has(form.submissionMethod) ? form.submissionDetail.trim() : "",
       contacts,
       contactNumber: contacts.find((c) => c.phone)?.phone ?? "",
       jobPostUrl: links[0] ?? "",
@@ -350,6 +365,9 @@ export default function ApplicationFormModal({
       followUpDate: form.followUpDate ? new Date(`${form.followUpDate}T12:00`).toISOString() : null,
       priority: form.priority,
       notes: form.notes || undefined,
+      providedDocuments: PROVIDED_DOCUMENTS
+        .filter((name) => form.documents[name])
+        .map((name) => ({ name, format: form.documents[name] })),
       attachments,
     };
   };
@@ -612,12 +630,12 @@ export default function ApplicationFormModal({
             </Field>
           </div>
 
-          {form.submissionMethod === "In Person" && (
+          {SUBMISSION_DETAIL_METHODS.has(form.submissionMethod) && (
             <Field label="Where / how">
               <input
                 className={inputCls}
                 maxLength={300}
-                placeholder="e.g. Hard copy handed to HR, or CV dropped at reception, Hauptstr. 5"
+                placeholder={SUBMISSION_DETAIL_HINTS[form.submissionMethod] ?? ""}
                 value={form.submissionDetail}
                 onChange={set("submissionDetail")}
               />
@@ -784,6 +802,40 @@ export default function ApplicationFormModal({
               onChange={set("notes")}
             />
           </Field>
+
+          {/* Documents provided — what went out with this application, and in which format */}
+          <div>
+            <p className="mb-1 text-xs font-medium">Documents provided</p>
+            <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
+              {PROVIDED_DOCUMENTS.map((name) => {
+                const format = form.documents[name];
+                return (
+                  <div key={name} className="flex items-center gap-2">
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(format)}
+                        onChange={() => toggleDocument(name)}
+                        className="accent-[var(--primary)]"
+                      />
+                      <span className="truncate">{name}</span>
+                    </label>
+                    <select
+                      aria-label={`${name} format`}
+                      value={format ?? DEFAULT_DOCUMENT_FORMAT}
+                      disabled={!format}
+                      onChange={(e) => setDocumentFormat(name, e.target.value)}
+                      className="w-28 shrink-0 rounded-md border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary)] disabled:opacity-40"
+                    >
+                      {DOCUMENT_FORMATS.map((fmt) => (
+                        <option key={fmt}>{fmt}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Attachments */}
           <div className="border-t pt-3">

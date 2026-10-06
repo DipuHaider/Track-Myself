@@ -5,7 +5,9 @@ import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { initialHistory } from "@/lib/applicationHistory";
-import { DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, SUBMISSION_METHODS, WORKPLACE_TYPES, joinJobTypes } from "@/constants/applicationStatus";
+import {
+  DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, WORKPLACE_TYPES, joinJobTypes,
+} from "@/constants/applicationStatus";
 import { countryName, formatLocation, splitLocation } from "@/lib/applicationLocation";
 import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
 
@@ -124,7 +126,7 @@ export async function POST(req: Request) {
     applicationStatus,
     statusHistory: initialHistory(applicationStatus),
     submissionMethod,
-    submissionDetail:  submissionMethod === "In Person" ? str("submissionDetail").slice(0, 300) : undefined,
+    submissionDetail:  submissionMethod && SUBMISSION_DETAIL_METHODS.has(submissionMethod) ? str("submissionDetail").slice(0, 300) : undefined,
     appliedDate:       submissionMethod ? new Date() : undefined,
   });
 

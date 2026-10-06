@@ -1,5 +1,7 @@
 import mongoose, { Schema, type InferSchemaType } from "mongoose";
-import { APPLICATION_STATUSES, CONTACT_ROLES, DEFAULT_APPLICATION_STATUS, SUBMISSION_METHODS } from "@/constants/applicationStatus";
+import {
+  APPLICATION_STATUSES, CONTACT_ROLES, DEFAULT_APPLICATION_STATUS, DOCUMENT_FORMATS, PROVIDED_DOCUMENTS, SUBMISSION_METHODS,
+} from "@/constants/applicationStatus";
 
 const ApplicationSchema = new Schema(
   {
@@ -47,6 +49,16 @@ const ApplicationSchema = new Schema(
     appliedDate: { type: Date },
     notes: { type: String },
     submittedDocuments: [{ type: String }],
+    providedDocuments: {
+      type: [
+        {
+          _id: false,
+          name: { type: String, enum: [...PROVIDED_DOCUMENTS], required: true },
+          format: { type: String, enum: [...DOCUMENT_FORMATS], default: ".pdf" },
+        },
+      ],
+      default: undefined,
+    },
     followUpDate: { type: Date },
     priority: { type: String, enum: ["Low", "Medium", "High"], default: "Medium" },
     attachments: [{ type: String }],

@@ -30,10 +30,57 @@ export const PLATFORMS = [
 
 export const SUBMISSION_METHODS = [
   "Online / Job Portal",
+  "LinkedIn Easy Apply",
+  "Indeed Apply",
+  "XING Apply",
+  "Company Application Form",
   "Email to Contact",
+  "Email (General Inbox)",
+  "Referred by Contact",
+  "Recruitment Agency",
   "In Person",
+  "Postal Mail",
+  "Job Fair / Event",
   "Message / Call",
+  "Other",
 ] as const;
+
+export const SUBMISSION_DETAIL_METHODS: ReadonlySet<string> = new Set([
+  "In Person",
+  "Postal Mail",
+  "Job Fair / Event",
+  "Recruitment Agency",
+  "Other",
+]);
+
+export const SUBMISSION_DETAIL_HINTS: Record<string, string> = {
+  "In Person": "e.g. Hard copy handed to HR, or CV dropped at reception, Hauptstr. 5",
+  "Postal Mail": "e.g. Posted to HR, Musterstr. 1, 10115 Berlin",
+  "Job Fair / Event": "e.g. Spoke at the Acme booth, Berlin Tech Job Fair",
+  "Recruitment Agency": "e.g. Submitted through Hays",
+  Other: "How was it submitted?",
+};
+
+export const CONTACT_FIRST_METHODS: ReadonlySet<string> = new Set([
+  "Email to Contact",
+  "Referred by Contact",
+  "Recruitment Agency",
+  "Message / Call",
+]);
+
+export const PROVIDED_DOCUMENTS = [
+  "Resume",
+  "ATS 3 Page",
+  "ATS 2 Page",
+  "Europass CV",
+  "Designer",
+  "Lebenslauf",
+  "Cover Letter",
+] as const;
+
+export const DOCUMENT_FORMATS = [".pdf", ".docx", ".doc", "Hard copy"] as const;
+
+export const DEFAULT_DOCUMENT_FORMAT = ".pdf";
 
 export const CONTACT_ROLES = [
   "Recruiter",

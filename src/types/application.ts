@@ -43,6 +43,7 @@ export interface Application {
   appliedDate?: Date;
   notes?: string;
   submittedDocuments?: string[];
+  providedDocuments?: { name: string; format?: string }[];
   followUpDate?: Date;
   priority?: "Low" | "Medium" | "High";
   attachments?: string[];

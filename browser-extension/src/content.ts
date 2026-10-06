@@ -5,7 +5,7 @@ const APP_URL = "https://trackmyself.webarden.tech";
 // ── types ─────────────────────────────────────────────────────────────────
 
 import { splitLocation } from "../../src/lib/applicationLocation";
-import { SUBMISSION_METHODS } from "../../src/constants/applicationStatus";
+import { SUBMISSION_DETAIL_HINTS, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS } from "../../src/constants/applicationStatus";
 
 interface JobData {
   companyName: string;
@@ -899,10 +899,10 @@ function renderPanel() {
           ${SUBMISSION_METHODS.map((m) => `<option${job.submissionMethod === m ? " selected" : ""}>${escHtml(m)}</option>`).join("")}
         </select>
       </div>
-      ${job.submissionMethod === "In Person" ? `
+      ${SUBMISSION_DETAIL_METHODS.has(job.submissionMethod ?? "") ? `
       <div class="tm-field">
         <label class="tm-label" for="tm-via-detail">Where / how</label>
-        <input id="tm-via-detail" class="tm-input" type="text" maxlength="300" placeholder="e.g. CV dropped at reception" value="${escHtml(job.submissionDetail ?? "")}">
+        <input id="tm-via-detail" class="tm-input" type="text" maxlength="300" placeholder="${escHtml(SUBMISSION_DETAIL_HINTS[job.submissionMethod ?? ""] ?? "")}" value="${escHtml(job.submissionDetail ?? "")}">
       </div>` : ""}
       <div class="tm-field">
         <label class="tm-label" for="tm-url">Job Post URL</label>
