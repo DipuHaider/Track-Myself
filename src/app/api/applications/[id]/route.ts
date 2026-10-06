@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { historyActor, updateApplication } from "@/lib/applicationHistory";
+import { historyActor, isValidationError, updateApplication, validationMessage } from "@/lib/applicationHistory";
 import { softDeleteApplication } from "@/lib/applicationTrash";
 import { requireActiveAuth } from "@/lib/serverAuth";
 
@@ -32,14 +32,15 @@ export async function PUT(req: Request, { params }: Params) {
   await dbConnect();
   const { id } = await params;
   const body = await req.json();
-  const update: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(body)) {
-    if (key.startsWith("$")) continue;
-    if (["_id", "userId", "createdAt", "updatedAt"].includes(key)) continue;
-    update[key] = value;
-  }
+  if (!mongoose.isValidObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const updated = await updateApplication({ _id: id, userId }, update, await historyActor(userId));
+  let updated;
+  try {
+    updated = await updateApplication({ _id: id, userId }, body, () => historyActor(userId));
+  } catch (err) {
+    if (isValidationError(err)) return NextResponse.json({ error: validationMessage(err) }, { status: 400 });
+    throw err;
+  }
 
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(updated);

@@ -5,7 +5,7 @@ import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import {
   APPLICATION_STATUSES, CONTACT_FIRST_METHODS, CONTACT_ROLES, DEFAULT_DOCUMENT_FORMAT, DOCUMENT_FORMATS,
-  FACEBOOK_PLATFORMS, JOB_TYPES, MAX_CONTACTS, PLATFORMS, PROVIDED_DOCUMENTS, SUBMISSION_DETAIL_HINTS,
+  FACEBOOK_PLATFORMS, JOB_TYPES, MAX_CONTACTS, MAX_JOB_POST_URLS, PLATFORMS, PROVIDED_DOCUMENTS, SUBMISSION_DETAIL_HINTS,
   SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, joinJobTypes, parseJobTypes,
 } from "@/constants/applicationStatus";
 import type { Application, ApplicationContact } from "@/types/application";
@@ -167,8 +167,6 @@ function toForm(app: Application): FormData {
     ),
   };
 }
-
-const MAX_JOB_POST_URLS = 10;
 
 const inputCls =
   "w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]";
@@ -396,7 +394,8 @@ export default function ApplicationFormModal({
       }
 
       if (!res.ok) {
-        setError("Failed to save. Please try again.");
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to save. Please try again.");
         return;
       }
 
@@ -421,7 +420,11 @@ export default function ApplicationFormModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, force: true }),
       });
-      if (!res.ok) { setError("Failed to save. Please try again."); return; }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to save. Please try again.");
+        return;
+      }
       const saved = await res.json();
       onSaved(saved);
       onClose();

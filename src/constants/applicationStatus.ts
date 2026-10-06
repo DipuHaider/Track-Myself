@@ -92,6 +92,8 @@ export const CONTACT_ROLES = [
 
 export const MAX_CONTACTS = 10;
 
+export const MAX_JOB_POST_URLS = 10;
+
 export const JOB_TYPES = [
   "Full-Time",
   "Part-Time",

@@ -3,13 +3,11 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
-import { historyActor, updateApplication } from "@/lib/applicationHistory";
+import { historyActor, isValidationError, updateApplication, validationMessage } from "@/lib/applicationHistory";
 import { softDeleteApplication } from "@/lib/applicationTrash";
 import { requireAction } from "@/lib/serverAuth";
 
 type Params = { params: Promise<{ id: string }> };
-
-const IMMUTABLE = ["_id", "userId", "createdAt", "updatedAt", "deletedAt", "deletedBy", "deletedByName"];
 
 export async function PATCH(req: Request, { params }: Params) {
   const auth = await requireAction("edit:applications");
@@ -23,12 +21,14 @@ export async function PATCH(req: Request, { params }: Params) {
   await dbConnect();
 
   const body = await req.json();
-  const update: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(body)) {
-    if (!IMMUTABLE.includes(key)) update[key] = value;
-  }
 
-  const updated = await updateApplication({ _id: id }, update, await historyActor(auth.id));
+  let updated;
+  try {
+    updated = await updateApplication({ _id: id }, body, () => historyActor(auth.id));
+  } catch (err) {
+    if (isValidationError(err)) return NextResponse.json({ error: validationMessage(err) }, { status: 400 });
+    throw err;
+  }
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json(updated);

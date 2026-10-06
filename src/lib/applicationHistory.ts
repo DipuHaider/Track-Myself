@@ -22,8 +22,8 @@ function stamp(actor?: HistoryActor | null) {
    drawn, so it reads as it did at the time even if the account is renamed or
    deleted later. */
 export async function historyActor(userId: string): Promise<HistoryActor> {
-  const row = (await User.findById(userId, "name email").lean()) as { name?: string; email?: string } | null;
-  return { id: userId, name: row?.name || row?.email || "" };
+  const row = (await User.findById(userId, "name").lean()) as { name?: string } | null;
+  return { id: userId, name: row?.name || "" };
 }
 
 export function initialHistory(status: unknown, actor?: HistoryActor | null): StatusEvent[] {
@@ -42,17 +42,48 @@ export function initialHistory(status: unknown, actor?: HistoryActor | null): St
 
    The write is guarded on the status we read, so two concurrent edits cannot both
    append. If the guard misses, the row moved underneath us and we re-read once. */
+const PROTECTED_FIELDS = new Set([
+  "_id", "userId", "createdAt", "updatedAt", "statusHistory", "interviewSeen",
+  "deletedAt", "deletedBy", "deletedByName", "__v",
+]);
+
+const WRITE_OPTIONS = { new: true, runValidators: true } as const;
+
+export function sanitizeUpdate(incoming: Record<string, unknown>): Record<string, unknown> {
+  const update: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(incoming)) {
+    if (key.startsWith("$") || key.includes(".") || PROTECTED_FIELDS.has(key)) continue;
+    update[key] = value;
+  }
+  return update;
+}
+
+export function isValidationError(err: unknown): err is Error & { errors?: Record<string, { message: string }> } {
+  return err instanceof Error && (err.name === "ValidationError" || err.name === "CastError");
+}
+
+export function validationMessage(err: Error & { errors?: Record<string, { message: string }> }): string {
+  const first = err.errors ? Object.values(err.errors)[0]?.message : "";
+  return first || "Some fields have invalid values.";
+}
+
+type ActorSource = HistoryActor | null | undefined | (() => Promise<HistoryActor>);
+
+async function resolveActor(actor: ActorSource): Promise<HistoryActor | null> {
+  if (typeof actor === "function") return actor();
+  return actor ?? null;
+}
+
 export async function updateApplication(
   filter: Record<string, unknown>,
   incoming: Record<string, unknown>,
-  actor?: HistoryActor | null,
+  actor?: ActorSource,
 ) {
-  const update = { ...incoming };
-  for (const key of ["statusHistory", "deletedAt", "deletedBy", "deletedByName"]) delete update[key];
+  const update = sanitizeUpdate(incoming);
   const next = update.applicationStatus;
 
   if (!isStatus(next)) {
-    return Application.findOneAndUpdate(filter, update, { new: true });
+    return Application.findOneAndUpdate(filter, update, WRITE_OPTIONS);
   }
 
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -62,10 +93,12 @@ export async function updateApplication(
 
     if (!before) return null;
     if (before.applicationStatus === next) {
-      return Application.findOneAndUpdate(filter, update, { new: true });
+      return Application.findOneAndUpdate(filter, update, WRITE_OPTIONS);
     }
 
-    const event: StatusEvent = { status: next, at: new Date(), kind: "transition", ...stamp(actor) };
+    const event: StatusEvent = {
+      status: next, at: new Date(), kind: "transition", ...stamp(await resolveActor(actor)),
+    };
 
     const guarded = await Application.findOneAndUpdate(
       { ...filter, applicationStatus: before.applicationStatus },
@@ -73,11 +106,11 @@ export async function updateApplication(
         $set: update,
         $push: { statusHistory: { $each: [event], $slice: -HISTORY_MAX } },
       },
-      { new: true },
+      WRITE_OPTIONS,
     );
 
     if (guarded) return guarded;
   }
 
-  return Application.findOneAndUpdate(filter, update, { new: true });
+  return Application.findOneAndUpdate(filter, update, WRITE_OPTIONS);
 }

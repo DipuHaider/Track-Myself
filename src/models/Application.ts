@@ -1,7 +1,10 @@
 import mongoose, { Schema, type InferSchemaType, type MongooseQueryMiddleware, type Query } from "mongoose";
 import {
-  APPLICATION_STATUSES, CONTACT_ROLES, DEFAULT_APPLICATION_STATUS, DOCUMENT_FORMATS, PROVIDED_DOCUMENTS, SUBMISSION_METHODS,
+  APPLICATION_STATUSES, CONTACT_ROLES, DEFAULT_APPLICATION_STATUS, DOCUMENT_FORMATS, MAX_CONTACTS, MAX_JOB_POST_URLS,
+  PROVIDED_DOCUMENTS, SUBMISSION_METHODS,
 } from "@/constants/applicationStatus";
+
+const HTTP_URL = /^https?:\/\/\S+$/i;
 
 const ApplicationSchema = new Schema(
   {
@@ -36,6 +39,10 @@ const ApplicationSchema = new Schema(
         },
       ],
       default: undefined,
+      validate: {
+        validator: (v: unknown[] | undefined) => !v || v.length <= MAX_CONTACTS,
+        message: `At most ${MAX_CONTACTS} contacts.`,
+      },
     },
     salary: { type: String },
     salaryType: { type: String, enum: ["fixed", "range", "negotiable", "not-mentioned"], default: "fixed" },
@@ -43,8 +50,16 @@ const ApplicationSchema = new Schema(
     salaryFixed: { type: Number },
     salaryMin: { type: Number },
     salaryMax: { type: Number },
-    jobPostUrl: { type: String },
-    additionalJobPostUrls: { type: [String], default: undefined },
+    jobPostUrl: { type: String, trim: true, maxlength: 2048 },
+    additionalJobPostUrls: {
+      type: [String],
+      default: undefined,
+      validate: {
+        validator: (v: string[] | undefined) =>
+          !v || (v.length <= MAX_JOB_POST_URLS && v.every((u) => u.length <= 2048 && HTTP_URL.test(u))),
+        message: `Up to ${MAX_JOB_POST_URLS} links, each starting with http:// or https://.`,
+      },
+    },
     jobDescription: { type: String, maxlength: 24000 },
     appliedDate: { type: Date },
     notes: { type: String },
@@ -58,6 +73,11 @@ const ApplicationSchema = new Schema(
         },
       ],
       default: undefined,
+      validate: {
+        validator: (v: { name: string }[] | undefined) =>
+          !v || (v.length <= PROVIDED_DOCUMENTS.length && new Set(v.map((d) => d.name)).size === v.length),
+        message: "Each document can be listed once.",
+      },
     },
     followUpDate: { type: Date },
     priority: { type: String, enum: ["Low", "Medium", "High"], default: "Medium" },

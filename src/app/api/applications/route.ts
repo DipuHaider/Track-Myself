@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { historyActor, initialHistory } from "@/lib/applicationHistory";
+import { historyActor, initialHistory, isValidationError, sanitizeUpdate, validationMessage } from "@/lib/applicationHistory";
 import { requireActiveAuth } from "@/lib/serverAuth";
 
 function escapeRegex(s: string) {
@@ -54,12 +54,17 @@ export async function POST(req: Request) {
     }
   }
 
-  const { force: _force, ...data } = body;
-  for (const key of ["_id", "userId", "createdAt", "updatedAt", "deletedAt", "deletedBy", "deletedByName"]) delete data[key];
-  const application = await Application.create({
-    ...data,
-    userId,
-    statusHistory: initialHistory(data.applicationStatus, await historyActor(userId)),
-  });
-  return NextResponse.json(application, { status: 201 });
+  const data = sanitizeUpdate(body);
+  delete data.force;
+  try {
+    const application = await Application.create({
+      ...data,
+      userId,
+      statusHistory: initialHistory(data.applicationStatus, await historyActor(userId)),
+    });
+    return NextResponse.json(application, { status: 201 });
+  } catch (err) {
+    if (isValidationError(err)) return NextResponse.json({ error: validationMessage(err) }, { status: 400 });
+    throw err;
+  }
 }

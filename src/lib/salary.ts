@@ -39,7 +39,8 @@ export function formatSalary(app: Partial<Application>): string {
 export function parseAmount(raw: string): number | null {
   let t = raw.trim().toLowerCase().replace(/^[€$৳£]\s*/, "").replace(/[\s_]/g, "");
   if (!t) return null;
-  if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");
+  if (/^\d{1,3}(\.\d{3})+([km])?$/.test(t)) t = t.replace(/\./g, "");
+  else if (/^\d+,\d{1,2}([km])?$/.test(t)) t = t.replace(",", ".");
   t = t.replace(/,/g, "");
   const m = t.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
   if (!m) return NaN;
