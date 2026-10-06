@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   Briefcase, Copy, Ghost, Star, Send, MessageSquare,
-  Trophy, XCircle, Clock, TrendingUp,
+  Trophy, XCircle, Clock, TrendingUp, CircleDashed,
 } from "lucide-react";
 import type { Application } from "@/types/application";
 import StatsModal from "@/components/applications/StatsModal";
@@ -102,6 +102,7 @@ export default function MePage() {
     return {
       total:       apps.length,
       wishlist:    c((a) => a.applicationStatus === "Wishlist"),
+      notCompleted: c((a) => a.applicationStatus === "Not Completed"),
       submitted:   c((a) => a.applicationStatus === "Submitted"),
       interviews:  c((a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled"),
       offers:      c((a) => a.applicationStatus === "Offer Received"),
@@ -128,6 +129,7 @@ export default function MePage() {
     { label: "Total Applications", value: stats.total,       icon: <Briefcase size={20} />,    color: "#4169e1", filter: () => true },
     { label: "Favourites",         value: stats.favourites,  icon: <Star size={20} />,          color: "#f59e0b", filter: (a) => !!a.favourite },
     { label: "Wishlist",           value: stats.wishlist,    icon: <Star size={20} />,          color: "#e879f9", filter: (a) => a.applicationStatus === "Wishlist" },
+    { label: "Not Completed",      value: stats.notCompleted, icon: <CircleDashed size={20} />, color: "#f97316", filter: (a) => a.applicationStatus === "Not Completed" },
     { label: "Submitted",          value: stats.submitted,   icon: <Send size={20} />,          color: "#3b82f6", filter: (a) => a.applicationStatus === "Submitted" },
     { label: "No Response",        value: stats.noResponse,  icon: <Clock size={20} />,         color: "#6b7280", filter: (a) => a.applicationStatus === "No Response" },
     { label: "Interviews",         value: stats.interviews,  icon: <MessageSquare size={20} />, color: "#8b5cf6", filter: (a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled" },
@@ -217,7 +219,7 @@ export default function MePage() {
         </div>
         {appsLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 9 }).map((_, i) => (
+            {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="surface h-20 animate-pulse rounded-xl border" />
             ))}
           </div>
