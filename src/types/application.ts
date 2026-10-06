@@ -23,7 +23,7 @@ export interface Application {
   location?: string;
   contactNumber?: string;
   salary?: string;
-  salaryType?: "fixed" | "range";
+  salaryType?: "fixed" | "range" | "negotiable" | "not-mentioned";
   salaryCurrency?: "EUR" | "USD" | "BDT";
   salaryFixed?: number;
   salaryMin?: number;

@@ -33,7 +33,7 @@ const ApplicationSchema = new Schema(
     location: { type: String },
     contactNumber: { type: String },
     salary: { type: String },
-    salaryType: { type: String, enum: ["fixed", "range"], default: "fixed" },
+    salaryType: { type: String, enum: ["fixed", "range", "negotiable", "not-mentioned"], default: "fixed" },
     salaryCurrency: { type: String, enum: ["EUR", "USD", "BDT"], default: "USD" },
     salaryFixed: { type: Number },
     salaryMin: { type: Number },

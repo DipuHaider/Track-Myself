@@ -6,6 +6,7 @@ import Modal from "@/components/shared/Modal";
 import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, PLATFORMS, joinJobTypes, parseJobTypes } from "@/constants/applicationStatus";
 import type { Application } from "@/types/application";
 import { formatLocation, splitLocation } from "@/lib/applicationLocation";
+import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, type SalaryType } from "@/lib/salary";
 
 /* ── helpers ─────────────────────────────────────── */
 
@@ -68,7 +69,7 @@ type FormData = {
   applicationStatus: string;
   city: string;
   country: string;
-  salaryType: "fixed" | "range";
+  salaryType: SalaryType;
   salaryCurrency: Currency;
   salaryFixed: string;
   salaryMin: string;
@@ -267,9 +268,9 @@ export default function ApplicationFormModal({
       location: formatLocation({ city: form.city, country: form.country }),
       salaryType: form.salaryType,
       salaryCurrency: form.salaryCurrency,
-      salaryFixed: form.salaryFixed ? Number(form.salaryFixed) : undefined,
-      salaryMin: form.salaryMin ? Number(form.salaryMin) : undefined,
-      salaryMax: form.salaryMax ? Number(form.salaryMax) : undefined,
+      salaryFixed: form.salaryType === "fixed" && form.salaryFixed ? Number(form.salaryFixed) : null,
+      salaryMin: form.salaryType === "range" && form.salaryMin ? Number(form.salaryMin) : null,
+      salaryMax: form.salaryType === "range" && form.salaryMax ? Number(form.salaryMax) : null,
       contactNumber: form.contactNumber || undefined,
       jobPostUrl: form.jobPostUrl || undefined,
       jobDescription: form.jobDescription || undefined,
@@ -454,21 +455,23 @@ export default function ApplicationFormModal({
 
           {/* Row 5 — Salary */}
           <Field label="Salary">
-            <div className="flex items-center gap-2">
-              {/* Fixed / Range toggle */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Salary type toggle */}
               <div className="flex overflow-hidden rounded-md border shrink-0">
-                {(["fixed", "range"] as const).map((t, i) => (
+                {SALARY_TYPES.map((t, i) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setForm((f) => ({ ...f, salaryType: t }))}
-                    className={`px-3 py-1.5 text-xs capitalize transition ${i > 0 ? "border-l" : ""} ${form.salaryType === t ? "bg-[var(--primary)] text-white" : "hover:bg-[var(--surface-2)]"}`}
+                    className={`whitespace-nowrap px-3 py-1.5 text-xs transition ${i > 0 ? "border-l" : ""} ${form.salaryType === t ? "bg-[var(--primary)] text-white" : "hover:bg-[var(--surface-2)]"}`}
                   >
-                    {t}
+                    {SALARY_TYPE_LABELS[t]}
                   </button>
                 ))}
               </div>
 
+              {hasSalaryAmount(form.salaryType) && (
+              <>
               {/* Currency icons */}
               <div className="flex overflow-hidden rounded-md border shrink-0">
                 {CURRENCIES.map((c, i) => (
@@ -514,6 +517,8 @@ export default function ApplicationFormModal({
                     onChange={set("salaryMax")}
                   />
                 </>
+              )}
+              </>
               )}
             </div>
           </Field>

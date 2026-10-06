@@ -5,24 +5,12 @@ import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lu
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES, parseJobTypes } from "@/constants/applicationStatus";
 import { formatLocation } from "@/lib/applicationLocation";
+import { formatSalary } from "@/lib/salary";
 import { isPossibleGhost, postingAge, type DuplicateKind } from "@/lib/applicationFlags";
 import AppDocButton from "@/components/applications/AppDocButton";
 import { useSession } from "next-auth/react";
 import { canUseAppDocs } from "@/lib/permissions";
 
-const CURRENCY_SYM: Record<string, string> = { EUR: "€", USD: "$", BDT: "৳" };
-
-function formatSalary(app: Application): string {
-  const sym = CURRENCY_SYM[app.salaryCurrency ?? ""] ?? "";
-  if (app.salaryType === "range" && app.salaryMin != null && app.salaryMax != null) {
-    return `${sym}${app.salaryMin.toLocaleString("en-US")} – ${sym}${app.salaryMax.toLocaleString("en-US")}`;
-  }
-  if (app.salaryFixed != null) {
-    return `${sym}${app.salaryFixed.toLocaleString("en-US")}`;
-  }
-  if (app.salary) return app.salary;
-  return "—";
-}
 
 function formatDateTime(d?: Date | string) {
   if (!d) return "—";
