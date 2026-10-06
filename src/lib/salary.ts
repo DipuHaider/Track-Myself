@@ -27,3 +27,18 @@ export function formatSalary(app: Partial<Application>): string {
   if (app.salaryFixed != null) return `${sym}${app.salaryFixed.toLocaleString("en-US")}`;
   return app.salary ?? "";
 }
+
+export function parseAmount(raw: string): number | null {
+  let t = raw.trim().toLowerCase().replace(/^[€$৳£]\s*/, "").replace(/[\s_]/g, "");
+  if (!t) return null;
+  if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");
+  t = t.replace(/,/g, "");
+  const m = t.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
+  if (!m) return NaN;
+  const scale = m[2] === "k" ? 1_000 : m[2] === "m" ? 1_000_000 : 1;
+  return Math.round(Number(m[1]) * scale);
+}
+
+export function isValidAmount(raw: string): boolean {
+  return !Number.isNaN(parseAmount(raw));
+}

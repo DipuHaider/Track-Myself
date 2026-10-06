@@ -6,7 +6,7 @@ import Modal from "@/components/shared/Modal";
 import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, PLATFORMS, joinJobTypes, parseJobTypes } from "@/constants/applicationStatus";
 import type { Application } from "@/types/application";
 import { formatLocation, splitLocation } from "@/lib/applicationLocation";
-import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, type SalaryType } from "@/lib/salary";
+import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, isValidAmount, parseAmount, type SalaryType } from "@/lib/salary";
 
 /* ── helpers ─────────────────────────────────────── */
 
@@ -249,6 +249,11 @@ export default function ApplicationFormModal({
     setExistingAttachments((prev) => prev.filter((p) => p !== path));
 
   const buildPayload = async () => {
+    const amounts = form.salaryType === "fixed" ? [form.salaryFixed]
+      : form.salaryType === "range" ? [form.salaryMin, form.salaryMax] : [];
+    if (!amounts.every(isValidAmount)) {
+      throw new Error("Salary must be a number such as 70000, 70,000 or 70K.");
+    }
     const uploadedPaths: string[] = [];
     for (const file of pendingFiles) {
       const p = await uploadFile(file, form.companyName || "unknown");
@@ -268,9 +273,9 @@ export default function ApplicationFormModal({
       location: formatLocation({ city: form.city, country: form.country }),
       salaryType: form.salaryType,
       salaryCurrency: form.salaryCurrency,
-      salaryFixed: form.salaryType === "fixed" && form.salaryFixed ? Number(form.salaryFixed) : null,
-      salaryMin: form.salaryType === "range" && form.salaryMin ? Number(form.salaryMin) : null,
-      salaryMax: form.salaryType === "range" && form.salaryMax ? Number(form.salaryMax) : null,
+      salaryFixed: form.salaryType === "fixed" ? parseAmount(form.salaryFixed) : null,
+      salaryMin: form.salaryType === "range" ? parseAmount(form.salaryMin) : null,
+      salaryMax: form.salaryType === "range" ? parseAmount(form.salaryMax) : null,
       contactNumber: form.contactNumber || undefined,
       jobPostUrl: form.jobPostUrl || undefined,
       jobDescription: form.jobDescription || undefined,
@@ -490,29 +495,26 @@ export default function ApplicationFormModal({
               {/* Amount inputs */}
               {form.salaryType === "fixed" ? (
                 <input
-                  type="number"
-                  min="0"
-                  className={`${inputCls} flex-1`}
-                  placeholder="Amount"
+                  type="text"
+                  className={`${inputCls} min-w-0 flex-1 ${isValidAmount(form.salaryFixed) ? "" : "border-red-500"}`}
+                  placeholder="Amount, e.g. 70K"
                   value={form.salaryFixed}
                   onChange={set("salaryFixed")}
                 />
               ) : (
                 <>
                   <input
-                    type="number"
-                    min="0"
-                    className={`${inputCls} flex-1`}
-                    placeholder="Min"
+                    type="text"
+                    className={`${inputCls} min-w-0 flex-1 ${isValidAmount(form.salaryMin) ? "" : "border-red-500"}`}
+                    placeholder="Min, e.g. 70K"
                     value={form.salaryMin}
                     onChange={set("salaryMin")}
                   />
                   <span className="text-muted shrink-0 text-sm">—</span>
                   <input
-                    type="number"
-                    min="0"
-                    className={`${inputCls} flex-1`}
-                    placeholder="Max"
+                    type="text"
+                    className={`${inputCls} min-w-0 flex-1 ${isValidAmount(form.salaryMax) ? "" : "border-red-500"}`}
+                    placeholder="Max, e.g. 90K"
                     value={form.salaryMax}
                     onChange={set("salaryMax")}
                   />
