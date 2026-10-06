@@ -6,6 +6,7 @@ import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { mintExtensionToken } from "@/lib/extensionToken";
 import { accountPaused } from "@/lib/serverAuth";
+import { checkRateLimitDb, clearRateLimitDb } from "@/lib/rateLimitStore";
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
@@ -25,6 +26,21 @@ export async function POST(req: Request) {
   }
 
   await dbConnect();
+
+  const throttleKey = `login:${email.toLowerCase().trim()}`;
+  const gate = await checkRateLimitDb({
+    key: throttleKey,
+    limit: 8,
+    windowMs: 15 * 60 * 1000,
+    blockMs: 15 * 60 * 1000,
+  });
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: "Too many sign-in attempts. Try again in 15 minutes." },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfterSeconds) } },
+    );
+  }
+
   const user = await User.findOne({ email: email.toLowerCase().trim() });
   if (!user || !user.password) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
@@ -34,6 +50,8 @@ export async function POST(req: Request) {
   if (!match) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
+
+  await clearRateLimitDb(throttleKey);
 
   if (user.status === "paused") return accountPaused();
 
