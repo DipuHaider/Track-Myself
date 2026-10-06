@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { encode } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { EXTENSION_TOKEN_SECONDS, effectivePlan, effectiveRole } from "@/lib/auth";
+import { mintExtensionToken } from "@/lib/extensionToken";
+import { accountPaused } from "@/lib/serverAuth";
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
@@ -35,25 +35,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) {
+  if (user.status === "paused") return accountPaused();
+
+  const minted = await mintExtensionToken(user);
+  if (!minted) {
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
 
-  const role = effectiveRole(user.email, user.role);
-
-  const token = await encode({
-    token: {
-      id:       user._id.toString(),
-      role,
-      plan:     effectivePlan(role, user.plan),
-      email:    user.email,
-      claimsAt: Date.now(),
-      sessionStart: Date.now(),
-    },
-    secret,
-    maxAge: EXTENSION_TOKEN_SECONDS,
-  });
-
-  return NextResponse.json({ token, name: user.name ?? "", email: user.email });
+  return NextResponse.json(minted);
 }
