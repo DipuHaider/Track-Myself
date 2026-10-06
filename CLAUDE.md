@@ -15,7 +15,7 @@ Path alias: `@/` → `src/`. Theme: CSS custom properties via `data-theme` on `<
 | Public | `/`, `/tools/*` | None |
 | Auth | `/(auth)/login`, `/register`, `/redirect` | Redirect if already authed |
 | Portal | `/(portal)/me`, `/me/applications`, `/me/my-cv`, `/me/cv`, `/me/todos`, `/me/issues`, `/me/notifications`, `/me/ai-key` | Any session → layout redirects to `/login` |
-| Dashboard | `/(dashboard)/dashboard`, `/applications` (+ `/create`, `/edit/[id]`, `/[id]`), `/analytics`, `/users`, `/dashboard/cv`, `/dashboard/issues`, `/dashboard/users`, `/profile` | editor+ → layout redirects to `/me` |
+| Dashboard | `/(dashboard)/dashboard`, `/applications` (`/create`, `/edit/[id]`, `/[id]` only redirect), `/analytics`, `/users`, `/dashboard/cv`, `/dashboard/issues`, `/dashboard/users`, `/profile` | editor+ → layout redirects to `/me` |
 | Dashboard (admin) | `/settings`, `/dashboard/rbac` | admin+ → page redirects to `/dashboard` |
 | Admin | `/admin/*` | Superadmin only (legacy, kept for compatibility) |
 
@@ -200,12 +200,10 @@ src/
     cv.ts               CVContent, CVFormat, CVVariant, CV_FILE_CATEGORIES, CVPrimaryFiles
     next-auth.d.ts      Session/User/JWT augmentation (id, role, plan)
   schemas/
-    applicationSchema.ts  Zod schema + ApplicationFormData type
     authSchema.ts         registerSchema + RegisterSchema type
   constants/
     applicationStatus.ts  APPLICATION_STATUSES
     platforms.ts          PLATFORMS
-    documentTypes.ts      DOCUMENT_TYPES
   hooks/
     useApplications.ts    client-side state + CRUD
     useAnalytics.ts       fetches /api/analytics
@@ -222,8 +220,8 @@ src/
                   ChartFrame, RecentApplications, UserStatsSection, SettingsPanel,
                   AccessControlPanel, PermissionGate
     cv/           DocumentSection (My Documents), fields.tsx (builder inputs)
-    applications/ ApplicationTable, ApplicationForm, ApplicationFormModal, AddApplicationModal,
-                  ViewApplicationModal, StatsModal, ApplicationFilters, InterviewStages, StatusBadge
+    applications/ ApplicationTable, ApplicationFormModal, ViewApplicationModal, ApplicationTimeline,
+                  RecentlyDeletedModal, StatsModal, ApplicationFilters, InterviewStages, StatusBadge
     site/         SiteHeader, HeroSection, TrendingSection, ToolsSection, CallToAction, SiteFooter,
                   SiteSearch, ThreeBanner
     portal/       PortalSidebar

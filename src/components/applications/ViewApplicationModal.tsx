@@ -116,7 +116,6 @@ export default function ViewApplicationModal({
           <Row label="Documents provided" value={documents} />
           <Row label="Applied" value={formatDateTime(application.appliedDate)} />
           <Row label="Follow Up" value={formatDate(application.followUpDate)} />
-          <Row label="Response Status" value={application.responseStatus} />
         </div>
 
         {contacts.length > 0 && (

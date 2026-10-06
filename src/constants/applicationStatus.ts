@@ -140,15 +140,3 @@ export const FACEBOOK_PLATFORMS: ReadonlySet<string> = new Set([
   "Facebook Group",
 ]);
 
-export const DOCUMENT_TYPES = [
-  "CV",
-  "Cover Letter",
-  "Portfolio",
-  "Certificates",
-  "Transcript",
-  "Recommendation Letter",
-  "Passport",
-  "IELTS",
-  "GitHub",
-  "LinkedIn",
-] as const;
