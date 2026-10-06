@@ -1,11 +1,12 @@
 # TrackMyself
 
-A job application tracker. Record the roles you apply for, move them through ten pipeline
-stages, keep every CV and cover letter in one library, and generate tailored Word documents
-per application. Eight browser-side tools handle the fiddly parts of applying — headshots,
+A job application tracker. Record the roles you apply for, move them through eleven pipeline
+stages with a per-application progress timeline, keep every CV and cover letter in one
+library, and generate tailored Word documents per application. Eight browser-side tools handle the fiddly parts of applying — headshots,
 banners, PDFs, job-ad analysis — without uploading anything.
 
-Around that sit a notifications centre that surfaces ghost listings and upcoming interviews,
+Around that sit a notifications centre that surfaces ghost listings, upcoming interviews and
+due follow-ups,
 a per-application interview-prep generator, a to-do list, in-app issue reporting that emails
 the maintainer, guided product tours, and accessibility controls. AI features run on a
 shared key or on a key the user brings themselves.
@@ -50,6 +51,7 @@ Then open <http://localhost:3000>.
 | `ISSUE_MAIL_FROM` | no | Sender for reports and reset links, e.g. `TrackMyself <alerts@yourdomain>`. Needs a domain verified in Resend. Blank uses `onboarding@resend.dev`, which only delivers to your own Resend account address — so password resets fail for everyone else. |
 | `WEB3FORMS_ACCESS_KEY` | no | Fallback when Resend is unset. The key *is* the destination inbox. Web3Forms throttles server-side senders for an hour at a time, so it drops reports under load — prefer Resend. |
 | `EXTENSION_ORIGIN` | no | Locks the extension CORS allowlist to one origin. Defaults to `*`. |
+| `EXTENSION_IDS` | recommended | Comma-separated Chrome extension IDs allowed to receive a sign-in from `/extension/connect` (the Web Store ID, plus any unpacked dev IDs). Unset accepts any ID, which lets an installed look-alike extension be handed a token. |
 
 ### Scripts
 
@@ -82,6 +84,10 @@ none should be added; `src/proxy.ts` covers the legacy `withAuth` paths.
 | Dashboard (admin) | `/settings`, `/dashboard/rbac` | admin and above |
 
 `/profile` and `/users` are redirect-only aliases for `/me` and `/dashboard/users`.
+`/applications/create`, `/applications/edit/[id]` and `/applications/[id]` are redirects too:
+create goes to `/me/applications`, the others to the dashboard list, where the full form and
+the View modal live. (They used to be stubs that dropped edits and saved new applications
+under the admin's own account.)
 
 The portal is the product. The dashboard exists to run the platform — it reads across all
 users, so ordinary accounts are redirected away from it. `/settings` and `/dashboard/rbac`
@@ -120,6 +126,44 @@ the account has one, and `purgeUserData()` erases the user together with every a
 interview, reminder, CV file, CV profile and document in one operation. The response expires
 the session cookies, and any other session for that account dies on its next request.
 Superadmin accounts cannot self-delete.
+
+---
+
+## Applications
+
+One form (`ApplicationFormModal`) creates and edits an application, in the portal and on the
+dashboard; `ViewApplicationModal` shows it with a progress timeline beside the details.
+
+| Area | Behaviour |
+|---|---|
+| Status | Eleven values in `APPLICATION_STATUSES`, including **Not Completed** (started, not submitted). Wishlist and Not Completed count as *not applied* (`NOT_APPLIED_STATUSES`); both join Submitted and No Response in the 45-day ghost check. |
+| Job type | Multi-select chips, stored comma-separated in `jobType` (`"Full-Time, Remote"`). Remote / Hybrid / On-site are job types; the old `workplaceType` field is folded in on read and cleared on save. |
+| Location | Separate **City** and **Country**. `src/lib/applicationLocation.ts` splits free text ("Berlin, Berlin, Germany", "Remote in London", "Hamburg, DE") and `formatLocation()` renders it everywhere. |
+| Salary | Fixed · Range · Negotiable · Not mentioned, in € / $ / ৳. Amounts accept shorthand — `70K`, `1.2M`, `70,000`, `70.000`, and the German decimal comma `70,5K` — and display as `€70K – €90K` (`src/lib/salary.ts`). A range with one bound reads "from €70K" / "up to €90K"; Min above Max is refused. |
+| Found on / Applied through | *Found on* is the platform (LinkedIn, Indeed…). *Applied through* (`submissionMethod`) is how it was sent — 14 options from LinkedIn Easy Apply and company forms to email, referral, agency, in person, post and job fairs — with a "Where / how" note for the offline ones. |
+| Contacts | Any number (≤ 10) of recruiter / reference / hiring-manager / HR contacts with name, email and phone. `contactNumber` mirrors the first phone for older readers. |
+| Follow-up date | Raises a notification the day before, on the day and for two weeks after, and appears as the last step of the timeline. |
+| Documents provided | Checklist of Resume, ATS 3 / 2 Page, Europass, Designer, Lebenslauf and Cover Letter, each with a format (.pdf default, .docx, .doc, Hard copy). Accepting a generated document from the Docs menu ticks it automatically. |
+| Job post links | One primary `jobPostUrl` plus up to ten `additionalJobPostUrls` (http/https only). |
+| Timeline | Built from `statusHistory`. Each change records who made it (`byId`, `byName` copied at write time) — shown as *Self* or the admin's name. |
+
+**Edits are sanitised and validated centrally.** Every write goes through
+`updateApplication()` / `sanitizeUpdate()` in `src/lib/applicationHistory.ts`, which drops
+`$`-operators, dotted paths and protected fields (history, owner, soft-delete fields,
+timestamps) and runs schema validators, so enums and array caps hold on edit as well as on
+create. Validation failures return 400 with the field's message.
+
+**Deleting is soft.** It sets `deletedAt` and moves the application to *Recently deleted*,
+with an **Undo** toast. Query and aggregate hooks on the model hide deleted rows everywhere
+unless a filter names `deletedAt` or the query opts in with `{ withDeleted: true }`. Users
+restore or delete forever from `/me/applications`; admins do the same, with owner and
+deleter, from `/applications`. After 30 days a row is purged with its interviews and
+reminders — whenever that user's list loads, or from Settings → Maintenance
+(`src/lib/applicationTrash.ts`).
+
+Confirmations and results use an in-app dialog (`useConfirm()`) and
+[sonner](https://sonner.emilkowal.ski/) toasts (`AppToaster`, bottom-centre, theme-aware).
+There are no `window.confirm()` / `alert()` calls left.
 
 ---
 
@@ -176,16 +220,35 @@ Load **`browser-extension/`** as the unpacked extension — not `dist/`. `manife
 at that root and points at `dist/*.js` and `icons/*`, and `build.js` does not copy it, so
 `dist/` on its own is not loadable.
 
-It authenticates against `/api/extension/auth` and posts to `/api/extension/jobs`, which
-honours the pause state and returns 423 with a readable message. The API host is hard-coded
-to `https://trackmyself.webarden.tech` in `src/background.ts:1` and `src/content.ts:3`;
-change it there to point a local build at `localhost:3000`. `manifest.json` grants host
+**Signing in.** Email and password go to `/api/extension/auth` (refuses paused accounts;
+8 tries per 15 min per email + IP under a 30-per-email ceiling). **Continue with Google**
+opens `/extension/connect` on the site: the user signs in there with any provider, confirms,
+and the page hands a token to the extension through `externally_connectable` — only the
+TrackMyself origins can message it, and only IDs in `EXTENSION_IDS` receive a token.
+Extension tokens carry `aud: "extension"` and are rejected as website sessions.
+
+**Saving.** Jobs post to `/api/extension/jobs`, which honours the pause state (423). The panel
+shows City and Country (LinkedIn), the "About the job" text as **Description**, a blank
+**Notes** box, and **Applied through**: leaving it on "Not applied yet" saves to the Wishlist,
+picking a method saves as Submitted with the applied date set to now.
+
+**LinkedIn.** The split-view `/jobs/search-results` page uses hashed class names, so the
+scraper anchors on the visible "About the job" heading instead: the job's own pane is the
+nearest ancestor whose text before that heading holds the posting header, which keeps the
+job list out. Employment and workplace pills, the location line and the posting age come
+from that header. English and German UIs are recognised ("Info zum Job", "vor 7 Monaten",
+"Vor Ort", "Vollzeit"…). Indeed keeps its selector-based scraper.
+
+The API host is hard-coded to `https://trackmyself.webarden.tech` in `src/background.ts:1`,
+`src/content.ts:3` and `src/popup.ts:1`; change it there to point a local build at
+`localhost:3000`. `manifest.json` grants host
 permissions for both that domain and the older `track-myself.vercel.app`, so an installed
 copy keeps working instead of being disabled pending a permission re-prompt.
 
 **These changes only reach users after `npm run build` in `browser-extension/` and a Chrome
 Web Store re-submission** — `dist/` is not committed, so the source change alone ships
-nothing.
+nothing. The current version is **1.1.0**; bump `manifest.json` and `package.json` together
+(CI checks they agree).
 
 The toolbar icon opens `popup.html`, which reports sign-in status and points at the job page
 — the saving UI itself is a floating button the content script injects on LinkedIn and Indeed
@@ -246,7 +309,7 @@ there is no `vercel.json`, so everything comes from project settings:
   destructive code paths as production, including account deletion.
 - `NEXTAUTH_URL` — must match the deployment origin, so Preview needs its own value.
 - `NEXTAUTH_SECRET`, `NEXT_PUBLIC_SITE_URL`, and optionally `GOOGLE_CLIENT_ID` /
-  `GOOGLE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`, `EXTENSION_ORIGIN`.
+  `GOOGLE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`, `EXTENSION_ORIGIN`, `EXTENSION_IDS`.
 
 Node is pinned to 22 by `.nvmrc` and the `engines` field; Vercel reads `.nvmrc`.
 
@@ -254,7 +317,7 @@ Node is pinned to 22 by `.nvmrc` and the `engines` field; Vercel reads `.nvmrc`.
 
 There is no migration framework. The two migrations that exist are HTTP endpoints an admin
 calls by hand — `POST /api/migrate-roles` and `POST /api/admin/migrate-cv-files` (also
-reachable from Settings → Maintenance). They are idempotent, but nothing records that they
+reachable from Settings → Maintenance, alongside "Purge expired deleted applications"). They are idempotent, but nothing records that they
 ran, and nothing runs them on deploy. Schema changes are additive-only in practice.
 
 ### Known gaps
@@ -263,10 +326,10 @@ ran, and nothing runs them on deploy. Schema changes are additive-only in practi
 - **The extension source is never type-checked** — `browser-extension/tsconfig.json` declares
   `types: ["chrome"]` but `@types/chrome` is not installed, and esbuild strips types without
   checking them.
-- **Rate limits are per-process.** `src/lib/rateLimit.ts` keeps counters in a module-level
-  `Map`, so on Vercel each serverless instance has its own. The login throttle and the
-  account-deletion limit are weaker in production than the numbers suggest; a shared store
-  is needed for them to hold.
+- **Two rate limits are still per-process.** Login, register, password reset, the extension
+  login, the public CV sample and banner briefs count in MongoDB (`RateBucket`, via
+  `src/lib/rateLimitStore.ts`), but account deletion and CV import still use the in-memory
+  `Map` in `src/lib/rateLimit.ts`, so on Vercel each warm instance has its own counter.
 - **`/dashboard` hits the database at build time.** It is a server component that calls
   `dbConnect()` with no `export const dynamic = "force-dynamic"`, so Next tries to prerender
   it and the build fails if the database is unreachable. Present since the first commit. Add
@@ -333,11 +396,12 @@ nothing can go stale:
 | Ghost listings — `isPossibleGhost()`, 45 quiet days | Issue report triaged or replied to |
 | Duplicate applications — `computeDuplicateIds()` | New report → the whole backend team |
 | Interviews within 7 days | Plan, role or pause changes |
-| To-dos due or overdue | AI key failures |
+| Follow-ups due (day before → two weeks overdue) | AI key failures |
+| To-dos due or overdue | |
 
 Derived items carry a stable synthetic id (`ghost:<appId>`), and read state for them lives in
 `User.notifSeen`. Bell and dropdown sit in the header, the full list is at
-`/me/notifications`, and new arrivals raise a toast. Liveness is a 60s visibility-aware poll
+`/me/notifications`, and new arrivals raise a sonner toast with an **Open** action. Liveness is a 60s visibility-aware poll
 plus a `BroadcastChannel` so tabs stay in step.
 
 ### To-dos and issue reports
@@ -397,20 +461,25 @@ These are enforced by review, not by tooling. `AGENTS.md` holds the full list.
   variants.
 - **Prefer the semantic classes** in `globals.css` — `.surface`, `.text-muted`, `.btn-primary`,
   `.glass`, the status/priority/role badges — over inline Tailwind.
-- **Statuses** come from `APPLICATION_STATUSES`; never hard-code the strings.
+- **Statuses** come from `APPLICATION_STATUSES` and the named groups beside it
+  (`NOT_APPLIED_STATUSES`, `GHOST_STATUSES`, `SUBMITTED_STATUS`); never hard-code the strings.
+- **Application writes** go through `updateApplication()` / `sanitizeUpdate()`; never spread a
+  request body straight into a Mongoose update.
+- **Confirm with `useConfirm()` and report with `toast()`** from `sonner` — no
+  `window.confirm()` or `alert()`.
 - **No inline comments or JSDoc.** The codebase is uncommented by convention.
 - **Ask before adding a dependency.**
 
 ### Rate limits
 
-In-memory, per process (`src/lib/rateLimit.ts`) — fine for a single instance, but a shared
-store is needed if this is ever scaled horizontally.
+Shared in MongoDB unless marked in-process.
 
 | Action | Limit |
 |---|---|
-| Login | 8 per 15 min per email, then a 15 min block |
+| Website login | 8 per 15 min per email, then a 15 min block |
+| Extension login | 8 per 15 min per email + IP, 30 per email, then a 15 min block |
 | Register | 5 per hour per IP |
-| Account deletion | 10 per hour per account |
+| Account deletion | 10 per hour per account (in-process) |
 | Public CV sample | 10 per 10 min per IP |
 
 ---
@@ -418,11 +487,12 @@ store is needed if this is ever scaled horizontally.
 ## Data model
 
 `User` · `Application` · `Interview` · `Reminder` · `Document` · `CVProfile` · `CVFile` ·
-`AccessControl` · `Todo` · `IssueReport` · `Notification` · `AppSettings`
+`AccessControl` · `Todo` · `IssueReport` · `Notification` · `AppSettings` ·
+`PasswordResetToken` · `RateBucket`
 
 `Todo` and `IssueReport` are userId-scoped. `Notification` stores only event-driven items —
-ghost listings, duplicates, interviews and due to-dos are derived live instead (see
-Notifications below). `AppSettings` is a single `key: "default"` document holding feature
+ghost listings, duplicates, interviews, follow-ups and due to-dos are derived live instead
+(see Notifications above). `AppSettings` is a single `key: "default"` document holding feature
 flags, cached for 60s, mirroring how `AccessControl` works.
 
 `Reminder` is legacy and effectively dead: `reminderService.getReminders()` returns `[]` and
@@ -432,16 +502,20 @@ A note that has caused real bugs: `Application.userId` and `Document.userId` are
 `ObjectId`, while `CVProfile.userId` and `CVFile.userId` are `String`. Mongoose casts
 correctly when you query through the models — raw driver queries need the right type.
 
-Deleting an application cascades to its interviews and reminders. Deleting a user cascades
-to everything, through `purgeUserData()` in `src/lib/accountDeletion.ts`; both the self-serve
-and admin delete paths use it.
+Deleting an application is soft (`deletedAt`); the 30-day purge then cascades to its
+interviews and reminders. Deleting a user cascades to everything — trashed applications
+included — through `purgeUserData()` in `src/lib/accountDeletion.ts`; both the self-serve and
+admin delete paths use it.
 
 ---
 
 ## Not implemented
 
 - Test suite (CI checks types, lint and build only)
-- Reminder notifications — the `Reminder` model exists but nothing reads it
+- Reminder notifications — the `Reminder` model exists but nothing reads it (follow-up dates
+  on applications cover the common case)
+- Interview rounds — the `Interview` model exists and feeds notifications and triage, but
+  nothing in the UI or API creates interview records yet
 - Payments. `User.plan` is a manual admin toggle; a webhook would only need to write that field
 - CSV import
 
