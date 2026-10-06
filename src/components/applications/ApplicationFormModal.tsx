@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
-import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, WORKPLACE_TYPES, PLATFORMS } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, PLATFORMS, joinJobTypes, parseJobTypes } from "@/constants/applicationStatus";
 import type { Application } from "@/types/application";
 
 /* ── helpers ─────────────────────────────────────── */
@@ -63,8 +63,7 @@ type FormData = {
   jobTitle: string;
   platform: string;
   platformDetail: string;
-  jobType: string;
-  workplaceType: string;
+  jobTypes: string[];
   applicationStatus: string;
   city: string;
   country: string;
@@ -86,8 +85,7 @@ const EMPTY: FormData = {
   jobTitle: "",
   platform: "",
   platformDetail: "",
-  jobType: "",
-  workplaceType: "",
+  jobTypes: [],
   applicationStatus: "Wishlist",
   city: "",
   country: "",
@@ -110,8 +108,7 @@ function toForm(app: Application): FormData {
     jobTitle: app.jobTitle,
     platform: app.platform ?? "",
     platformDetail: app.platformDetail ?? "",
-    jobType: app.jobType ?? "",
-    workplaceType: app.workplaceType ?? "",
+    jobTypes: parseJobTypes(app.jobType, app.workplaceType),
     applicationStatus: app.applicationStatus,
     city: app.city ?? "",
     country: app.country ?? "",
@@ -206,6 +203,12 @@ export default function ApplicationFormModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [field]: e.target.value }));
 
+  const toggleJobType = (t: string) =>
+    setForm((f) => ({
+      ...f,
+      jobTypes: f.jobTypes.includes(t) ? f.jobTypes.filter((x) => x !== t) : [...f.jobTypes, t],
+    }));
+
   const handleContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/[^0-9+\-()\s]/g, "");
     setForm((f) => ({ ...f, contactNumber: val }));
@@ -254,8 +257,8 @@ export default function ApplicationFormModal({
       jobTitle: form.jobTitle,
       platform: form.platform || undefined,
       platformDetail: form.platformDetail || undefined,
-      jobType: form.jobType || undefined,
-      workplaceType: form.workplaceType || undefined,
+      jobType: joinJobTypes(form.jobTypes),
+      workplaceType: "",
       applicationStatus: form.applicationStatus,
       city: form.city || undefined,
       country: form.country || undefined,
@@ -404,21 +407,26 @@ export default function ApplicationFormModal({
 
           {/* Row 3 — Job type */}
           <Field label="Job Type">
-            <select className={inputCls} value={form.jobType} onChange={set("jobType")}>
-              <option value="">Select job type</option>
-              {JOB_TYPES.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Workplace">
-            <select className={inputCls} value={form.workplaceType} onChange={set("workplaceType")}>
-              <option value="">Select workplace</option>
-              {WORKPLACE_TYPES.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
+            <div className="flex flex-wrap gap-1.5">
+              {JOB_TYPES.map((t) => {
+                const on = form.jobTypes.includes(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleJobType(t)}
+                    className={`rounded-full border px-3 py-1 text-xs transition ${
+                      on
+                        ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                        : "hover:bg-[var(--surface-2)]"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
           </Field>
 
           {/* Row 4 — Location: city + country */}

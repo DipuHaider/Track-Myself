@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lucide-react";
 import type { Application } from "@/types/application";
-import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, parseJobTypes } from "@/constants/applicationStatus";
 import { isPossibleGhost, postingAge, type DuplicateKind } from "@/lib/applicationFlags";
 import AppDocButton from "@/components/applications/AppDocButton";
 import { useSession } from "next-auth/react";
@@ -171,8 +171,12 @@ export default function ApplicationTable({
                 </td>
                 <td className="px-4 py-3">{app.jobTitle}</td>
                 <td className="px-4 py-3">
-                  {app.jobType ? (
-                    <span className="role-badge job-type whitespace-nowrap">{app.jobType}</span>
+                  {parseJobTypes(app.jobType, app.workplaceType).length ? (
+                    <span className="flex flex-wrap gap-1">
+                      {parseJobTypes(app.jobType, app.workplaceType).map((t) => (
+                        <span key={t} className="role-badge job-type whitespace-nowrap">{t}</span>
+                      ))}
+                    </span>
                   ) : (
                     <span className="text-muted">—</span>
                   )}

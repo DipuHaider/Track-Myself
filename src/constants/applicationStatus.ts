@@ -46,6 +46,20 @@ export const WORKPLACE_TYPES = ["Remote", "Hybrid", "On-site"] as const;
 
 export type WorkplaceType = (typeof WORKPLACE_TYPES)[number];
 
+export function parseJobTypes(jobType?: string | null, workplaceType?: string | null): string[] {
+  const parts = [...(jobType ?? "").split(","), workplaceType ?? ""]
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return [...new Set(parts)];
+}
+
+export function joinJobTypes(types: string[]): string {
+  const order = JOB_TYPES as readonly string[];
+  return [...types]
+    .sort((a, b) => (order.indexOf(a) + 1 || 999) - (order.indexOf(b) + 1 || 999))
+    .join(", ");
+}
+
 export const FACEBOOK_PLATFORMS: ReadonlySet<string> = new Set([
   "Facebook Page",
   "Facebook Group",

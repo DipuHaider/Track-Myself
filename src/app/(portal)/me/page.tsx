@@ -10,6 +10,7 @@ import {
 import type { Application } from "@/types/application";
 import StatsModal from "@/components/applications/StatsModal";
 import { computeDuplicateIds } from "@/lib/applicationFlags";
+import { parseJobTypes } from "@/constants/applicationStatus";
 import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
 import Loading from "@/components/shared/Spinner";
 import AccountControls from "@/components/portal/AccountControls";
@@ -279,8 +280,12 @@ export default function MePage() {
                     <td className="px-4 py-3 font-medium">{app.companyName}</td>
                     <td className="text-muted px-4 py-3">{app.jobTitle}</td>
                     <td className="px-4 py-3">
-                      {app.jobType ? (
-                        <span className="role-badge job-type whitespace-nowrap">{app.jobType}</span>
+                      {parseJobTypes(app.jobType, app.workplaceType).length ? (
+                        <span className="flex flex-wrap gap-1">
+                          {parseJobTypes(app.jobType, app.workplaceType).map((t) => (
+                            <span key={t} className="role-badge job-type whitespace-nowrap">{t}</span>
+                          ))}
+                        </span>
                       ) : (
                         <span className="text-muted">—</span>
                       )}

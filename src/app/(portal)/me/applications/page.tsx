@@ -7,7 +7,7 @@ import ViewApplicationModal from "@/components/applications/ViewApplicationModal
 import ApplicationTable from "@/components/applications/ApplicationTable";
 import { useApplications } from "@/hooks/useApplications";
 import type { Application } from "@/types/application";
-import { APPLICATION_STATUSES, JOB_TYPES } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, JOB_TYPES, parseJobTypes } from "@/constants/applicationStatus";
 import type { QuickField } from "@/components/applications/ApplicationTable";
 import { computeDuplicateGroups, isPossibleGhost } from "@/lib/applicationFlags";
 import Loading, { InlineSpinner } from "@/components/shared/Spinner";
@@ -37,7 +37,7 @@ function PortalApplicationsContent() {
     let result = applications;
     if (filterStatus)           result = result.filter((a) => a.applicationStatus === filterStatus);
     if (filterPriority)         result = result.filter((a) => a.priority === filterPriority);
-    if (filterJobType)          result = result.filter((a) => a.jobType === filterJobType);
+    if (filterJobType)          result = result.filter((a) => parseJobTypes(a.jobType, a.workplaceType).includes(filterJobType));
     if (filterGhost === "auto") result = result.filter(isPossibleGhost);
     if (filterGhost === "manual") result = result.filter((a) => !!a.isGhostJob);
     if (filterDuplicates)       result = result.filter((a) => duplicateIds.has(a._id));
