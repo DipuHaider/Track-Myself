@@ -28,6 +28,7 @@ export function useDismissable(onClose: () => void, ms = 130) {
     setClosing(true);
     timer.current = setTimeout(() => {
       timer.current = null;
+      setClosing(false);
       onClose();
     }, ms);
   }, [onClose, ms]);
