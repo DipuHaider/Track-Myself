@@ -18,9 +18,6 @@ function stamp(actor?: HistoryActor | null) {
   return actor ? { byId: actor.id, byName: actor.name } : {};
 }
 
-/* The name is copied onto each event rather than looked up when the timeline is
-   drawn, so it reads as it did at the time even if the account is renamed or
-   deleted later. */
 export async function historyActor(userId: string): Promise<HistoryActor> {
   const row = (await User.findById(userId, "name").lean()) as { name?: string } | null;
   return { id: userId, name: row?.name || "" };
@@ -36,9 +33,6 @@ export function initialHistory(status: unknown, actor?: HistoryActor | null): St
    the database. History is only appended when applicationStatus is present in the
    update AND differs from what is stored — otherwise editing a note would record
    a transition that never happened.
-
-   statusHistory itself is never taken from the client: it records who did what,
-   so a request must not be able to rewrite it.
 
    The write is guarded on the status we read, so two concurrent edits cannot both
    append. If the guard misses, the row moved underneath us and we re-read once. */

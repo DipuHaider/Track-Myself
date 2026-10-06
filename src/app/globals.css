@@ -1060,8 +1060,7 @@ select optgroup {
 
 .notif-list { max-height: 24rem; overflow-y: auto; }
 
-.notif-item,
-.notif-toast {
+.notif-item {
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
@@ -1142,25 +1141,7 @@ select optgroup {
 .notif-foot:hover { background: var(--surface-2); }
 
 /* ── Toasts ── */
-.notif-toasts {
-  position: fixed;
-  bottom: 1rem;
-  left: 1rem;
-  z-index: 55;
-  display: flex;
-  width: min(21rem, calc(100vw - 2rem));
-  flex-direction: column;
-  gap: 0.5rem;
-}
 
-.notif-toast {
-  border-radius: 0.8rem;
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
-  box-shadow: 0 16px 40px -14px rgba(15, 23, 41, 0.5);
-}
 
 /* ── Full list ── */
 .notif-filter {

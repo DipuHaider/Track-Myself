@@ -221,7 +221,7 @@ src/
                   AccessControlPanel, PermissionGate
     cv/           DocumentSection (My Documents), fields.tsx (builder inputs)
     applications/ ApplicationTable, ApplicationFormModal, ViewApplicationModal, ApplicationTimeline,
-                  RecentlyDeletedModal, StatsModal, ApplicationFilters, InterviewStages, StatusBadge
+                  RecentlyDeletedModal, AppDocModal, StatsModal, ApplicationFilters, StatusBadge
     site/         SiteHeader, HeroSection, TrendingSection, ToolsSection, CallToAction, SiteFooter,
                   SiteSearch, ThreeBanner
     portal/       PortalSidebar

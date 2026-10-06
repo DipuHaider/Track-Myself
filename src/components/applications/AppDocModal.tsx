@@ -51,6 +51,16 @@ const DOC_TYPES: { key: DocType; label: string; hint: string }[] = [
   { key: "cover-letter", label: "Cover Letter", hint: "Addressed to this company and role." },
 ];
 
+function providedDocumentName(spec: Spec): string {
+  if (spec.docType === "resume") return "Resume";
+  if (spec.docType === "cover-letter") return "Cover Letter";
+  if (spec.format === "ats") return spec.variant === "compact" ? "ATS 2 Page" : "ATS 3 Page";
+  if (spec.format === "europass") return "Europass CV";
+  if (spec.format === "designer") return "Designer";
+  if (spec.format === "lebenslauf") return "Lebenslauf";
+  return "";
+}
+
 const PRIMARY_SLOT: Record<DocType, "cv" | "resume" | "coverLetter"> = {
   "cv": "cv", "resume": "resume", "cover-letter": "coverLetter",
 };
@@ -256,6 +266,17 @@ export default function AppDocModal({
     }
   }
 
+  async function markProvided(spec: Spec): Promise<boolean> {
+    const name = providedDocumentName(spec);
+    if (!name || !applicationId) return false;
+    const res = await fetch(`/api/applications/${applicationId}/documents`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, format: spec.output === "pdf" ? ".pdf" : ".docx" }),
+    }).catch(() => null);
+    return Boolean(res?.ok);
+  }
+
   async function accept() {
     if (!review) return;
     setBusyKey("accept");
@@ -272,9 +293,10 @@ export default function AppDocModal({
         genTailor: review.data.tailorMode,
         genNote: correction.trim(),
       });
+      const ticked = applicationId ? await markProvided(review.spec) : false;
       setReview(null);
       setCorrection("");
-      setDone(`${filename} downloaded and saved to My Documents.`);
+      setDone(`${filename} downloaded and saved to My Documents.${ticked ? " Ticked under Documents provided." : ""}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save that document.");
     } finally {

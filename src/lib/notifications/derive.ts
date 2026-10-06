@@ -10,6 +10,14 @@ function daysBetween(from: Date, to: Date) {
   return Math.round((to.getTime() - from.getTime()) / 86_400_000);
 }
 
+const TERMINAL_STATUSES: readonly string[] = ["Offer Received", "Rejected"];
+const FOLLOW_UP_LEAD_DAYS = 1;
+const FOLLOW_UP_GRACE_DAYS = 14;
+
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 function whenLabel(days: number) {
   if (days < 0) return "overdue";
   if (days === 0) return "today";
@@ -50,6 +58,23 @@ export async function deriveNotifications(userId: string): Promise<NotificationI
       });
     }
 
+    if (app.followUpDate && !TERMINAL_STATUSES.includes(app.applicationStatus)) {
+      const days = daysBetween(startOfDay(now), startOfDay(new Date(app.followUpDate)));
+      if (days <= FOLLOW_UP_LEAD_DAYS && days >= -FOLLOW_UP_GRACE_DAYS) {
+        const contact = app.contacts?.find((c) => c.name)?.name;
+        items.push({
+          id: `follow-up:${id}:${new Date(app.followUpDate).toISOString().slice(0, 10)}`,
+          kind: "derived",
+          type: "follow-up",
+          title: days < 0 ? "Follow-up overdue" : `Follow up ${whenLabel(days)}`,
+          body: `${app.companyName} — ${app.jobTitle}${contact ? ` (${contact})` : ""}.`,
+          href: "/me/applications",
+          createdAt: new Date(app.followUpDate).toISOString(),
+          read: false,
+        });
+      }
+    }
+
     if (duplicates.has(id)) {
       items.push({
         id: `dupe:${id}`,
@@ -72,17 +97,17 @@ export async function deriveNotifications(userId: string): Promise<NotificationI
       status: "Scheduled",
       scheduledDate: { $gte: now, $lte: horizon },
     })
-      .populate("applicationId", "company jobTitle")
+      .populate("applicationId", "companyName jobTitle")
       .lean()) as {
       _id: { toString(): string };
       stageName: string;
       scheduledDate: Date;
-      applicationId?: { company?: string; jobTitle?: string } | null;
+      applicationId?: { companyName?: string; jobTitle?: string } | null;
     }[];
 
     for (const iv of interviews) {
       const days = daysBetween(now, new Date(iv.scheduledDate));
-      const who = iv.applicationId?.company ?? "an application";
+      const who = iv.applicationId?.companyName ?? "an application";
       items.push({
         id: `interview:${iv._id.toString()}`,
         kind: "derived",

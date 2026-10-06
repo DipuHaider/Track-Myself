@@ -2,6 +2,7 @@ export const NOTIFICATION_TYPES = [
   "ghost",
   "duplicate",
   "interview",
+  "follow-up",
   "todo",
   "issue-update",
   "issue-new",

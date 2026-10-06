@@ -116,9 +116,6 @@ const ApplicationSchema = new Schema(
   { timestamps: true },
 );
 
-/* Soft delete. Every read and update skips rows in "Recently deleted" unless the
-   filter names deletedAt itself (the trash queries do) or the query is run with
-   { withDeleted: true }. Hard deletes are deliberately not hooked. */
 const SOFT_DELETE_QUERIES: MongooseQueryMiddleware[] = [
   "find", "findOne", "findOneAndUpdate", "countDocuments", "updateOne", "updateMany", "distinct",
 ];

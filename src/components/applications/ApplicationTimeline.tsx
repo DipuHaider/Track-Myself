@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
-  CalendarClock, CircleDashed, Clock, Code, Flag, HeartHandshake, PenLine, Send, Star, Trophy, Users, XCircle,
+  BellRing, CalendarClock, CircleDashed, Clock, Code, Flag, HeartHandshake, PenLine, Send, Star, Trophy, Users, XCircle,
 } from "lucide-react";
 import { STATUS_CLASS } from "@/components/applications/StatusBadge";
 import type { Application } from "@/types/application";
@@ -53,6 +53,7 @@ function detailOf(step: Step, app: Application): string {
 }
 
 export default function ApplicationTimeline({ application }: { application: Application }) {
+  const [now] = useState(() => Date.now());
   const steps = stepsOf(application);
   const last = steps.length - 1;
 
@@ -88,6 +89,25 @@ export default function ApplicationTimeline({ application }: { application: Appl
             </li>
           );
         })}
+        {application.followUpDate && (
+          <li className="relative flex gap-3 pt-5">
+            <span aria-hidden className="absolute left-[13px] top-0 h-5 w-px border-l border-dashed border-[var(--border)]" />
+            <span className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed">
+              <BellRing size={14} />
+            </span>
+            <div className="min-w-0 pt-0.5">
+              <p className="text-sm font-medium leading-tight">
+                Follow up
+                {new Date(application.followUpDate).getTime() < now && (
+                  <span className="ml-1.5 align-middle text-[10px] font-normal text-red-500">overdue</span>
+                )}
+              </p>
+              <p className="text-muted mt-0.5 text-xs">
+                {new Date(application.followUpDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+              </p>
+            </div>
+          </li>
+        )}
       </ol>
     </div>
   );

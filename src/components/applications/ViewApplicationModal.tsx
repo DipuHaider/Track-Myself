@@ -107,12 +107,12 @@ export default function ViewApplicationModal({
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           <Row label="Location" value={formatLocation(application)} />
           <Row label="Salary" value={formatSalary(application)} />
-          <Row label="Platform" value={application.platform} />
+          <Row label="Found on" value={application.platform} />
           <Row label="Job Type" value={joinJobTypes(parseJobTypes(application.jobType, application.workplaceType))} />
           <Row label="Posted" value={postedLabel(application)} />
           <Row label="Priority" value={application.priority} />
           {!contacts.length && <Row label="Contact Number" value={application.contactNumber} />}
-          <Row label="Applied via" value={appliedVia} />
+          <Row label="Applied through" value={appliedVia} />
           <Row label="Documents provided" value={documents} />
           <Row label="Applied" value={formatDateTime(application.appliedDate)} />
           <Row label="Follow Up" value={formatDate(application.followUpDate)} />

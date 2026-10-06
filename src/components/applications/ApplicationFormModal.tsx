@@ -484,7 +484,7 @@ export default function ApplicationFormModal({
                 ))}
               </select>
             </Field>
-            <Field label="Platform">
+            <Field label="Found on">
               <select className={inputCls} value={form.platform} onChange={handlePlatformChange}>
                 <option value="">Select platform</option>
                 {PLATFORMS.map((p) => (
@@ -585,7 +585,7 @@ export default function ApplicationFormModal({
               )}
             </div>
 
-            {/* Amount inputs — on their own row so they get the full width */}
+            {/* Amount inputs */}
             {form.salaryType === "fixed" && (
               <input
                 type="text"
@@ -627,7 +627,7 @@ export default function ApplicationFormModal({
                 <option>High</option>
               </select>
             </Field>
-            <Field label="Applied via">
+            <Field label="Applied through">
               <select className={inputCls} value={form.submissionMethod} onChange={handleSubmissionMethod}>
                 <option value="">—</option>
                 {SUBMISSION_METHODS.map((m) => (
@@ -669,7 +669,7 @@ export default function ApplicationFormModal({
             </Field>
           </div>
 
-          {/* Contacts — recruiter, reference person, hiring manager… */}
+          {/* Contacts */}
           <div>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-xs font-medium">Contacts</span>
@@ -810,7 +810,7 @@ export default function ApplicationFormModal({
             />
           </Field>
 
-          {/* Documents provided — what went out with this application, and in which format */}
+          {/* Documents provided */}
           <div>
             <p className="mb-1 text-xs font-medium">Documents provided</p>
             <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">

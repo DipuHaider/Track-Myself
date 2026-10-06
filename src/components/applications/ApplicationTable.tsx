@@ -174,7 +174,11 @@ export default function ApplicationTable({
                 <td className="text-muted px-4 py-3">{formatLocation(app) || "—"}</td>
                 <td className="text-muted px-4 py-3 whitespace-nowrap">{formatSalary(app)}</td>
                 <td className="text-muted px-4 py-3 whitespace-nowrap">{formatDateTime(app.appliedDate)}</td>
-                <td className="text-muted px-4 py-3">{app.contactNumber ?? "—"}</td>
+                <td className="text-muted px-4 py-3">
+                  {[app.contacts?.[0]?.name, app.contacts?.[0]?.phone || app.contactNumber]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </td>
 
                 {/* Priority */}
                 <td className="px-4 py-3">

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Bell, BellOff, Briefcase, CalendarClock, CheckCheck, Copy,
+  Bell, BellOff, BellRing, Briefcase, CalendarClock, CheckCheck, Copy,
   Ghost, KeyRound, LifeBuoy, ListTodo, UserCog, X,
 } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -14,6 +14,7 @@ const ICONS: Record<NotificationType, React.ReactNode> = {
   ghost: <Ghost size={14} aria-hidden="true" />,
   duplicate: <Copy size={14} aria-hidden="true" />,
   interview: <CalendarClock size={14} aria-hidden="true" />,
+  "follow-up": <BellRing size={14} aria-hidden="true" />,
   todo: <ListTodo size={14} aria-hidden="true" />,
   "issue-update": <LifeBuoy size={14} aria-hidden="true" />,
   "issue-new": <Briefcase size={14} aria-hidden="true" />,

@@ -10,6 +10,7 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   ghost: "Ghost listings",
   duplicate: "Duplicates",
   interview: "Interviews",
+  "follow-up": "Follow-ups",
   todo: "To-dos",
   "issue-update": "Issue updates",
   "issue-new": "New reports",

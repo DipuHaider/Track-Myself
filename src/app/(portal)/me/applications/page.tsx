@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ApplicationFormModal from "@/components/applications/ApplicationFormModal";
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
@@ -26,6 +26,17 @@ function PortalApplicationsContent() {
   const [editTarget, setEditTarget] = useState<Application | null>(null);
   const [viewTarget, setViewTarget] = useState<Application | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [trashCount, setTrashCount] = useState(0);
+
+  useEffect(() => {
+    if (trashOpen) return;
+    let alive = true;
+    fetch("/api/applications/trash")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { items?: unknown[] } | null) => { if (alive && data?.items) setTrashCount(data.items.length); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [trashOpen, applications.length]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState(initialQuery);
   const [filterStatus, setFilterStatus] = useState("");
@@ -127,6 +138,9 @@ function PortalApplicationsContent() {
           className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition hover:bg-[var(--surface-2)]"
         >
           <Trash2 size={14} /> Recently deleted
+          {trashCount > 0 && (
+            <span className="rounded-full bg-[var(--surface-2)] px-1.5 text-xs font-medium">{trashCount}</span>
+          )}
         </button>
         <button
           type="button"

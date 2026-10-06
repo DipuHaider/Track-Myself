@@ -41,7 +41,6 @@ export async function deleteApplicationsForever(filter: Record<string, unknown>)
   return ids.length;
 }
 
-/* There is no scheduler, so expired rows are purged whenever a trash list is read. */
 export async function purgeExpiredApplications(filter: Record<string, unknown> = {}) {
   const cutoff = new Date(Date.now() - TRASH_DAYS * DAY_MS);
   return deleteApplicationsForever({ ...filter, deletedAt: { $ne: null, $lt: cutoff } });

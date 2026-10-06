@@ -901,7 +901,7 @@ function renderPanel() {
         <input id="tm-location" class="tm-input" type="text" placeholder="City, Country" value="${escHtml(job.location)}">
       </div>`}
       <div class="tm-field">
-        <label class="tm-label" for="tm-via">Applied via</label>
+        <label class="tm-label" for="tm-via">Applied through</label>
         <select id="tm-via" class="tm-input">
           <option value="">— Not applied yet (Wishlist)</option>
           ${SUBMISSION_METHODS.map((m) => `<option${job.submissionMethod === m ? " selected" : ""}>${escHtml(m)}</option>`).join("")}
