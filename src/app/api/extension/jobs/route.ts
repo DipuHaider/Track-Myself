@@ -5,7 +5,8 @@ import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { initialHistory } from "@/lib/applicationHistory";
-import { DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, WORKPLACE_TYPES } from "@/constants/applicationStatus";
+import { DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, WORKPLACE_TYPES, joinJobTypes } from "@/constants/applicationStatus";
+import { splitLocation } from "@/lib/applicationLocation";
 import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
 
 async function getExtensionUser(req: Request) {
@@ -88,14 +89,19 @@ export async function POST(req: Request) {
     return at;
   };
 
+  const place = splitLocation(str("location"));
+  const jobTypes = [oneOf(str("jobType"), JOB_TYPES), oneOf(str("workplaceType"), WORKPLACE_TYPES)]
+    .filter((t): t is string => Boolean(t));
+
   const application = await Application.create({
     userId:            user.id,
     companyName,
     jobTitle,
-    location:          str("location"),
+    location:          place.label,
+    city:              place.city || undefined,
+    country:           place.country || undefined,
     platform:          oneOf(str("platform"), PLATFORMS),
-    jobType:           oneOf(str("jobType"), JOB_TYPES),
-    workplaceType:     oneOf(str("workplaceType"), WORKPLACE_TYPES),
+    jobType:           joinJobTypes(jobTypes) || undefined,
     salary:            str("salary").slice(0, 120) || undefined,
     jobPostUrl:        str("jobPostUrl"),
     jobDescription:    str("jobDescription").slice(0, 24000) || undefined,

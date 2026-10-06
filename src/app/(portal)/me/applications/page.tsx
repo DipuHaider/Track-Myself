@@ -44,7 +44,7 @@ function PortalApplicationsContent() {
     const q = search.toLowerCase().trim();
     if (q) {
       result = result.filter((app) =>
-        [app.companyName, app.jobTitle, app.platform, app.jobType, app.location, app.country,
+        [app.companyName, app.jobTitle, app.platform, app.jobType, app.location, app.city, app.country,
           app.applicationStatus, app.notes, app.salary, app.contactNumber]
           .filter(Boolean)
           .some((f) => f!.toLowerCase().includes(q)),

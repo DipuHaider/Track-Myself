@@ -6,6 +6,7 @@ import Modal from "@/components/shared/Modal";
 import GapAnalysisSection from "@/components/applications/GapAnalysisSection";
 import StatusBadge from "@/components/applications/StatusBadge";
 import { joinJobTypes, parseJobTypes } from "@/constants/applicationStatus";
+import { formatLocation } from "@/lib/applicationLocation";
 import type { Application } from "@/types/application";
 
 function fileExt(name: string) {
@@ -81,7 +82,7 @@ export default function ViewApplicationModal({
 
         {/* Details grid */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-          <Row label="Location" value={application.location ?? application.country} />
+          <Row label="Location" value={formatLocation(application)} />
           <Row label="Salary" value={application.salary} />
           <Row label="Platform" value={application.platform} />
           <Row label="Job Type" value={joinJobTypes(parseJobTypes(application.jobType, application.workplaceType))} />

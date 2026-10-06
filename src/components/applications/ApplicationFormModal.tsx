@@ -5,6 +5,7 @@ import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, PLATFORMS, joinJobTypes, parseJobTypes } from "@/constants/applicationStatus";
 import type { Application } from "@/types/application";
+import { formatLocation, splitLocation } from "@/lib/applicationLocation";
 
 /* ── helpers ─────────────────────────────────────── */
 
@@ -103,6 +104,7 @@ const EMPTY: FormData = {
 };
 
 function toForm(app: Application): FormData {
+  const parsed = app.city || app.country ? null : splitLocation(app.location ?? "");
   return {
     companyName: app.companyName,
     jobTitle: app.jobTitle,
@@ -110,8 +112,8 @@ function toForm(app: Application): FormData {
     platformDetail: app.platformDetail ?? "",
     jobTypes: parseJobTypes(app.jobType, app.workplaceType),
     applicationStatus: app.applicationStatus,
-    city: app.city ?? "",
-    country: app.country ?? "",
+    city: parsed ? parsed.city : app.city ?? "",
+    country: parsed ? parsed.country : app.country ?? "",
     salaryType: app.salaryType ?? "fixed",
     salaryCurrency: app.salaryCurrency ?? "USD",
     salaryFixed: app.salaryFixed != null ? String(app.salaryFixed) : "",
@@ -260,8 +262,9 @@ export default function ApplicationFormModal({
       jobType: joinJobTypes(form.jobTypes),
       workplaceType: "",
       applicationStatus: form.applicationStatus,
-      city: form.city || undefined,
-      country: form.country || undefined,
+      city: form.city.trim(),
+      country: form.country.trim(),
+      location: formatLocation({ city: form.city, country: form.country }),
       salaryType: form.salaryType,
       salaryCurrency: form.salaryCurrency,
       salaryFixed: form.salaryFixed ? Number(form.salaryFixed) : undefined,

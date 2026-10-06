@@ -123,8 +123,8 @@ function applyButtonVisibility() {
 
 /* The tracker stores one jobType from a fixed list, so LinkedIn's separate
    employment type ("Full-time") and workplace type ("Remote") both have to map
-   onto it. Employment type wins — workplace type is folded into the location,
-   where it reads naturally. */
+   onto it. Employment type wins here; workplace type is sent alongside it
+   and the server merges the two. */
 const EMPLOYMENT_TYPES: [RegExp, string][] = [
   [/full[\s_-]?time/i,    "Full-Time"],
   [/part[\s_-]?time/i,    "Part-Time"],
@@ -160,7 +160,7 @@ function cleanCompany(raw: string): string {
    "Berlin, Berlin, Germany · 7 months ago · Over 100 people clicked apply",
    so only the first segment is the place. The rest is recency and social
    proof, which must not end up in the location field. */
-/* firstSegment() throws away everything after the location, which is where the
+/* placeSegment() throws away everything after the location, which is where the
    posting's age lives — "Berlin, Berlin, Germany · 7 months ago · Over 100
    people clicked apply". An age is worth keeping: a months-old listing is the
    strongest ghost-job signal available, and it was being parsed purely to be
@@ -190,9 +190,21 @@ export function postingAge(raw: string): { text: string; postedAt: string } | nu
 
 const NOT_A_PLACE = /\bago\b|applicant|people clicked|alumni|响应|reposted|promoted/i;
 
-function firstSegment(raw: string): string {
-  const head = raw.split("\u00b7")[0].replace(/\s+/g, " ").trim();
-  return NOT_A_PLACE.test(head) ? "" : head;
+const SEGMENT = /\s*[\u00b7\u2022|]\s*/;
+
+function sameText(a: string, b: string): boolean {
+  return Boolean(a && b) && a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+function placeSegment(raw: string, exclude: string[] = []): string {
+  for (const part of raw.split(SEGMENT)) {
+    const t = part.replace(/\s+/g, " ").trim();
+    if (!t || NOT_A_PLACE.test(t) || UI_CHROME.test(t)) continue;
+    if (exclude.some((x) => sameText(t, x))) continue;
+    const place = placeOnly(t);
+    if (place) return place;
+  }
+  return "";
 }
 
 /* Scoped deliberately to the header. The body of a post says things like
@@ -263,23 +275,66 @@ function jobTitleFrom(pane: ParentNode): string {
 
 /* "Remote" on its own is a working arrangement, not a place — it belongs to
    workplace type, and letting it stand as the location loses the city. */
+const WORKPLACE_WORD = /^(?:fully\s+)?(?:remote|hybrid(?:\s+work)?|on[\s-]?site|in[\s-]?office)$/i;
+
 function placeOnly(raw: string): string {
-  const t = raw.trim();
-  if (!t) return "";
-  if (/^(remote|hybrid|on[\s-]?site|in[\s-]?office)$/i.test(t)) return "";
-  return t;
+  let t = raw.replace(/\s+/g, " ").trim();
+  if (!t || WORKPLACE_WORD.test(t)) return "";
+  const wrapped = t.match(/^(?:remote|hybrid|on[\s-]?site)\s*(?:[([]\s*(.+?)\s*[)\]]|[-\u2013\u2014:]\s*(.+))$/i);
+  if (wrapped) t = (wrapped[1] ?? wrapped[2] ?? "").trim();
+  t = t
+    .replace(/^(?:temporarily\s+)?(?:remote|hybrid(?:\s+(?:work|remote))?|on[\s-]?site)\s+in\s+/i, "")
+    .replace(/\s*[([]\s*(?:remote|hybrid|on[\s-]?site|in[\s-]?office)\s*[)\]]\s*$/i, "")
+    .trim();
+  return WORKPLACE_WORD.test(t) ? "" : t;
 }
 
 /* Falls back to the header text, where the place is the segment that reads like
    one — "Berlin, Berlin, Germany" — rather than a date or an applicant count. */
-function placeFromHeader(): string {
-  for (const part of topCardText().split("\u00b7")) {
+function placeFromHeader(exclude: string[]): string {
+  for (const part of topCardText().split(SEGMENT)) {
     const t = part.replace(/\s+/g, " ").trim();
     if (!t || t.length > 80) continue;
     if (NOT_A_PLACE.test(t) || UI_CHROME.test(t)) continue;
     if (!t.includes(",")) continue;
     if (/\d{4}|\$|€|£|₹/.test(t)) continue;
-    return placeOnly(t);
+    const lower = t.toLowerCase();
+    if (exclude.some((x) => x && lower.includes(x.toLowerCase()))) continue;
+    const place = placeOnly(t);
+    if (place) return place;
+  }
+  return "";
+}
+
+function partsText(el: Element | null): string {
+  if (!el) return "";
+  const kids = [...el.children]
+    .map((c) => (c as HTMLElement).innerText?.replace(/\s+/g, " ").trim() ?? "")
+    .filter(Boolean);
+  const whole = (el as HTMLElement).innerText?.replace(/\s+/g, " ").trim() ?? el.textContent?.trim() ?? "";
+  return kids.length > 1 ? kids.join(" \u00b7 ") : whole;
+}
+
+let regionNames: Intl.DisplayNames | null | undefined;
+
+function regionName(code: string): string {
+  if (regionNames === undefined) {
+    try { regionNames = new Intl.DisplayNames(["en"], { type: "region" }); } catch { regionNames = null; }
+  }
+  try {
+    const name = regionNames?.of(code.toUpperCase());
+    return name && name !== code.toUpperCase() ? name : code;
+  } catch {
+    return code;
+  }
+}
+
+function ldText(v: unknown): string {
+  if (typeof v === "string") return v.trim();
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if (typeof o.name === "string") return o.name.trim();
+    if (typeof o["@value"] === "string") return (o["@value"] as string).trim();
   }
   return "";
 }
@@ -299,7 +354,13 @@ function parseJobLd(): Partial<JobData> {
         const org     = d.hiringOrganization as Record<string, unknown> | undefined;
         const locArr  = (Array.isArray(d.jobLocation) ? d.jobLocation : [d.jobLocation]) as Array<Record<string, unknown>>;
         const addr    = (locArr[0]?.address ?? {}) as Record<string, unknown>;
-        const locParts = [addr.addressLocality, addr.addressRegion, addr.addressCountry].filter(Boolean);
+        const country  = ldText(addr.addressCountry);
+        const locParts = [
+          ldText(addr.addressLocality),
+          ldText(addr.addressRegion),
+          /^[A-Za-z]{2}$/.test(country) ? regionName(country) : country,
+        ].filter((p, i, all) => p && all.findIndex((q) => q.toLowerCase() === p.toLowerCase()) === i);
+        const remote = /telecommute/i.test(String(d.jobLocationType ?? ""));
         const rawDesc  = (typeof d.description === "string" ? d.description : "") as string;
         const notes    = rawDesc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 600);
         const employment = Array.isArray(d.employmentType)
@@ -327,6 +388,7 @@ function parseJobLd(): Partial<JobData> {
           notes,
           jobDescription: rawDesc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 24000),
           jobType: employment,
+          workplaceType: remote ? "Remote" : "",
           salary,
           postedAt: posted,
           postingPrecision: posted ? "exact" : undefined,
@@ -402,8 +464,9 @@ function scrapeLinkedIn(): JobData {
     ".jobs-unified-top-card__bullet",
     ".tvm__text--low-emphasis",
   );
-  const jobLocation = placeOnly(firstSegment(locationLine))
-    || placeFromHeader()
+  const exclude = [cleanCompany(companyName), jobTitle];
+  const jobLocation = placeSegment(locationLine, exclude)
+    || placeFromHeader(exclude)
     || placeOnly(ld.location ?? "")
     || placeOnly(title.location ?? "")
     || "";
@@ -419,7 +482,7 @@ function scrapeLinkedIn(): JobData {
 
   const age = postingAge(locationLine) ?? postingAge(topCardText());
 
-  const extra = enrich(jobLocation, ld, [
+  const extra = enrich(locationLine || jobLocation, ld, [
     ".job-details-jobs-unified-top-card__job-insight",
     ".job-details-preferences-and-skills__pill",
     ".jobs-unified-top-card__job-insight",
@@ -428,7 +491,7 @@ function scrapeLinkedIn(): JobData {
   return {
     jobTitle,
     companyName: cleanCompany(companyName),
-    location: extra.location || jobLocation,
+    location: jobLocation,
     jobPostUrl: location.href,
     notes: "",
     platform: "LinkedIn",
@@ -447,11 +510,11 @@ function scrapeLinkedIn(): JobData {
    isolated so a failure here costs only the extras — the company, title and
    description above are what the record actually depends on. */
 function enrich(
-  jobLocation: string,
+  rawLocation: string,
   ld: Partial<JobData>,
   pillSelectors: string[],
-): { jobType: string; salary: string; workplaceType: string; location: string } {
-  const empty = { jobType: "", salary: "", workplaceType: "", location: jobLocation };
+): { jobType: string; salary: string; workplaceType: string } {
+  const empty = { jobType: "", salary: "", workplaceType: "" };
   try {
     const pills = pillSelectors
       .flatMap(sel => [...document.querySelectorAll(sel)])
@@ -468,14 +531,14 @@ function enrich(
       || normaliseJobType(ld.jobType ?? "")
       || normaliseJobType(header);
     const place = workplaceType(pills)
-      || workplaceType(jobLocation)
+      || workplaceType(rawLocation)
+      || ld.workplaceType
       || workplaceType(header);
 
     const money = header.match(/[$€£₹]\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?(?:\s*[-–—]\s*[$€£₹]?\s?[\d,.]+\s*[kK]?(?:\s*\/\s*\w+)?)?/);
     const salary = money?.[0]?.trim() || ld.salary || "";
 
-    /* Workplace type has its own field now, so the location stays a place. */
-    return { jobType, salary, workplaceType: place, location: jobLocation };
+    return { jobType, salary, workplaceType: place };
   } catch (err) {
     console.warn("[TrackMyself] could not read the job pills:", err);
     return empty;
@@ -505,13 +568,18 @@ function scrapeIndeed(): JobData {
   ) || ld.companyName || title.companyName
     || metaAttr(["indeed:employer"]) || "";
 
-  const jobLocation = qs(
+  const locationEl = [
     "[data-testid='job-location']",
     "[data-testid='inlineHeader-companyLocation']",
+    "[data-testid='jobsearch-JobInfoHeader-companyLocation']",
     "[data-testid='companyInfo-location']",
-    ".jobsearch-JobInfoHeader-subtitle [data-testid]",
     "[class*='companyLocation']",
-  ) || ld.location || title.location || "";
+  ].map((sel) => document.querySelector(sel)).find((el) => el?.textContent?.trim()) ?? null;
+  const locationLine = partsText(locationEl);
+  const jobLocation = placeSegment(locationLine, [cleanCompany(companyName)])
+    || placeOnly(ld.location ?? "")
+    || placeOnly(title.location ?? "")
+    || "";
 
   const description = qs(
     "#jobDescriptionText",
@@ -520,7 +588,7 @@ function scrapeIndeed(): JobData {
     "#jobDetails",
   ) || ld.jobDescription || "";
 
-  const extra = enrich(jobLocation, ld, [
+  const extra = enrich(locationLine || jobLocation, ld, [
     "#salaryInfoAndJobType",
     "[data-testid='attribute_snippet_testid']",
     "[class*='salary-snippet']",
@@ -529,7 +597,7 @@ function scrapeIndeed(): JobData {
   return {
     jobTitle,
     companyName: cleanCompany(companyName),
-    location: extra.location || jobLocation,
+    location: jobLocation,
     jobPostUrl: location.href,
     notes: "",
     platform: "Indeed",
@@ -555,7 +623,7 @@ function scrapeJob(site: State["site"]): JobData {
     return {
       companyName: cleanCompany(t.companyName ?? ""),
       jobTitle:    t.jobTitle ?? "",
-      location:    t.location ?? "",
+      location:    placeOnly(t.location ?? ""),
       jobPostUrl:  location.href,
       notes:       "",
       platform:    site === "linkedin" ? "LinkedIn" : site === "indeed" ? "Indeed" : "",
@@ -571,7 +639,7 @@ function scrapeJobUnsafe(site: State["site"]): JobData {
   return {
     companyName: ld.companyName ?? "",
     jobTitle:    ld.jobTitle    ?? document.title.split(/\s*[|\-–]\s*/)[0].trim(),
-    location:    ld.location    ?? "",
+    location:    placeOnly(ld.location ?? ""),
     jobPostUrl:  location.href,
     notes:       ld.notes       ?? metaAttr(["description", "og:description"]).slice(0, 600),
   };
@@ -713,7 +781,7 @@ function renderPanel() {
       </div>
       <div class="tm-field">
         <label class="tm-label" for="tm-location">Location</label>
-        <input id="tm-location" class="tm-input" type="text" placeholder="City / Remote" value="${escHtml(job.location)}">
+        <input id="tm-location" class="tm-input" type="text" placeholder="City, Country" value="${escHtml(job.location)}">
       </div>
       <div class="tm-field">
         <label class="tm-label" for="tm-url">Job Post URL</label>

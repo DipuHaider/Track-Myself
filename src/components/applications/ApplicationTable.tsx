@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lucide-react";
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES, parseJobTypes } from "@/constants/applicationStatus";
+import { formatLocation } from "@/lib/applicationLocation";
 import { isPossibleGhost, postingAge, type DuplicateKind } from "@/lib/applicationFlags";
 import AppDocButton from "@/components/applications/AppDocButton";
 import { useSession } from "next-auth/react";
@@ -181,7 +182,7 @@ export default function ApplicationTable({
                     <span className="text-muted">—</span>
                   )}
                 </td>
-                <td className="text-muted px-4 py-3">{app.location ?? app.country ?? "—"}</td>
+                <td className="text-muted px-4 py-3">{formatLocation(app) || "—"}</td>
                 <td className="text-muted px-4 py-3 whitespace-nowrap">{formatSalary(app)}</td>
                 <td className="text-muted px-4 py-3 whitespace-nowrap">{formatDateTime(app.appliedDate)}</td>
                 <td className="text-muted px-4 py-3">{app.contactNumber ?? "—"}</td>
@@ -249,7 +250,7 @@ export default function ApplicationTable({
                       info={{
                         companyName: app.companyName,
                         jobTitle: app.jobTitle,
-                        location: app.location ?? app.city ?? app.country ?? undefined,
+                        location: formatLocation(app) || undefined,
                         notes: app.notes ?? undefined,
                         jobPostUrl: app.jobPostUrl ?? undefined,
                         platform: app.platform ?? undefined,
