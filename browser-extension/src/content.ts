@@ -5,6 +5,7 @@ const APP_URL = "https://trackmyself.webarden.tech";
 // ── types ─────────────────────────────────────────────────────────────────
 
 import { splitLocation } from "../../src/lib/applicationLocation";
+import { SUBMISSION_METHODS } from "../../src/constants/applicationStatus";
 
 interface JobData {
   companyName: string;
@@ -14,6 +15,8 @@ interface JobData {
   country?:    string;
   jobPostUrl:  string;
   notes:       string;
+  submissionMethod?: string;
+  submissionDetail?: string;
   platform?:       string;
   jobType?:        string;
   workplaceType?:  string;
@@ -890,6 +893,18 @@ function renderPanel() {
         <input id="tm-location" class="tm-input" type="text" placeholder="City, Country" value="${escHtml(job.location)}">
       </div>`}
       <div class="tm-field">
+        <label class="tm-label" for="tm-via">Applied via</label>
+        <select id="tm-via" class="tm-input">
+          <option value="">— Not applied yet (Wishlist)</option>
+          ${SUBMISSION_METHODS.map((m) => `<option${job.submissionMethod === m ? " selected" : ""}>${escHtml(m)}</option>`).join("")}
+        </select>
+      </div>
+      ${job.submissionMethod === "In Person" ? `
+      <div class="tm-field">
+        <label class="tm-label" for="tm-via-detail">Where / how</label>
+        <input id="tm-via-detail" class="tm-input" type="text" maxlength="300" placeholder="e.g. CV dropped at reception" value="${escHtml(job.submissionDetail ?? "")}">
+      </div>` : ""}
+      <div class="tm-field">
         <label class="tm-label" for="tm-url">Job Post URL</label>
         <input id="tm-url" class="tm-input" type="url" placeholder="https://…" value="${escHtml(job.jobPostUrl)}">
       </div>
@@ -903,7 +918,7 @@ function renderPanel() {
       </div>
       ${addError ? `<p class="tm-error">${escHtml(addError)}</p>` : ""}
       <button id="tm-add-btn" class="tm-btn-primary" style="margin-top:4px;" ${addBusy ? "disabled" : ""}>
-        ${addBusy ? `<span class="tm-spinner"></span> Saving…` : `${ICON_PLUS} Add to Wishlist`}
+        ${addBusy ? `<span class="tm-spinner"></span> Saving…` : `${ICON_PLUS} ${job.submissionMethod ? "Save as Submitted" : "Add to Wishlist"}`}
       </button>
     `;
   }
@@ -925,7 +940,7 @@ function renderPanel() {
     body = `
       <div class="tm-success">
         <div class="tm-success-icon">${ICON_CHECK}</div>
-        <h3>Added to Wishlist!</h3>
+        <h3>${state.job.submissionMethod ? "Saved as Submitted!" : "Added to Wishlist!"}</h3>
         <p>${escHtml(state.job.jobTitle)} at ${escHtml(state.job.companyName)}</p>
         <a href="${APP_URL}/me/applications" target="_blank">View in TrackMyself →</a>
         <button id="tm-add-another" class="tm-btn-ghost" style="margin-top:4px;">Add another job</button>
@@ -1021,7 +1036,7 @@ function bindEvents() {
   });
 
   // Job form fields
-  (["tm-company","tm-title","tm-location","tm-city","tm-country","tm-url","tm-description","tm-notes"] as const).forEach(id => {
+  (["tm-company","tm-title","tm-location","tm-city","tm-country","tm-via-detail","tm-url","tm-description","tm-notes"] as const).forEach(id => {
     const el = shadow.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
     if (!el) return;
     el.addEventListener("input", () => {
@@ -1030,6 +1045,7 @@ function bindEvents() {
         "tm-title":    "jobTitle",
         "tm-location": "location",
         "tm-city":     "city",
+        "tm-via-detail": "submissionDetail",
         "tm-country":  "country",
         "tm-url":      "jobPostUrl",
         "tm-description": "jobDescription",
@@ -1037,6 +1053,11 @@ function bindEvents() {
       };
       (state.job[map[id]] as string) = el.value;
     });
+  });
+
+  shadow.getElementById("tm-via")?.addEventListener("change", (e) => {
+    state.job.submissionMethod = (e.target as HTMLSelectElement).value;
+    renderPanel();
   });
 
   shadow.getElementById("tm-add-btn")?.addEventListener("click", () => doAddJob());

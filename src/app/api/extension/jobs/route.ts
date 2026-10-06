@@ -5,7 +5,7 @@ import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { initialHistory } from "@/lib/applicationHistory";
-import { DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, WORKPLACE_TYPES, joinJobTypes } from "@/constants/applicationStatus";
+import { DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, SUBMISSION_METHODS, WORKPLACE_TYPES, joinJobTypes } from "@/constants/applicationStatus";
 import { countryName, formatLocation, splitLocation } from "@/lib/applicationLocation";
 import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
 
@@ -101,6 +101,9 @@ export async function POST(req: Request) {
   const jobTypes = [oneOf(str("jobType"), JOB_TYPES), oneOf(str("workplaceType"), WORKPLACE_TYPES)]
     .filter((t): t is string => Boolean(t));
 
+  const submissionMethod = oneOf(str("submissionMethod"), SUBMISSION_METHODS);
+  const applicationStatus = submissionMethod ? "Submitted" : DEFAULT_APPLICATION_STATUS;
+
   const application = await Application.create({
     userId:            user.id,
     companyName,
@@ -118,8 +121,11 @@ export async function POST(req: Request) {
     postingObservedAt: str("postedAt") || str("postedAgeText") ? new Date() : null,
     postingPrecision:  oneOf(str("postingPrecision"), ["exact", "approximate"]),
     notes:             str("notes"),
-    applicationStatus: DEFAULT_APPLICATION_STATUS,
-    statusHistory: initialHistory(DEFAULT_APPLICATION_STATUS),
+    applicationStatus,
+    statusHistory: initialHistory(applicationStatus),
+    submissionMethod,
+    submissionDetail:  submissionMethod === "In Person" ? str("submissionDetail").slice(0, 300) : undefined,
+    appliedDate:       submissionMethod ? new Date() : undefined,
   });
 
   return NextResponse.json(application, { status: 201 });

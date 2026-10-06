@@ -183,6 +183,8 @@
 }
 .tm-input:focus,
 .tm-textarea:focus { border-color: #6366f1; }
+select.tm-input { appearance: auto; cursor: pointer; }
+select.tm-input option { background: #1a1a35; color: #e2e8f0; }
 .tm-input::placeholder,
 .tm-textarea::placeholder { color: #334155; }
 .tm-textarea { height: 72px; }

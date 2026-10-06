@@ -21,6 +21,8 @@ interface JobPayload {
   postedAt?:          string;
   postedAgeText?:     string;
   postingPrecision?:  "exact" | "approximate";
+  submissionMethod?:  string;
+  submissionDetail?:  string;
 }
 
 type InMsg =
