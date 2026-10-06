@@ -184,6 +184,8 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, account, trigger }) {
+      if (token.aud === "extension") return endSession(token);
+
       if (user) {
         token.id = user.id;
         token.role = user.role;

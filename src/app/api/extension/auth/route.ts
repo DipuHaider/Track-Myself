@@ -7,6 +7,7 @@ import User from "@/models/User";
 import { mintExtensionToken } from "@/lib/extensionToken";
 import { accountPaused } from "@/lib/serverAuth";
 import { checkRateLimitDb, clearRateLimitDb } from "@/lib/rateLimitStore";
+import { clientIp } from "@/lib/rateLimit";
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
@@ -27,17 +28,19 @@ export async function POST(req: Request) {
 
   await dbConnect();
 
-  const throttleKey = `login:${email.toLowerCase().trim()}`;
-  const gate = await checkRateLimitDb({
-    key: throttleKey,
-    limit: 8,
-    windowMs: 15 * 60 * 1000,
-    blockMs: 15 * 60 * 1000,
-  });
-  if (!gate.ok) {
+  const who = email.toLowerCase().trim();
+  const throttleKey = `ext-login:${who}:${clientIp(req)}`;
+  const ceilingKey = `ext-login-total:${who}`;
+  const window = { windowMs: 15 * 60 * 1000, blockMs: 15 * 60 * 1000 };
+  const [gate, ceiling] = await Promise.all([
+    checkRateLimitDb({ key: throttleKey, limit: 8, ...window }),
+    checkRateLimitDb({ key: ceilingKey, limit: 30, ...window }),
+  ]);
+  if (!gate.ok || !ceiling.ok) {
+    const wait = Math.max(gate.retryAfterSeconds, ceiling.retryAfterSeconds);
     return NextResponse.json(
       { error: "Too many sign-in attempts. Try again in 15 minutes." },
-      { status: 429, headers: { "Retry-After": String(gate.retryAfterSeconds) } },
+      { status: 429, headers: { "Retry-After": String(wait) } },
     );
   }
 
@@ -51,7 +54,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  await clearRateLimitDb(throttleKey);
+  await Promise.all([clearRateLimitDb(throttleKey), clearRateLimitDb(ceilingKey)]);
 
   if (user.status === "paused") return accountPaused();
 

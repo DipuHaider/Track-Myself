@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { useDismissable } from "@/hooks/useDismissable";
 
 const openModals: symbol[] = [];
@@ -20,6 +20,7 @@ export default function Modal({
 }) {
   const { closing, close } = useDismissable(onClose);
   const closeRef = useRef(close);
+  const titleId = useId();
 
   useEffect(() => {
     closeRef.current = close;
@@ -48,13 +49,17 @@ export default function Modal({
       onClick={close}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={`surface w-full ${size === "xl" ? "max-w-4xl" : "max-w-lg"} rounded-xl border shadow-2xl ${closing ? "anim-panel-out" : "anim-panel"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b px-5 py-4">
-          <h2 className="text-base font-semibold">{title}</h2>
+          <h2 id={titleId} className="text-base font-semibold">{title}</h2>
           <button
             type="button"
+            aria-label="Close"
             onClick={close}
             className="rounded-md px-2 py-1 text-sm transition hover:bg-[var(--surface-2)]"
           >

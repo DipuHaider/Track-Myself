@@ -21,6 +21,7 @@ export async function mintExtensionToken(user: TokenUser) {
       role,
       plan:     effectivePlan(role, user.plan),
       email:    user.email,
+      aud:      "extension",
       claimsAt: Date.now(),
       sessionStart: Date.now(),
     },

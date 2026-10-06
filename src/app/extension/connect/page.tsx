@@ -13,7 +13,9 @@ export default async function ConnectExtensionPage({
   searchParams: Promise<{ ext?: string }>;
 }) {
   const { ext = "" } = await searchParams;
-  const extensionId = EXTENSION_ID.test(ext) ? ext : "";
+  const allowed = (process.env.EXTENSION_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean);
+  const known = EXTENSION_ID.test(ext) && (!allowed.length || allowed.includes(ext));
+  const extensionId = known ? ext : "";
 
   const user = await getSessionUser();
   if (!user) {

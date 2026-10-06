@@ -150,15 +150,15 @@ function applyButtonVisibility() {
    onto it. Employment type wins here; workplace type is sent alongside it
    and the server merges the two. */
 const EMPLOYMENT_TYPES: [RegExp, string][] = [
-  [/full[\s_-]?time/i,    "Full-Time"],
-  [/part[\s_-]?time/i,    "Part-Time"],
-  [/contract(or)?/i,      "Contract"],
-  [/freelance/i,          "Freelance"],
-  [/intern(ship)?/i,      "Internship"],
-  [/working[\s_-]?student/i, "Working Student"],
-  [/apprentice(ship)?/i,  "Apprenticeship"],
-  [/temporary|temp\b/i,  "Temporary"],
-  [/volunteer/i,          "Volunteer"],
+  [/full[\s_-]?time|vollzeit/i,                 "Full-Time"],
+  [/part[\s_-]?time|teilzeit/i,                 "Part-Time"],
+  [/contract(or)?|vertrag|freie mitarbeit/i,    "Contract"],
+  [/freelance|freiberuflich/i,                  "Freelance"],
+  [/\bintern(ship)?\b|praktikum/i,              "Internship"],
+  [/working[\s_-]?student|werkstudent/i,        "Working Student"],
+  [/apprentice(ship)?|ausbildung/i,             "Apprenticeship"],
+  [/temporary|temp\b|befristet|aushilfe/i,      "Temporary"],
+  [/volunteer|ehrenamt/i,                       "Volunteer"],
 ];
 
 function normaliseJobType(raw: string): string {
@@ -169,7 +169,7 @@ function normaliseJobType(raw: string): string {
 function workplaceType(raw: string): string {
   if (/\bremote\b/i.test(raw)) return "Remote";
   if (/\bhybrid\b/i.test(raw)) return "Hybrid";
-  if (/on[\s-]?site|in[\s-]?office/i.test(raw)) return "On-site";
+  if (/on[\s-]?site|in[\s-]?office|vor ort/i.test(raw)) return "On-site";
   return "";
 }
 
@@ -190,10 +190,17 @@ function cleanCompany(raw: string): string {
    strongest ghost-job signal available, and it was being parsed purely to be
    discarded. Relative text yields an approximate date anchored to now, so the
    raw phrase is preserved alongside it rather than replaced by it. */
-const AGE_TEXT = /\b(?:(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago|(yesterday|today))\b/i;
+const AGE_TEXT = new RegExp(
+  "(?:\\b(\\d+)\\s+(minute|hour|day|week|month|year)s?\\s+ago\\b" +
+  "|\\bvor\\s+(\\d+)\\s+(minute|minuten|stunde|stunden|tag|tagen|woche|wochen|monat|monaten|jahr|jahren)\\b" +
+  "|\\b(yesterday|today|gestern|heute)\\b)",
+  "i",
+);
 
 const AGE_DAYS: Record<string, number> = {
   minute: 1 / 1440, hour: 1 / 24, day: 1, week: 7, month: 30.44, year: 365.25,
+  minuten: 1 / 1440, stunde: 1 / 24, stunden: 1 / 24, tag: 1, tagen: 1,
+  woche: 7, wochen: 7, monat: 30.44, monaten: 30.44, jahr: 365.25, jahren: 365.25,
 };
 
 export function postingAge(raw: string): { text: string; postedAt: string } | null {
@@ -201,18 +208,18 @@ export function postingAge(raw: string): { text: string; postedAt: string } | nu
   if (!m) return null;
 
   const text = m[0].trim();
-  if (m[3]) {
-    const days = m[3].toLowerCase() === "today" ? 0 : 1;
+  if (m[5]) {
+    const days = /today|heute/i.test(m[5]) ? 0 : 1;
     return { text, postedAt: new Date(Date.now() - days * 86400000).toISOString() };
   }
 
-  const n = Number(m[1]);
-  const unit = AGE_DAYS[m[2].toLowerCase()];
+  const n = Number(m[1] ?? m[3]);
+  const unit = AGE_DAYS[(m[2] ?? m[4] ?? "").toLowerCase()];
   if (!Number.isFinite(n) || !unit) return null;
   return { text, postedAt: new Date(Date.now() - n * unit * 86400000).toISOString() };
 }
 
-const NOT_A_PLACE = /\bago\b|applicant|people clicked|alumni|响应|reposted|promoted/i;
+const NOT_A_PLACE = /\bago\b|applicant|people clicked|alumni|响应|reposted|promoted|\bvor\s+\d|bewerb|personen|beworben|gesponsert|erneut gepostet|anzeige/i;
 
 const SEGMENT = /\s*[\u00b7\u2022|]\s*/;
 
@@ -231,13 +238,14 @@ function placeSegment(raw: string, exclude: string[] = []): string {
   return "";
 }
 
-const ABOUT_JOB = /about the job/i;
-const DESCRIPTION_END = /^(?:show more|show less|see more|see less|\u2026\s*more|about the company|set alert for similar jobs|people you can reach out to|meet the hiring team)$/i;
+const ABOUT_JOB = /about the job|über den job|über die stelle|info zum job|infos zum job/i;
+const ABOUT_JOB_HEADING = /^\s*(?:about the job|über den job|über die stelle|info zum job|infos zum job)\s*$/i;
+const DESCRIPTION_END = /^(?:show more|show less|see more|see less|\u2026\s*more|about the company|set alert for similar jobs|people you can reach out to|meet the hiring team|mehr anzeigen|weniger anzeigen|\u2026\s*mehr|über das unternehmen|jobalert erstellen|lernen sie das recruiting-team kennen)$/i;
 
 function aboutJobHeading(): HTMLElement | null {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    if (!/^\s*about the job\s*$/i.test(n.textContent ?? "")) continue;
+    if (!ABOUT_JOB_HEADING.test(n.textContent ?? "")) continue;
     const el = n.parentElement;
     if (el && el.getClientRects().length > 0) return el;
   }
@@ -358,7 +366,7 @@ function jobTitleFrom(pane: ParentNode): string {
 
 /* "Remote" on its own is a working arrangement, not a place — it belongs to
    workplace type, and letting it stand as the location loses the city. */
-const WORKPLACE_WORD = /^(?:fully\s+)?(?:remote|hybrid(?:\s+work)?|on[\s-]?site|in[\s-]?office)$/i;
+const WORKPLACE_WORD = /^(?:fully\s+)?(?:remote|hybrid(?:\s+work)?|on[\s-]?site|in[\s-]?office|vor ort)$/i;
 
 function placeOnly(raw: string): string {
   let t = raw.replace(/\s+/g, " ").trim();

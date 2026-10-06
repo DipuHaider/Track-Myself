@@ -53,7 +53,7 @@ export default function ConnectExtension({ extensionId, email }: { extensionId: 
 
           {!extensionId ? (
             <p className="text-muted mt-2 text-sm">
-              This link is missing the extension&apos;s ID. Open it from the TrackMyself extension&apos;s sign-in panel.
+              This link doesn&apos;t come from the TrackMyself extension. Open it from the extension&apos;s sign-in panel.
             </p>
           ) : phase === "done" ? (
             <p className="text-muted mt-2 text-sm">
