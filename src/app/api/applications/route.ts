@@ -5,6 +5,7 @@ import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { historyActor, initialHistory, isValidationError, sanitizeUpdate, validationMessage } from "@/lib/applicationHistory";
 import { requireActiveAuth } from "@/lib/serverAuth";
+import { purgeExpiredApplications } from "@/lib/applicationTrash";
 
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -16,6 +17,7 @@ export async function GET(req: Request) {
   const userId = auth.id;
 
   await dbConnect();
+  await purgeExpiredApplications({ userId });
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();

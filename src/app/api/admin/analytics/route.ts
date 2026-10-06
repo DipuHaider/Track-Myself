@@ -5,13 +5,12 @@ import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import User from "@/models/User";
 import { requireAction } from "@/lib/serverAuth";
-import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, GHOST_STATUSES, NOT_APPLIED_STATUSES } from "@/constants/applicationStatus";
 
 const INTERVIEW_STATUSES = APPLICATION_STATUSES.filter(
   (s) => s === "Interview Scheduled" || s.startsWith("Active"),
 );
 
-const GHOST_STATUSES = ["Wishlist", "Not Completed", "Submitted", "No Response"];
 const GHOST_DAYS = 45;
 const TREND_MONTHS = 12;
 
@@ -103,8 +102,8 @@ export async function GET() {
   const interviews = INTERVIEW_STATUSES.reduce((sum, s) => sum + (statusCounts[s] ?? 0), 0);
   const offers = statusCounts["Offer Received"] ?? 0;
   const rejected = statusCounts["Rejected"] ?? 0;
-  const wishlist = statusCounts["Wishlist"] ?? 0;
-  const applied = total - wishlist;
+  const notApplied = NOT_APPLIED_STATUSES.reduce((sum, st) => sum + (statusCounts[st] ?? 0), 0);
+  const applied = total - notApplied;
 
   return NextResponse.json({
     totals: {

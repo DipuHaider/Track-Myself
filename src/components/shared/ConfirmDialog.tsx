@@ -21,7 +21,13 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<Pending | null>(null);
 
   const confirm = useCallback(
-    (options: ConfirmOptions) => new Promise<boolean>((resolve) => setPending({ options, resolve })),
+    (options: ConfirmOptions) =>
+      new Promise<boolean>((resolve) =>
+        setPending((previous) => {
+          previous?.resolve(false);
+          return { options, resolve };
+        }),
+      ),
     [],
   );
 

@@ -28,7 +28,7 @@ type SystemInfo = {
   };
 };
 
-type TaskKey = "roles" | "cvFiles";
+type TaskKey = "roles" | "cvFiles" | "purgeTrash";
 
 const TASKS: { key: TaskKey; label: string; description: string; endpoint: string }[] = [
   {
@@ -42,6 +42,12 @@ const TASKS: { key: TaskKey; label: string; description: string; endpoint: strin
     label: "Move CV files to their own collection",
     description: "Moves uploaded CV file data out of each CV profile document into the CVFile collection, keeping the same file IDs.",
     endpoint: "/api/admin/migrate-cv-files",
+  },
+  {
+    key: "purgeTrash",
+    label: "Purge expired deleted applications",
+    description: "Permanently removes applications that have been in Recently deleted for more than 30 days, with their interviews and reminders.",
+    endpoint: "/api/admin/applications/trash/purge",
   },
 ];
 

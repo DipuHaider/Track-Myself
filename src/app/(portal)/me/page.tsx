@@ -10,7 +10,7 @@ import {
 import type { Application } from "@/types/application";
 import StatsModal from "@/components/applications/StatsModal";
 import { computeDuplicateIds } from "@/lib/applicationFlags";
-import { parseJobTypes } from "@/constants/applicationStatus";
+import { NOT_COMPLETED_STATUS, parseJobTypes } from "@/constants/applicationStatus";
 import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
 import Loading from "@/components/shared/Spinner";
 import AccountControls from "@/components/portal/AccountControls";
@@ -102,7 +102,7 @@ export default function MePage() {
     return {
       total:       apps.length,
       wishlist:    c((a) => a.applicationStatus === "Wishlist"),
-      notCompleted: c((a) => a.applicationStatus === "Not Completed"),
+      notCompleted: c((a) => a.applicationStatus === NOT_COMPLETED_STATUS),
       submitted:   c((a) => a.applicationStatus === "Submitted"),
       interviews:  c((a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled"),
       offers:      c((a) => a.applicationStatus === "Offer Received"),
@@ -129,7 +129,7 @@ export default function MePage() {
     { label: "Total Applications", value: stats.total,       icon: <Briefcase size={20} />,    color: "#4169e1", filter: () => true },
     { label: "Favourites",         value: stats.favourites,  icon: <Star size={20} />,          color: "#f59e0b", filter: (a) => !!a.favourite },
     { label: "Wishlist",           value: stats.wishlist,    icon: <Star size={20} />,          color: "#e879f9", filter: (a) => a.applicationStatus === "Wishlist" },
-    { label: "Not Completed",      value: stats.notCompleted, icon: <CircleDashed size={20} />, color: "#f97316", filter: (a) => a.applicationStatus === "Not Completed" },
+    { label: "Not Completed",      value: stats.notCompleted, icon: <CircleDashed size={20} />, color: "#f97316", filter: (a) => a.applicationStatus === NOT_COMPLETED_STATUS },
     { label: "Submitted",          value: stats.submitted,   icon: <Send size={20} />,          color: "#3b82f6", filter: (a) => a.applicationStatus === "Submitted" },
     { label: "No Response",        value: stats.noResponse,  icon: <Clock size={20} />,         color: "#6b7280", filter: (a) => a.applicationStatus === "No Response" },
     { label: "Interviews",         value: stats.interviews,  icon: <MessageSquare size={20} />, color: "#8b5cf6", filter: (a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled" },

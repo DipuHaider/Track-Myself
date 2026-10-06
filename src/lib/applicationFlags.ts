@@ -1,6 +1,7 @@
 import type { Application } from "@/types/application";
+import { GHOST_STATUSES } from "@/constants/applicationStatus";
 
-const GHOST_STATUSES = new Set(["Submitted", "No Response", "Wishlist", "Not Completed"]);
+const GHOST_STATUS_SET = new Set(GHOST_STATUSES);
 const GHOST_DAYS = 45;
 
 /* Wishlist rows carry no appliedDate — the user has not applied yet — so they
@@ -12,7 +13,7 @@ export function isPossibleGhost(app: Application): boolean {
   const started = new Date(since).getTime();
   if (Number.isNaN(started)) return false;
   const days = (Date.now() - started) / 86_400_000;
-  return days > GHOST_DAYS && GHOST_STATUSES.has(app.applicationStatus);
+  return days > GHOST_DAYS && GHOST_STATUS_SET.has(app.applicationStatus);
 }
 
 /* Legal form is not identity: "Blotato" and "Blotato GmbH" are one employer.

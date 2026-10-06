@@ -6,7 +6,8 @@ import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { historyActor, initialHistory } from "@/lib/applicationHistory";
 import {
-  DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, WORKPLACE_TYPES, joinJobTypes,
+  DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, SUBMITTED_STATUS,
+  WORKPLACE_TYPES, joinJobTypes,
 } from "@/constants/applicationStatus";
 import { countryName, formatLocation, splitLocation } from "@/lib/applicationLocation";
 import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
@@ -104,7 +105,7 @@ export async function POST(req: Request) {
     .filter((t): t is string => Boolean(t));
 
   const submissionMethod = oneOf(str("submissionMethod"), SUBMISSION_METHODS);
-  const applicationStatus = submissionMethod ? "Submitted" : DEFAULT_APPLICATION_STATUS;
+  const applicationStatus = submissionMethod ? SUBMITTED_STATUS : DEFAULT_APPLICATION_STATUS;
 
   const application = await Application.create({
     userId:            user.id,

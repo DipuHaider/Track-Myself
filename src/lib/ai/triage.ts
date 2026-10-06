@@ -1,3 +1,4 @@
+import { DEFAULT_APPLICATION_STATUS, NOT_APPLIED_STATUSES } from "@/constants/applicationStatus";
 import { runAiTask, type Actor } from "@/lib/ai/gateway";
 import type { AICredential } from "@/lib/cv/ai/provider";
 import { postingAge } from "@/lib/applicationFlags";
@@ -73,11 +74,11 @@ export function shortlist(apps: Application[], interviews: InterviewLite[]): Tri
       observed.push(inDays === 0 ? "interview today" : `interview in ${inDays} days`);
     }
 
-    if (app.applicationStatus === "Wishlist" || app.applicationStatus === "Not Completed") {
+    if (NOT_APPLIED_STATUSES.includes(app.applicationStatus)) {
       const age = daysSince(app.createdAt);
       if (age !== null && age >= WISHLIST_STALE_DAYS) {
         reasons.push("never-applied");
-        observed.push(app.applicationStatus === "Wishlist"
+        observed.push(app.applicationStatus === DEFAULT_APPLICATION_STATUS
           ? `saved ${age} days ago, never applied`
           : `started ${age} days ago, application not completed`);
       }

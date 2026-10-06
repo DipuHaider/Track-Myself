@@ -29,8 +29,12 @@ export function formatSalary(app: Partial<Application>): string {
   if (app.salaryType === "negotiable") return SALARY_TYPE_LABELS.negotiable;
   if (app.salaryType === "not-mentioned") return SALARY_TYPE_LABELS["not-mentioned"];
   const sym = CURRENCY_SYM[app.salaryCurrency ?? ""] ?? "";
-  if (app.salaryType === "range" && app.salaryMin != null && app.salaryMax != null) {
-    return `${sym}${compactAmount(app.salaryMin)} – ${sym}${compactAmount(app.salaryMax)}`;
+  if (app.salaryType === "range") {
+    const { salaryMin: min, salaryMax: max } = app;
+    if (min != null && max != null) return `${sym}${compactAmount(min)} – ${sym}${compactAmount(max)}`;
+    if (min != null) return `from ${sym}${compactAmount(min)}`;
+    if (max != null) return `up to ${sym}${compactAmount(max)}`;
+    return app.salary ?? "";
   }
   if (app.salaryFixed != null) return `${sym}${compactAmount(app.salaryFixed)}`;
   return app.salary ?? "";
@@ -52,6 +56,12 @@ export function editableAmount(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "";
   const short = compactAmount(n);
   return parseAmount(short) === n ? short : String(n);
+}
+
+export function isValidRange(min: string, max: string): boolean {
+  const lo = parseAmount(min);
+  const hi = parseAmount(max);
+  return lo == null || hi == null || Number.isNaN(lo) || Number.isNaN(hi) || lo <= hi;
 }
 
 export function isValidAmount(raw: string): boolean {

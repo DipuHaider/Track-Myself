@@ -10,7 +10,7 @@ import {
 } from "@/constants/applicationStatus";
 import type { Application, ApplicationContact } from "@/types/application";
 import { formatLocation, splitLocation } from "@/lib/applicationLocation";
-import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, editableAmount, isValidAmount, parseAmount, type SalaryType } from "@/lib/salary";
+import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, editableAmount, isValidAmount, isValidRange, parseAmount, type SalaryType } from "@/lib/salary";
 
 /* ── helpers ─────────────────────────────────────── */
 
@@ -328,6 +328,9 @@ export default function ApplicationFormModal({
     if (!amounts.every(isValidAmount)) {
       throw new Error("Salary must be a number such as 70000, 70,000 or 70K.");
     }
+    if (form.salaryType === "range" && !isValidRange(form.salaryMin, form.salaryMax)) {
+      throw new Error("The salary Min can't be higher than the Max.");
+    }
     const uploadedPaths: string[] = [];
     for (const file of pendingFiles) {
       const p = await uploadFile(file, form.companyName || "unknown");
@@ -606,7 +609,7 @@ export default function ApplicationFormModal({
                 <input
                   type="text"
                   aria-label="Maximum salary"
-                  className={`${inputCls} ${isValidAmount(form.salaryMax) ? "" : "border-red-500"}`}
+                  className={`${inputCls} ${isValidAmount(form.salaryMax) && isValidRange(form.salaryMin, form.salaryMax) ? "" : "border-red-500"}`}
                   placeholder="Max, e.g. 90K"
                   value={form.salaryMax}
                   onChange={set("salaryMax")}

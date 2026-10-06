@@ -16,6 +16,14 @@ export const APPLICATION_STATUSES = [
    can be reordered without silently changing what the extension saves. */
 export const DEFAULT_APPLICATION_STATUS = "Wishlist" as const;
 
+export const SUBMITTED_STATUS = "Submitted" as const;
+
+export const NOT_COMPLETED_STATUS = "Not Completed" as const;
+
+export const NOT_APPLIED_STATUSES: readonly string[] = [DEFAULT_APPLICATION_STATUS, NOT_COMPLETED_STATUS];
+
+export const GHOST_STATUSES: readonly string[] = [...NOT_APPLIED_STATUSES, SUBMITTED_STATUS, "No Response"];
+
 export const PLATFORMS = [
   "LinkedIn",
   "Indeed",
