@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useDismissable } from "@/hooks/useDismissable";
+
+const openModals: symbol[] = [];
 
 export default function Modal({
   open,
@@ -17,13 +19,25 @@ export default function Modal({
   size?: "md" | "xl";
 }) {
   const { closing, close } = useDismissable(onClose);
+  const closeRef = useRef(close);
+
+  useEffect(() => {
+    closeRef.current = close;
+  }, [close]);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    const id = Symbol("modal");
+    openModals.push(id);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && openModals[openModals.length - 1] === id) closeRef.current();
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, close]);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      openModals.splice(openModals.indexOf(id), 1);
+    };
+  }, [open]);
 
   if (!open) return null;
 

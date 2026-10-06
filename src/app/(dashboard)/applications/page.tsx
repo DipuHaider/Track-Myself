@@ -7,6 +7,7 @@ import ApplicationFormModal from "@/components/applications/ApplicationFormModal
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
 import RecentlyDeletedModal from "@/components/applications/RecentlyDeletedModal";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import PermissionGate from "@/components/dashboard/PermissionGate";
 import Loading, { InlineSpinner } from "@/components/shared/Spinner";
 import Pagination, { PAGE_SIZE, usePagination } from "@/components/shared/Pagination";
@@ -93,18 +94,28 @@ function ApplicationsContent() {
     }
   }
 
+  async function undoDelete(app: Application) {
+    const res = await fetch(`/api/admin/applications/trash/${app._id}`, { method: "POST" });
+    if (!res.ok) { toast.error("Could not restore that application."); return; }
+    addApplication(await res.json());
+    toast.success(`"${app.jobTitle}" restored`);
+  }
+
   async function handleDelete(app: Application) {
     const owner = (app as AdminApplication).owner;
-    const who = owner ? ` (owned by ${owner.name})` : "";
-    if (!confirm(`Delete "${app.jobTitle}" at ${app.companyName}${who}? It can be restored from Recently deleted for 30 days.`)) return;
 
     setDeletingId(app._id);
     setError("");
     const res = await fetch(`/api/admin/applications/${app._id}`, { method: "DELETE" });
     setDeletingId(null);
 
-    if (res.ok) removeApplication(app._id);
-    else setError("Could not delete that application.");
+    if (!res.ok) { toast.error("Could not delete that application."); return; }
+    removeApplication(app._id);
+    toast(`"${app.jobTitle}" moved to Recently deleted`, {
+      description: `${app.companyName}${owner ? ` · ${owner.name}` : ""} · restorable for 30 days`,
+      duration: 8000,
+      action: { label: "Undo", onClick: () => { void undoDelete(app); } },
+    });
   }
 
   return (
@@ -219,7 +230,7 @@ function ApplicationsContent() {
           onClose={() => setTrashOpen(false)}
           endpoint="/api/admin/applications/trash"
           showOwner
-          onRestored={(app) => addApplication(app)}
+          onRestored={(app) => { addApplication(app); toast.success(`"${app.jobTitle}" restored`); }}
         />
       )}
 

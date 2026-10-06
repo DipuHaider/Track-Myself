@@ -6,6 +6,7 @@ import ApplicationFormModal from "@/components/applications/ApplicationFormModal
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
 import RecentlyDeletedModal from "@/components/applications/RecentlyDeletedModal";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import ApplicationTable from "@/components/applications/ApplicationTable";
 import { useApplications } from "@/hooks/useApplications";
 import type { Application } from "@/types/application";
@@ -71,12 +72,24 @@ function PortalApplicationsContent() {
     setFilterGhost(""); setFilterDuplicates(false);
   };
 
+  const undoDelete = async (app: Application) => {
+    const res = await fetch(`/api/applications/trash/${app._id}`, { method: "POST" });
+    if (!res.ok) { toast.error("Could not restore that application."); return; }
+    addApplication(await res.json());
+    toast.success(`"${app.jobTitle}" restored`);
+  };
+
   const handleDelete = async (app: Application) => {
-    if (!confirm(`Delete "${app.jobTitle}" at ${app.companyName}? You can restore it from Recently deleted for 30 days.`)) return;
     setDeletingId(app._id);
     const res = await fetch(`/api/applications/${app._id}`, { method: "DELETE" });
     setDeletingId(null);
-    if (res.ok) removeApplication(app._id);
+    if (!res.ok) { toast.error("Could not delete that application."); return; }
+    removeApplication(app._id);
+    toast(`"${app.jobTitle}" moved to Recently deleted`, {
+      description: `${app.companyName} · restorable for 30 days`,
+      duration: 8000,
+      action: { label: "Undo", onClick: () => { void undoDelete(app); } },
+    });
   };
 
   const handleQuickUpdate = async (id: string, field: QuickField, value: string | boolean) => {
@@ -263,7 +276,7 @@ function PortalApplicationsContent() {
           open
           onClose={() => setTrashOpen(false)}
           endpoint="/api/applications/trash"
-          onRestored={(app) => addApplication(app)}
+          onRestored={(app) => { addApplication(app); toast.success(`"${app.jobTitle}" restored`); }}
         />
       )}
 

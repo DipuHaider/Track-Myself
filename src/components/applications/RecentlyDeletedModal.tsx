@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { RotateCcw, Trash2 } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import StatusBadge from "@/components/applications/StatusBadge";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 
 export type DeletedItem = {
   _id: string;
@@ -44,6 +46,7 @@ export default function RecentlyDeletedModal<T>({
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const ask = useConfirm();
 
   useEffect(() => {
     let alive = true;
@@ -64,19 +67,26 @@ export default function RecentlyDeletedModal<T>({
     setError("");
     const res = await fetch(`${endpoint}/${item._id}`, { method: "POST" });
     setBusyId(null);
-    if (!res.ok) { setError("Could not restore that application."); return; }
+    if (!res.ok) { toast.error("Could not restore that application."); return; }
     onRestored((await res.json()) as T);
     setItems((prev) => prev.filter((i) => i._id !== item._id));
   };
 
   const deleteForever = async (item: DeletedItem) => {
-    if (!confirm(`Permanently delete "${item.jobTitle}" at ${item.companyName}? This cannot be undone.`)) return;
+    const ok = await ask({
+      title: "Delete forever?",
+      message: `"${item.jobTitle}" at ${item.companyName} will be removed for good, with its interviews and reminders. This cannot be undone.`,
+      confirmLabel: "Delete forever",
+      tone: "danger",
+    });
+    if (!ok) return;
     setBusyId(item._id);
     setError("");
     const res = await fetch(`${endpoint}/${item._id}`, { method: "DELETE" });
     setBusyId(null);
-    if (!res.ok) { setError("Could not delete that application."); return; }
+    if (!res.ok) { toast.error("Could not delete that application."); return; }
     setItems((prev) => prev.filter((i) => i._id !== item._id));
+    toast.success(`"${item.jobTitle}" deleted for good`);
   };
 
   return (

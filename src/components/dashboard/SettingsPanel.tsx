@@ -5,6 +5,8 @@ import { AlertTriangle, CheckCircle2, Compass, Database, Loader2, Play, Shield, 
 import { PLAN_LABELS, ROLE_LABELS, type Plan, type Role } from "@/lib/permissions";
 import { TOUR_DESCRIPTIONS, TOUR_LABELS, TOUR_SCOPES, type TourScope } from "@/lib/tour";
 import AiBudgetPanel from "@/components/dashboard/AiBudgetPanel";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 
 type SystemInfo = {
   env: {
@@ -143,6 +145,7 @@ export default function SettingsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
   const [failed, setFailed] = useState(false);
 
   const [running, setRunning] = useState<TaskKey | null>(null);
+  const ask = useConfirm();
   const [results, setResults] = useState<Record<string, string>>({});
 
   function loadInfo() {
@@ -159,7 +162,12 @@ export default function SettingsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
   useEffect(() => { loadInfo(); }, []);
 
   async function runTask(task: (typeof TASKS)[number]) {
-    if (!confirm(`Run "${task.label}"? This updates records in the database.`)) return;
+    const ok = await ask({
+      title: `Run "${task.label}"?`,
+      message: "This updates records in the database.",
+      confirmLabel: "Run",
+    });
+    if (!ok) return;
     setRunning(task.key);
     try {
       const res = await fetch(task.endpoint, { method: "POST" });
@@ -170,7 +178,12 @@ export default function SettingsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
           ? Object.entries(body).map(([k, v]) => `${k}: ${v}`).join(" · ")
           : (body?.error ?? "Failed."),
       }));
-      if (res.ok) await loadInfo();
+      if (res.ok) {
+        toast.success(`"${task.label}" finished`);
+        await loadInfo();
+      } else {
+        toast.error(`"${task.label}" failed`);
+      }
     } catch {
       setResults((prev) => ({ ...prev, [task.key]: "Request failed." }));
     } finally {

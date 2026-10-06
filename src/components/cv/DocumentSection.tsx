@@ -8,6 +8,8 @@ import {
 import type { CVFileCategory, CVFileMeta } from "@/types/cv";
 import { fileTypeLabel, resolveFileMime } from "@/lib/cvFileTypes";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 
 export type SectionSpec = {
   category: CVFileCategory;
@@ -46,6 +48,7 @@ export default function DocumentSection({
 }) {
   const [uploading, setUploading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const ask = useConfirm();
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   const [renameId, setRenameId] = useState<string | null>(null);
@@ -105,7 +108,8 @@ export default function DocumentSection({
   }
 
   async function remove(id: string, name: string) {
-    if (!confirm(`Delete "${name}"?`)) return;
+    const ok = await ask({ title: `Delete "${name}"?`, message: "This file will be removed.", confirmLabel: "Delete", tone: "danger" });
+    if (!ok) return;
     setBusyId(id);
     setError("");
     try {
@@ -116,6 +120,7 @@ export default function DocumentSection({
       }
       onFilesChange(files.filter((f) => f._id !== id), "section");
       if (primaryId === id) onPrimaryChange("");
+      toast.success(`"${name}" deleted`);
     } finally {
       setBusyId(null);
     }

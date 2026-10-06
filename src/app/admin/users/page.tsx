@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Loading from "@/components/shared/Spinner";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/permissions";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 
 type UserRecord = {
   _id: string;
@@ -16,6 +18,7 @@ type UserRecord = {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const ask = useConfirm();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -60,7 +63,13 @@ export default function AdminUsersPage() {
   }
 
   async function deleteUser(userId: string, name: string) {
-    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+    const ok = await ask({
+      title: `Delete user "${name}"?`,
+      message: "This cannot be undone.",
+      confirmLabel: "Delete user",
+      tone: "danger",
+    });
+    if (!ok) return;
     setSaving(userId + "-del");
     const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
     setSaving(null);
@@ -70,6 +79,7 @@ export default function AdminUsersPage() {
       return;
     }
     setUsers((prev) => prev.filter((u) => u._id !== userId));
+    toast.success(`User "${name}" deleted`);
   }
 
   const { page, setPage, totalPages, pageItems, total } = usePagination(users);

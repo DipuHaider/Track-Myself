@@ -9,6 +9,8 @@ import { fileTypeLabel } from "@/lib/cvFileTypes";
 import SavedCVModal from "./SavedCVModal";
 import DocEditModal from "./DocEditModal";
 import type { CVFileMeta } from "@/types/cv";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 
 const FORMAT_NAME: Record<string, string> = {
   ats: "ATS", europass: "Europass", designer: "Designer", lebenslauf: "Lebenslauf",
@@ -157,6 +159,7 @@ export default function GeneratedTree({
   onDeleted: (id: string) => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const ask = useConfirm();
   const [error, setError] = useState("");
   const [viewing, setViewing] = useState<CVFileMeta | null>(null);
   const [editing, setEditing] = useState<CVFileMeta | null>(null);
@@ -164,7 +167,8 @@ export default function GeneratedTree({
   const tree = useMemo(() => buildGeneratedTree(files), [files]);
 
   async function remove(file: CVFileMeta) {
-    if (!confirm(`Delete "${file.name}"?`)) return;
+    const ok = await ask({ title: `Delete "${file.name}"?`, message: "This document will be removed.", confirmLabel: "Delete", tone: "danger" });
+    if (!ok) return;
     setBusyId(file._id);
     setError("");
     try {
@@ -174,6 +178,7 @@ export default function GeneratedTree({
         return;
       }
       onDeleted(file._id);
+      toast.success(`"${file.name}" deleted`);
     } finally {
       setBusyId(null);
     }

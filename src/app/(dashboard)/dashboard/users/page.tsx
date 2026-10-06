@@ -7,6 +7,8 @@ import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
 import Loading from "@/components/shared/Spinner";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
 import PermissionGate from "@/components/dashboard/PermissionGate";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 
 type UserRecord = {
   _id: string;
@@ -30,6 +32,7 @@ function UsersContent() {
     : ROLES.filter((r) => r !== "superadmin");
 
   const [users, setUsers]   = useState<UserRecord[]>([]);
+  const ask = useConfirm();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState<string | null>(null);
   const [error, setError]     = useState("");
@@ -78,16 +81,19 @@ function UsersContent() {
   }
 
   async function deleteUser(userId: string, name: string) {
-    if (!confirm(
-      `Delete user "${name}"?
-
-This erases their account and every application, interview, reminder, CV profile and uploaded document. It cannot be undone.`,
-    )) return;
+    const ok = await ask({
+      title: `Delete user "${name}"?`,
+      message: "This erases their account and every application, interview, reminder, CV profile and uploaded document. It cannot be undone.",
+      confirmLabel: "Delete user",
+      tone: "danger",
+    });
+    if (!ok) return;
     setSaving(userId + "-del");
     const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
     setSaving(null);
     if (!res.ok) { const d = await res.json(); setError(d.error ?? "Failed to delete user."); return; }
     setUsers((prev) => prev.filter((u) => u._id !== userId));
+    toast.success(`User "${name}" deleted`);
   }
 
   // Per-row: admins cannot edit superadmin users (only superadmin can)

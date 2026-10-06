@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Check, Loader2, RotateCcw, Save, ShieldCheck, Lock } from "lucide-react";
 import { invalidatePermissions } from "@/hooks/usePermissions";
 import type { DashboardAction, Role } from "@/lib/permissions";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 
 type RBACPayload = {
   matrix: Record<DashboardAction, Role[]>;
@@ -31,6 +33,7 @@ function sameMatrix(a: Record<string, string[]>, b: Record<string, string[]>) {
 
 export default function AccessControlPanel({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const [data, setData] = useState<RBACPayload | null>(null);
+  const ask = useConfirm();
   const [draft, setDraft] = useState<Record<DashboardAction, Role[]> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -93,7 +96,13 @@ export default function AccessControlPanel({ isSuperAdmin }: { isSuperAdmin: boo
   }
 
   async function reset() {
-    if (!confirm("Reset every permission back to the built-in defaults?")) return;
+    const ok = await ask({
+      title: "Reset permissions?",
+      message: "Every permission goes back to the built-in defaults.",
+      confirmLabel: "Reset",
+      tone: "danger",
+    });
+    if (!ok) return;
     setSaving(true);
     setError("");
     try {
@@ -103,6 +112,7 @@ export default function AccessControlPanel({ isSuperAdmin }: { isSuperAdmin: boo
         return;
       }
       apply(await res.json());
+      toast.success("Permissions reset to defaults");
     } finally {
       setSaving(false);
     }
