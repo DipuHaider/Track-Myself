@@ -397,7 +397,13 @@ function parseJobLd(): Partial<JobData> {
           jobTitle:    typeof d.title       === "string" ? d.title.trim()    : "",
           companyName: typeof org?.name     === "string" ? org.name.trim()   : "",
           location:    locParts.join(", "),
-          jobDescription: rawDesc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 24000),
+          jobDescription: rawDesc
+            .replace(/<br\s*\/?>|<\/(?:p|div|li|h[1-6])>/gi, "\n")
+            .replace(/<li[^>]*>/gi, "• ")
+            .replace(/<[^>]*>/g, " ")
+            .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+            .replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n")
+            .trim().slice(0, 24000),
           jobType: employment,
           workplaceType: remote ? "Remote" : "",
           salary,
@@ -653,7 +659,7 @@ function scrapeJobUnsafe(site: State["site"]): JobData {
     location:    placeOnly(ld.location ?? ""),
     jobPostUrl:  location.href,
     notes:       "",
-    jobDescription: ld.jobDescription || metaAttr(["description", "og:description"]),
+    jobDescription: ld.jobDescription ?? "",
   };
 }
 
@@ -800,7 +806,11 @@ function renderPanel() {
       </div>
       <div class="tm-field">
         <label class="tm-label" for="tm-description">Description</label>
-        <textarea id="tm-description" class="tm-textarea" rows="7" style="resize:vertical;" placeholder="Job description">${escHtml(job.jobDescription ?? "")}</textarea>
+        <textarea id="tm-description" class="tm-textarea" rows="7" style="resize:vertical;" placeholder="About the job">${escHtml(job.jobDescription ?? "")}</textarea>
+      </div>
+      <div class="tm-field">
+        <label class="tm-label" for="tm-notes">Notes</label>
+        <textarea id="tm-notes" class="tm-textarea" placeholder="Your own notes (optional)">${escHtml(job.notes)}</textarea>
       </div>
       ${addError ? `<p class="tm-error">${escHtml(addError)}</p>` : ""}
       <button id="tm-add-btn" class="tm-btn-primary" style="margin-top:4px;" ${addBusy ? "disabled" : ""}>
@@ -922,7 +932,7 @@ function bindEvents() {
   });
 
   // Job form fields
-  (["tm-company","tm-title","tm-location","tm-url","tm-description"] as const).forEach(id => {
+  (["tm-company","tm-title","tm-location","tm-url","tm-description","tm-notes"] as const).forEach(id => {
     const el = shadow.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
     if (!el) return;
     el.addEventListener("input", () => {
@@ -932,6 +942,7 @@ function bindEvents() {
         "tm-location": "location",
         "tm-url":      "jobPostUrl",
         "tm-description": "jobDescription",
+        "tm-notes":    "notes",
       };
       (state.job[map[id]] as string) = el.value;
     });
