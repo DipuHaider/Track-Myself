@@ -6,7 +6,7 @@ import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { initialHistory } from "@/lib/applicationHistory";
 import { DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, WORKPLACE_TYPES, joinJobTypes } from "@/constants/applicationStatus";
-import { splitLocation } from "@/lib/applicationLocation";
+import { countryName, formatLocation, splitLocation } from "@/lib/applicationLocation";
 import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
 
 async function getExtensionUser(req: Request) {
@@ -89,7 +89,15 @@ export async function POST(req: Request) {
     return at;
   };
 
-  const place = splitLocation(str("location"));
+  const sentCity = str("city").slice(0, 120);
+  const sentCountry = str("country").slice(0, 120);
+  const place = sentCity || sentCountry
+    ? {
+        city: sentCity,
+        country: countryName(sentCountry) || sentCountry,
+        label: formatLocation({ city: sentCity, country: countryName(sentCountry) || sentCountry }),
+      }
+    : splitLocation(str("location"));
   const jobTypes = [oneOf(str("jobType"), JOB_TYPES), oneOf(str("workplaceType"), WORKPLACE_TYPES)]
     .filter((t): t is string => Boolean(t));
 

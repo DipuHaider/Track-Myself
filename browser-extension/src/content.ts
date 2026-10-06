@@ -4,10 +4,14 @@ const APP_URL = "https://trackmyself.webarden.tech";
 
 // ── types ─────────────────────────────────────────────────────────────────
 
+import { splitLocation } from "../../src/lib/applicationLocation";
+
 interface JobData {
   companyName: string;
   jobTitle:    string;
   location:    string;
+  city?:       string;
+  country?:    string;
   jobPostUrl:  string;
   notes:       string;
   platform?:       string;
@@ -90,14 +94,18 @@ function qs(...sels: string[]): string {
   return "";
 }
 
+function tidyText(raw: string): string {
+  return raw
+    .replace(/[ \t\u00a0]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function descText(...sels: string[]): string {
   for (const sel of sels) {
     const el = document.querySelector(sel) as HTMLElement | null;
-    const t = (el?.innerText || el?.textContent || "")
-      .replace(/[ \t\u00a0]+/g, " ")
-      .replace(/ *\n */g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    const t = tidyText(el?.innerText || el?.textContent || "");
     if (t) return t;
   }
   return "";
@@ -220,10 +228,67 @@ function placeSegment(raw: string, exclude: string[] = []): string {
   return "";
 }
 
+const ABOUT_JOB = /about the job/i;
+const DESCRIPTION_END = /^(?:show more|show less|see more|see less|\u2026\s*more|about the company|set alert for similar jobs|people you can reach out to|meet the hiring team)$/i;
+
+function aboutJobHeading(): HTMLElement | null {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (!/^\s*about the job\s*$/i.test(n.textContent ?? "")) continue;
+    const el = n.parentElement;
+    if (el && el.getClientRects().length > 0) return el;
+  }
+  return null;
+}
+
+function linkedInDetail(): { pane: HTMLElement; header: string; heading: HTMLElement } | null {
+  const heading = aboutJobHeading();
+  if (!heading) return null;
+  let node = heading.parentElement;
+  for (let i = 0; node && node !== document.body && i < 30; i++, node = node.parentElement) {
+    const text = node.innerText ?? "";
+    const cut = text.search(ABOUT_JOB);
+    if (cut <= 0) continue;
+    const header = text.slice(0, cut);
+    if (AGE_TEXT.test(header) || header.includes("\u00b7")) return { pane: node, header, heading };
+  }
+  return null;
+}
+
+function aboutJobText(heading: HTMLElement): string {
+  let node: HTMLElement | null = heading;
+  for (let i = 0; node?.parentElement && i < 8; i++) {
+    node = node.parentElement;
+    const text = node.innerText ?? "";
+    const at = text.search(ABOUT_JOB);
+    if (at < 0) continue;
+    const after = text.slice(at).replace(ABOUT_JOB, "");
+    if (after.trim().length < 80) continue;
+    const kept: string[] = [];
+    for (const line of after.split("\n")) {
+      if (DESCRIPTION_END.test(line.trim())) break;
+      kept.push(line);
+    }
+    return tidyText(kept.join("\n"));
+  }
+  return "";
+}
+
+function headerLines(header: string, exclude: string[]): string[] {
+  return header
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter((l) => l && !exclude.some((x) => sameText(l, x)));
+}
+
 /* Scoped deliberately to the header. The body of a post says things like
    "work 100% remotely" or "a permanent contract", which would otherwise be
    read as the workplace or employment type of the role itself. */
 function topCardText(): string {
+  if (detectSite() === "linkedin") {
+    const detail = linkedInDetail();
+    if (detail) return detail.header.replace(/\s+/g, " ").trim().slice(0, 1200);
+  }
   const pane = jobPane();
   const card = pane.querySelector(
     ".job-details-jobs-unified-top-card__container--two-pane, " +
@@ -241,6 +306,8 @@ function stripHeading(text: string): string {
    that does not match the standalone /jobs/view page. Everything is therefore
    read relative to whichever container actually holds the posting. */
 function jobPane(): ParentNode {
+  const detail = detectSite() === "linkedin" ? linkedInDetail() : null;
+  if (detail) return detail.pane;
   const candidates = [
     ".jobs-search__job-details--wrapper",
     ".jobs-search__job-details",
@@ -448,9 +515,10 @@ function metaAttr(names: string[]): string {
 
 // Strategy 4: CSS selectors with many fallbacks
 function scrapeLinkedIn(): JobData {
-  const ld    = parseJobLd();
-  const title = parseTitleTag("linkedin");
-  const pane  = jobPane();
+  const ld     = parseJobLd();
+  const title  = parseTitleTag("linkedin");
+  const detail = linkedInDetail();
+  const pane   = detail?.pane ?? jobPane();
 
   const jobTitle = qs(
     ".job-details-jobs-unified-top-card__job-title h1",
@@ -468,11 +536,14 @@ function scrapeLinkedIn(): JobData {
     ".jobs-unified-top-card__company-name a",
     ".jobs-unified-top-card__company-name",
     ".job-details-jobs-unified-top-card__primary-description-without-tagline a:first-of-type",
-    "[data-test-id*='company-name'] a",
-    "[data-tracking-will-navigate] a[href*='/company/']",
-  ) || textIn(pane, "a[href*='/company/']") || ld.companyName || title.companyName || "";
+  ) || textIn(pane, "a[href*='/company/']")
+    || qs("[data-test-id*='company-name'] a", "[data-tracking-will-navigate] a[href*='/company/']")
+    || ld.companyName || title.companyName || "";
 
-  const locationLine = textIn(
+  const exclude = [cleanCompany(companyName), jobTitle];
+  const lines   = detail ? headerLines(detail.header, exclude) : [];
+
+  const locationLine = lines.find((l) => l.includes("\u00b7") && (AGE_TEXT.test(l) || /applicant|clicked apply/i.test(l)) && placeSegment(l, exclude)) || textIn(
     pane,
     ".job-details-jobs-unified-top-card__primary-description-container",
     ".job-details-jobs-unified-top-card__tertiary-description-container",
@@ -481,14 +552,13 @@ function scrapeLinkedIn(): JobData {
     ".jobs-unified-top-card__bullet",
     ".tvm__text--low-emphasis",
   );
-  const exclude = [cleanCompany(companyName), jobTitle];
   const jobLocation = placeSegment(locationLine, exclude)
     || placeFromHeader(exclude)
     || placeOnly(ld.location ?? "")
     || placeOnly(title.location ?? "")
     || "";
 
-  const description = stripHeading(descText(
+  const description = (detail ? aboutJobText(detail.heading) : "") || stripHeading(descText(
     "#job-details",
     ".jobs-description-content__text--stretch",
     ".jobs-description-content__text",
@@ -505,15 +575,23 @@ function scrapeLinkedIn(): JobData {
     ".jobs-unified-top-card__job-insight",
   ]);
 
+  const pills = lines.filter((l) => l.length <= 40);
+  const jobType = pills.map(normaliseJobType).find(Boolean) || extra.jobType;
+  const workplace = pills.map(workplaceType).find(Boolean) || extra.workplaceType;
+
+  const place = splitLocation(jobLocation);
+
   return {
     jobTitle,
     companyName: cleanCompany(companyName),
-    location: jobLocation,
+    location: place.label,
+    city: place.city,
+    country: place.country,
     jobPostUrl: location.href,
     notes: "",
     platform: "LinkedIn",
-    jobType: extra.jobType,
-    workplaceType: extra.workplaceType,
+    jobType,
+    workplaceType: workplace,
     salary: extra.salary,
     jobDescription: description.slice(0, 24000),
     postedAt: ld.postedAt || age?.postedAt || "",
@@ -796,10 +874,21 @@ function renderPanel() {
         <label class="tm-label" for="tm-title">Job Title *</label>
         <input id="tm-title" class="tm-input" type="text" placeholder="Job title" value="${escHtml(job.jobTitle)}">
       </div>
+      ${state.site === "linkedin" ? `
+      <div class="tm-field" style="display:flex;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <label class="tm-label" for="tm-city">City</label>
+          <input id="tm-city" class="tm-input" type="text" placeholder="City" value="${escHtml(job.city ?? "")}">
+        </div>
+        <div style="flex:1;min-width:0;">
+          <label class="tm-label" for="tm-country">Country</label>
+          <input id="tm-country" class="tm-input" type="text" placeholder="Country" value="${escHtml(job.country ?? "")}">
+        </div>
+      </div>` : `
       <div class="tm-field">
         <label class="tm-label" for="tm-location">Location</label>
         <input id="tm-location" class="tm-input" type="text" placeholder="City, Country" value="${escHtml(job.location)}">
-      </div>
+      </div>`}
       <div class="tm-field">
         <label class="tm-label" for="tm-url">Job Post URL</label>
         <input id="tm-url" class="tm-input" type="url" placeholder="https://…" value="${escHtml(job.jobPostUrl)}">
@@ -932,7 +1021,7 @@ function bindEvents() {
   });
 
   // Job form fields
-  (["tm-company","tm-title","tm-location","tm-url","tm-description","tm-notes"] as const).forEach(id => {
+  (["tm-company","tm-title","tm-location","tm-city","tm-country","tm-url","tm-description","tm-notes"] as const).forEach(id => {
     const el = shadow.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
     if (!el) return;
     el.addEventListener("input", () => {
@@ -940,6 +1029,8 @@ function bindEvents() {
         "tm-company":  "companyName",
         "tm-title":    "jobTitle",
         "tm-location": "location",
+        "tm-city":     "city",
+        "tm-country":  "country",
         "tm-url":      "jobPostUrl",
         "tm-description": "jobDescription",
         "tm-notes":    "notes",
@@ -972,9 +1063,10 @@ async function doAddJob(force = false) {
   state.addError = "";
   renderPanel();
 
-  const payload = force
-    ? { ...state.job, force: true }
+  const job = state.site === "linkedin"
+    ? { ...state.job, location: [state.job.city, state.job.country].map((p) => p?.trim()).filter(Boolean).join(", ") }
     : state.job;
+  const payload = force ? { ...job, force: true } : job;
 
   const res = await send({ type: "ADD_JOB", job: payload }) as {
     ok: boolean; id?: string; error?: string; authExpired?: boolean;
