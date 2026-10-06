@@ -1,5 +1,12 @@
 import type { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 
+export interface ApplicationContact {
+  role?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface Application {
   _id: string;
   userId: string;
@@ -16,12 +23,14 @@ export interface Application {
   statusHistory?: { status: string; at: string | Date; kind: string }[];
   applicationType?: string;
   submissionMethod?: string;
+  submissionDetail?: string;
   applicationStatus: (typeof APPLICATION_STATUSES)[number];
   responseStatus?: string;
   country?: string;
   city?: string;
   location?: string;
   contactNumber?: string;
+  contacts?: ApplicationContact[];
   salary?: string;
   salaryType?: "fixed" | "range" | "negotiable" | "not-mentioned";
   salaryCurrency?: "EUR" | "USD" | "BDT";

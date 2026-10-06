@@ -95,7 +95,9 @@ Models in `src/models/` — all thirteen:
 `IssueReport`, `Notification`, `PasswordResetToken`, `Reminder`, `Todo`, `User`.
 
 - `User` — name, email, password?, googleId, role, plan, status, bio, image, aiKey, a11y
-- `Application` — full job record, userId-scoped (see `src/types/application.ts`)
+- `Application` — full job record, userId-scoped (see `src/types/application.ts`). How it was
+  applied lives in `submissionMethod` (+ `submissionDetail` for In Person); people dealt with
+  directly in `contacts[]` (role, name, email, phone), and `contactNumber` mirrors the first phone
 - `Interview` — applicationId, stageName, status, scheduledDate, feedback, notes
 - `Document` — application attachments: userId, name, size, mimeType, base64 `data`
   (`url` is legacy). Served by `/api/attachments/[...parts]`, owner-scoped

@@ -1,5 +1,5 @@
 import mongoose, { Schema, type InferSchemaType } from "mongoose";
-import { APPLICATION_STATUSES, DEFAULT_APPLICATION_STATUS } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, CONTACT_ROLES, DEFAULT_APPLICATION_STATUS, SUBMISSION_METHODS } from "@/constants/applicationStatus";
 
 const ApplicationSchema = new Schema(
   {
@@ -10,7 +10,8 @@ const ApplicationSchema = new Schema(
     jobType: { type: String },
     workplaceType: { type: String },
     applicationType: { type: String },
-    submissionMethod: { type: String },
+    submissionMethod: { type: String, enum: [...SUBMISSION_METHODS] },
+    submissionDetail: { type: String, trim: true, maxlength: 300 },
     applicationStatus: {
       type: String,
       enum: [...APPLICATION_STATUSES],
@@ -22,6 +23,18 @@ const ApplicationSchema = new Schema(
     city: { type: String },
     location: { type: String },
     contactNumber: { type: String },
+    contacts: {
+      type: [
+        {
+          _id: false,
+          role: { type: String, enum: [...CONTACT_ROLES, ""] },
+          name: { type: String, trim: true, maxlength: 120 },
+          email: { type: String, trim: true, lowercase: true, maxlength: 200 },
+          phone: { type: String, trim: true, maxlength: 40 },
+        },
+      ],
+      default: undefined,
+    },
     salary: { type: String },
     salaryType: { type: String, enum: ["fixed", "range", "negotiable", "not-mentioned"], default: "fixed" },
     salaryCurrency: { type: String, enum: ["EUR", "USD", "BDT"], default: "USD" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Image as ImageIcon, File, ExternalLink } from "lucide-react";
+import { FileText, Image as ImageIcon, File, ExternalLink, Mail, Phone } from "lucide-react";
 import { postingAge } from "@/lib/applicationFlags";
 import Modal from "@/components/shared/Modal";
 import GapAnalysisSection from "@/components/applications/GapAnalysisSection";
@@ -56,6 +56,11 @@ function postedLabel(app: Application): string {
   return app.postedAgeText ? `${app.postedAgeText} · ${age.label}` : age.label;
 }
 
+function formatDate(d?: Date | string) {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
+}
+
 function linkLabel(url: string) {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -76,6 +81,8 @@ export default function ViewApplicationModal({
   if (!application) return null;
 
   const att = application.attachments ?? [];
+  const contacts = (application.contacts ?? []).filter((c) => c.name || c.email || c.phone);
+  const appliedVia = [application.submissionMethod, application.submissionDetail].filter(Boolean).join(" — ");
   const links = [application.jobPostUrl, ...(application.additionalJobPostUrls ?? [])]
     .filter((u): u is string => Boolean(u && /^https?:\/\//i.test(u)));
 
@@ -99,11 +106,39 @@ export default function ViewApplicationModal({
           <Row label="Job Type" value={joinJobTypes(parseJobTypes(application.jobType, application.workplaceType))} />
           <Row label="Posted" value={postedLabel(application)} />
           <Row label="Priority" value={application.priority} />
-          <Row label="Contact Number" value={application.contactNumber} />
+          {!contacts.length && <Row label="Contact Number" value={application.contactNumber} />}
+          <Row label="Applied via" value={appliedVia} />
           <Row label="Applied" value={formatDateTime(application.appliedDate)} />
-          <Row label="Follow Up" value={formatDateTime(application.followUpDate)} />
+          <Row label="Follow Up" value={formatDate(application.followUpDate)} />
           <Row label="Response Status" value={application.responseStatus} />
         </div>
+
+        {contacts.length > 0 && (
+          <div className="mt-4">
+            <p className="text-muted text-xs">{contacts.length > 1 ? "Contacts" : "Contact"}</p>
+            <ul className="mt-1 space-y-2">
+              {contacts.map((c, i) => (
+                <li key={i} className="text-sm">
+                  <p className="font-medium">
+                    {[c.name, c.role].filter(Boolean).join(" · ") || "Contact"}
+                  </p>
+                  <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-1">
+                    {c.email && (
+                      <a href={`mailto:${c.email}`} className="inline-flex items-center gap-1 text-primary hover:underline">
+                        <Mail size={12} /> {c.email}
+                      </a>
+                    )}
+                    {c.phone && (
+                      <a href={`tel:${c.phone.replace(/[^0-9+]/g, "")}`} className="inline-flex items-center gap-1 text-primary hover:underline">
+                        <Phone size={12} /> {c.phone}
+                      </a>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {links.length > 0 && (
           <div className="mt-4">

@@ -28,6 +28,23 @@ export const PLATFORMS = [
   "Other",
 ] as const;
 
+export const SUBMISSION_METHODS = [
+  "Online / Job Portal",
+  "Email to Contact",
+  "In Person",
+  "Message / Call",
+] as const;
+
+export const CONTACT_ROLES = [
+  "Recruiter",
+  "Reference / Referral",
+  "Hiring Manager",
+  "HR",
+  "Other",
+] as const;
+
+export const MAX_CONTACTS = 10;
+
 export const JOB_TYPES = [
   "Full-Time",
   "Part-Time",

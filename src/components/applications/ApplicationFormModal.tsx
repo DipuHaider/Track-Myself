@@ -3,8 +3,11 @@
 import { useMemo, useRef, useState } from "react";
 import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import Modal from "@/components/shared/Modal";
-import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, PLATFORMS, joinJobTypes, parseJobTypes } from "@/constants/applicationStatus";
-import type { Application } from "@/types/application";
+import {
+  APPLICATION_STATUSES, CONTACT_ROLES, FACEBOOK_PLATFORMS, JOB_TYPES, MAX_CONTACTS, PLATFORMS, SUBMISSION_METHODS,
+  joinJobTypes, parseJobTypes,
+} from "@/constants/applicationStatus";
+import type { Application, ApplicationContact } from "@/types/application";
 import { formatLocation, splitLocation } from "@/lib/applicationLocation";
 import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, editableAmount, isValidAmount, parseAmount, type SalaryType } from "@/lib/salary";
 
@@ -74,13 +77,39 @@ type FormData = {
   salaryFixed: string;
   salaryMin: string;
   salaryMax: string;
-  contactNumber: string;
+  submissionMethod: string;
+  submissionDetail: string;
+  contacts: ContactRow[];
   jobPostUrls: string[];
   jobDescription: string;
   appliedDate: string;
+  followUpDate: string;
   priority: string;
   notes: string;
 };
+
+type ContactRow = { role: string; name: string; email: string; phone: string };
+
+const EMPTY_CONTACT: ContactRow = { role: "", name: "", email: "", phone: "" };
+
+const CONTACT_FIRST_METHODS = new Set(["Email to Contact", "Message / Call"]);
+
+function toContactRows(app: Application): ContactRow[] {
+  const rows = (app.contacts ?? []).map((c: ApplicationContact) => ({
+    role: c.role ?? "",
+    name: c.name ?? "",
+    email: c.email ?? "",
+    phone: c.phone ?? "",
+  }));
+  if (!rows.length && app.contactNumber) rows.push({ ...EMPTY_CONTACT, phone: app.contactNumber });
+  return rows;
+}
+
+function cleanContacts(rows: ContactRow[]): ContactRow[] {
+  return rows
+    .map((c) => ({ role: c.role, name: c.name.trim(), email: c.email.trim(), phone: c.phone.trim() }))
+    .filter((c) => c.name || c.email || c.phone);
+}
 
 const EMPTY: FormData = {
   companyName: "",
@@ -96,10 +125,13 @@ const EMPTY: FormData = {
   salaryFixed: "",
   salaryMin: "",
   salaryMax: "",
-  contactNumber: "",
+  submissionMethod: "",
+  submissionDetail: "",
+  contacts: [],
   jobPostUrls: [""],
   jobDescription: "",
   appliedDate: "",
+  followUpDate: "",
   priority: "Medium",
   notes: "",
 };
@@ -120,10 +152,13 @@ function toForm(app: Application): FormData {
     salaryFixed: editableAmount(app.salaryFixed),
     salaryMin: editableAmount(app.salaryMin),
     salaryMax: editableAmount(app.salaryMax),
-    contactNumber: app.contactNumber ?? "",
+    submissionMethod: app.submissionMethod ?? "",
+    submissionDetail: app.submissionDetail ?? "",
+    contacts: toContactRows(app),
     jobPostUrls: [app.jobPostUrl ?? "", ...(app.additionalJobPostUrls ?? [])].filter((u, i) => i === 0 || u),
     jobDescription: app.jobDescription ?? "",
     appliedDate: toDateTimeStr(app.appliedDate),
+    followUpDate: toDateTimeStr(app.followUpDate).slice(0, 10),
     priority: app.priority ?? "Medium",
     notes: app.notes ?? "",
   };
@@ -223,9 +258,24 @@ export default function ApplicationFormModal({
       jobTypes: f.jobTypes.includes(t) ? f.jobTypes.filter((x) => x !== t) : [...f.jobTypes, t],
     }));
 
-  const handleContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/[^0-9+\-()\s]/g, "");
-    setForm((f) => ({ ...f, contactNumber: val }));
+  const setContact = (i: number, field: keyof ContactRow, raw: string) => {
+    const value = field === "phone" ? raw.replace(/[^0-9+\-()\s]/g, "") : raw;
+    setForm((f) => ({ ...f, contacts: f.contacts.map((c, j) => (j === i ? { ...c, [field]: value } : c)) }));
+  };
+
+  const addContact = () =>
+    setForm((f) => (f.contacts.length >= MAX_CONTACTS ? f : { ...f, contacts: [...f.contacts, { ...EMPTY_CONTACT }] }));
+
+  const removeContact = (i: number) =>
+    setForm((f) => ({ ...f, contacts: f.contacts.filter((_, j) => j !== i) }));
+
+  const handleSubmissionMethod = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const method = e.target.value;
+    setForm((f) => ({
+      ...f,
+      submissionMethod: method,
+      contacts: CONTACT_FIRST_METHODS.has(method) && f.contacts.length === 0 ? [{ ...EMPTY_CONTACT }] : f.contacts,
+    }));
   };
 
   const handlePlatformChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -271,6 +321,7 @@ export default function ApplicationFormModal({
       uploadedPaths.push(p);
     }
     const links = [...new Set(form.jobPostUrls.map((u) => u.trim()).filter(Boolean))];
+    const contacts = cleanContacts(form.contacts);
     const attachments = [...existingAttachments, ...uploadedPaths];
     return {
       companyName: form.companyName,
@@ -288,11 +339,15 @@ export default function ApplicationFormModal({
       salaryFixed: form.salaryType === "fixed" ? parseAmount(form.salaryFixed) : null,
       salaryMin: form.salaryType === "range" ? parseAmount(form.salaryMin) : null,
       salaryMax: form.salaryType === "range" ? parseAmount(form.salaryMax) : null,
-      contactNumber: form.contactNumber || undefined,
+      submissionMethod: form.submissionMethod || null,
+      submissionDetail: form.submissionMethod === "In Person" ? form.submissionDetail.trim() : "",
+      contacts,
+      contactNumber: contacts.find((c) => c.phone)?.phone ?? "",
       jobPostUrl: links[0] ?? "",
       additionalJobPostUrls: links.slice(1),
       jobDescription: form.jobDescription || undefined,
       appliedDate: form.appliedDate || undefined,
+      followUpDate: form.followUpDate ? new Date(`${form.followUpDate}T12:00`).toISOString() : null,
       priority: form.priority,
       notes: form.notes || undefined,
       attachments,
@@ -538,17 +593,8 @@ export default function ApplicationFormModal({
             </div>
           </Field>
 
-          {/* Row 6 */}
+          {/* Row 6 — Priority + how the application was made */}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Contact Number">
-              <input
-                className={inputCls}
-                placeholder="+44 7700 900000"
-                value={form.contactNumber}
-                onChange={handleContactChange}
-                inputMode="tel"
-              />
-            </Field>
             <Field label="Priority">
               <select className={inputCls} value={form.priority} onChange={set("priority")}>
                 <option>Low</option>
@@ -556,9 +602,29 @@ export default function ApplicationFormModal({
                 <option>High</option>
               </select>
             </Field>
+            <Field label="Applied via">
+              <select className={inputCls} value={form.submissionMethod} onChange={handleSubmissionMethod}>
+                <option value="">—</option>
+                {SUBMISSION_METHODS.map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+            </Field>
           </div>
 
-          {/* Row 7 */}
+          {form.submissionMethod === "In Person" && (
+            <Field label="Where / how">
+              <input
+                className={inputCls}
+                maxLength={300}
+                placeholder="e.g. Hard copy handed to HR, or CV dropped at reception, Hauptstr. 5"
+                value={form.submissionDetail}
+                onChange={set("submissionDetail")}
+              />
+            </Field>
+          )}
+
+          {/* Row 7 — dates */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Applied Date & Time">
               <input
@@ -568,6 +634,89 @@ export default function ApplicationFormModal({
                 onChange={set("appliedDate")}
               />
             </Field>
+            <Field label="Follow-up date">
+              <input
+                type="date"
+                className={inputCls}
+                value={form.followUpDate}
+                onChange={set("followUpDate")}
+              />
+            </Field>
+          </div>
+
+          {/* Contacts — recruiter, reference person, hiring manager… */}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-medium">Contacts</span>
+              <button
+                type="button"
+                onClick={addContact}
+                disabled={form.contacts.length >= MAX_CONTACTS}
+                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition hover:bg-[var(--surface-2)] disabled:opacity-40"
+              >
+                <Plus size={12} /> Add contact
+              </button>
+            </div>
+            {form.contacts.length === 0 ? (
+              <p className="text-muted text-xs">
+                Add the recruiter, reference person or hiring manager you dealt with directly.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {form.contacts.map((c, i) => (
+                  <div key={i} className="surface-muted relative rounded-md border p-3 pr-10">
+                    <button
+                      type="button"
+                      onClick={() => removeContact(i)}
+                      title="Remove contact"
+                      aria-label="Remove contact"
+                      className="absolute right-2 top-2 rounded-md p-1 transition hover:bg-[var(--surface-2)]"
+                    >
+                      <X size={14} />
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        className={inputCls}
+                        aria-label="Contact role"
+                        value={c.role}
+                        onChange={(e) => setContact(i, "role", e.target.value)}
+                      >
+                        <option value="">Role</option>
+                        {CONTACT_ROLES.map((role) => (
+                          <option key={role}>{role}</option>
+                        ))}
+                      </select>
+                      <input
+                        className={inputCls}
+                        aria-label="Contact name"
+                        placeholder="Name"
+                        maxLength={120}
+                        value={c.name}
+                        onChange={(e) => setContact(i, "name", e.target.value)}
+                      />
+                      <input
+                        type="email"
+                        className={inputCls}
+                        aria-label="Contact email"
+                        placeholder="Email"
+                        maxLength={200}
+                        value={c.email}
+                        onChange={(e) => setContact(i, "email", e.target.value)}
+                      />
+                      <input
+                        className={inputCls}
+                        aria-label="Contact phone"
+                        placeholder="+44 7700 900000"
+                        inputMode="tel"
+                        maxLength={40}
+                        value={c.phone}
+                        onChange={(e) => setContact(i, "phone", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <Field label="Job Post URL">

@@ -45,7 +45,8 @@ function PortalApplicationsContent() {
     if (q) {
       result = result.filter((app) =>
         [app.companyName, app.jobTitle, app.platform, app.jobType, app.location, app.city, app.country,
-          app.applicationStatus, app.notes, app.salary, app.contactNumber]
+          app.applicationStatus, app.notes, app.salary, app.contactNumber, app.submissionMethod,
+          ...(app.contacts ?? []).flatMap((c) => [c.name, c.email])]
           .filter(Boolean)
           .some((f) => f!.toLowerCase().includes(q)),
       );

@@ -70,7 +70,10 @@ export async function GET(req: Request) {
   const canSeeUsers = actions.includes("view:users");
 
   const appFilter: Record<string, unknown> = {
-    $or: [{ companyName: rx }, { jobTitle: rx }, { location: rx }, { country: rx }, { notes: rx }],
+    $or: [
+      { companyName: rx }, { jobTitle: rx }, { location: rx }, { country: rx }, { notes: rx },
+      { "contacts.name": rx }, { "contacts.email": rx },
+    ],
   };
   if (!canSeeAllApplications) appFilter.userId = user.id;
 
