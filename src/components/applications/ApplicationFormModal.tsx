@@ -561,54 +561,55 @@ export default function ApplicationFormModal({
                 ))}
               </div>
 
-              {hasSalaryAmount(form.salaryType) && (
-              <>
               {/* Currency icons */}
-              <div className="flex overflow-hidden rounded-md border shrink-0">
-                {CURRENCIES.map((c, i) => (
-                  <button
-                    key={c.code}
-                    type="button"
-                    title={c.code}
-                    onClick={() => setForm((f) => ({ ...f, salaryCurrency: c.code }))}
-                    className={`w-8 py-1.5 text-sm transition ${i > 0 ? "border-l" : ""} ${form.salaryCurrency === c.code ? "bg-[var(--primary)] text-white" : "hover:bg-[var(--surface-2)]"}`}
-                  >
-                    {c.symbol}
-                  </button>
-                ))}
-              </div>
-
-              {/* Amount inputs */}
-              {form.salaryType === "fixed" ? (
-                <input
-                  type="text"
-                  className={`${inputCls} min-w-0 flex-1 ${isValidAmount(form.salaryFixed) ? "" : "border-red-500"}`}
-                  placeholder="Amount, e.g. 70K"
-                  value={form.salaryFixed}
-                  onChange={set("salaryFixed")}
-                />
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    className={`${inputCls} min-w-0 flex-1 ${isValidAmount(form.salaryMin) ? "" : "border-red-500"}`}
-                    placeholder="Min, e.g. 70K"
-                    value={form.salaryMin}
-                    onChange={set("salaryMin")}
-                  />
-                  <span className="text-muted shrink-0 text-sm">—</span>
-                  <input
-                    type="text"
-                    className={`${inputCls} min-w-0 flex-1 ${isValidAmount(form.salaryMax) ? "" : "border-red-500"}`}
-                    placeholder="Max, e.g. 90K"
-                    value={form.salaryMax}
-                    onChange={set("salaryMax")}
-                  />
-                </>
-              )}
-              </>
+              {hasSalaryAmount(form.salaryType) && (
+                <div className="flex overflow-hidden rounded-md border shrink-0">
+                  {CURRENCIES.map((c, i) => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      title={c.code}
+                      onClick={() => setForm((f) => ({ ...f, salaryCurrency: c.code }))}
+                      className={`w-8 py-1.5 text-sm transition ${i > 0 ? "border-l" : ""} ${form.salaryCurrency === c.code ? "bg-[var(--primary)] text-white" : "hover:bg-[var(--surface-2)]"}`}
+                    >
+                      {c.symbol}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
+
+            {/* Amount inputs — on their own row so they get the full width */}
+            {form.salaryType === "fixed" && (
+              <input
+                type="text"
+                className={`${inputCls} mt-2 ${isValidAmount(form.salaryFixed) ? "" : "border-red-500"}`}
+                placeholder="Amount, e.g. 70K"
+                value={form.salaryFixed}
+                onChange={set("salaryFixed")}
+              />
+            )}
+            {form.salaryType === "range" && (
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                <input
+                  type="text"
+                  aria-label="Minimum salary"
+                  className={`${inputCls} ${isValidAmount(form.salaryMin) ? "" : "border-red-500"}`}
+                  placeholder="Min, e.g. 70K"
+                  value={form.salaryMin}
+                  onChange={set("salaryMin")}
+                />
+                <span className="text-muted text-sm">—</span>
+                <input
+                  type="text"
+                  aria-label="Maximum salary"
+                  className={`${inputCls} ${isValidAmount(form.salaryMax) ? "" : "border-red-500"}`}
+                  placeholder="Max, e.g. 90K"
+                  value={form.salaryMax}
+                  onChange={set("salaryMax")}
+                />
+              </div>
+            )}
           </Field>
 
           {/* Row 6 — Priority + how the application was made */}
