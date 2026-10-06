@@ -10,7 +10,11 @@
  *
  *   node --env-file=.env --experimental-strip-types scripts/backfill-locations.mjs          dry run
  *   node --env-file=.env --experimental-strip-types scripts/backfill-locations.mjs --apply  write
+ *
+ * Atlas SRV lookups fail intermittently through some corporate resolvers, so public DNS is used
+ * unless --system-dns is passed.
  */
+import dns from "node:dns";
 import mongoose from "mongoose";
 import { splitLocation } from "../src/lib/applicationLocation.ts";
 
@@ -33,6 +37,10 @@ function stripJunk(raw, companyName) {
   const joined = parts.join(", ");
   if (companyName && joined.toLowerCase() === String(companyName).trim().toLowerCase()) return "";
   return joined;
+}
+
+if (uri.startsWith("mongodb+srv://") && !process.argv.includes("--system-dns")) {
+  dns.setServers(["1.1.1.1", "8.8.8.8"]);
 }
 
 await mongoose.connect(uri);
