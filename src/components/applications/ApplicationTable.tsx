@@ -28,6 +28,7 @@ const PRIORITY_CLS: Record<string, string> = {
 
 const STATUS_CLS: Record<string, string> = {
   "Wishlist":              "status-wishlist",
+  "Not Completed":         "status-not-completed",
   "Submitted":             "status-submitted",
   "No Response":           "status-no-resp",
   "Interview Scheduled":   "status-interview",

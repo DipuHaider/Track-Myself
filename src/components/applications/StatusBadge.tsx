@@ -1,5 +1,6 @@
 const STATUS_CLASS: Record<string, string> = {
   "Wishlist":              "status-wishlist",
+  "Not Completed":         "status-not-completed",
   "Submitted":             "status-submitted",
   "No Response":           "status-no-resp",
   "Interview Scheduled":   "status-interview",

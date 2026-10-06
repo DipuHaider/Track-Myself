@@ -142,12 +142,12 @@ Endpoints:
 ## Application Status Values (`src/constants/applicationStatus.ts`)
 
 ```
-"Wishlist" | "Submitted" | "No Response" | "Interview Scheduled" |
+"Wishlist" | "Not Completed" | "Submitted" | "No Response" | "Interview Scheduled" |
 "Active - Written" | "Active - HR" | "Active - Technical" | "Active - Cultural Fit" |
 "Offer Received" | "Rejected"
 ```
 
-Ghost job = 45+ days in Wishlist/Submitted/No Response. Logic: `src/lib/applicationFlags.ts`
+Ghost job = 45+ days in Wishlist/Not Completed/Submitted/No Response. Logic: `src/lib/applicationFlags.ts`
 
 ## CSS (`src/app/globals.css`)
 
@@ -160,7 +160,7 @@ Semantic classes to prefer over inline Tailwind:
 - `.role-badge` + `.role-{superadmin|admin|editor|paid|free}`
 - `.plan-{free|premium}`
 - `.priority-{high|medium|low}`
-- `.status-{wishlist|submitted|no-resp|interview|active|offer|rejected}`
+- `.status-{wishlist|not-completed|submitted|no-resp|interview|active|offer|rejected}`
 - `.ghost-auto` / `.ghost-manual` / `.badge-dup`
 
 ## Key File Map

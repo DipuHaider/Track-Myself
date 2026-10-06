@@ -48,7 +48,7 @@ function StatCard({ label, value, icon, color, onClick }: {
 
 /* ── status badge helpers ── */
 const STATUS_CLASS: Record<string, string> = {
-  Wishlist: "status-wishlist", Submitted: "status-submitted",
+  Wishlist: "status-wishlist", "Not Completed": "status-not-completed", Submitted: "status-submitted",
   "No Response": "status-no-resp", "Interview Scheduled": "status-interview",
   "Offer Received": "status-offer", Rejected: "status-rejected",
 };

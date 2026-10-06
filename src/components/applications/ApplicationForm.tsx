@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 
 type ApplicationPayload = {
   companyName: string;
@@ -48,12 +49,9 @@ export default function ApplicationForm({
         value={formData.applicationStatus}
         onChange={(e) => setFormData((v) => ({ ...v, applicationStatus: e.target.value }))}
       >
-        <option>Wishlist</option>
-        <option>Submitted</option>
-        <option>No Response</option>
-        <option>Interview Scheduled</option>
-        <option>Offer Received</option>
-        <option>Rejected</option>
+        {APPLICATION_STATUSES.map((s) => (
+          <option key={s}>{s}</option>
+        ))}
       </select>
       <button
         type="submit"

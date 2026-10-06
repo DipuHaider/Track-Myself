@@ -11,7 +11,7 @@ const INTERVIEW_STATUSES = APPLICATION_STATUSES.filter(
   (s) => s === "Interview Scheduled" || s.startsWith("Active"),
 );
 
-const GHOST_STATUSES = ["Wishlist", "Submitted", "No Response"];
+const GHOST_STATUSES = ["Wishlist", "Not Completed", "Submitted", "No Response"];
 const GHOST_DAYS = 45;
 const TREND_MONTHS = 12;
 

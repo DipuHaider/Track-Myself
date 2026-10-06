@@ -211,6 +211,7 @@ select optgroup {
 
 /* Status badges */
 .status-wishlist  { background: var(--surface-2); color: var(--muted-foreground); }
+.status-not-completed { background: #ffedd5; color: #c2410c; }
 .status-submitted { background: #dbeafe; color: #1d4ed8; }
 .status-no-resp   { background: #fef3c7; color: #92400e; }
 .status-interview { background: #cffafe; color: #0e7490; }
@@ -218,6 +219,7 @@ select optgroup {
 .status-offer     { background: #dcfce7; color: #166534; }
 .status-rejected  { background: #fee2e2; color: #b91c1c; }
 
+:root[data-theme="dark"] .status-not-completed { background: #331400; color: #fdba74; }
 :root[data-theme="dark"] .status-submitted { background: #0d1f3b; color: #93c5fd; }
 :root[data-theme="dark"] .status-no-resp   { background: #2d1a00; color: #fcd34d; }
 :root[data-theme="dark"] .status-interview { background: #042d34; color: #67e8f9; }

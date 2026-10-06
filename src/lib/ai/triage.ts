@@ -73,11 +73,13 @@ export function shortlist(apps: Application[], interviews: InterviewLite[]): Tri
       observed.push(inDays === 0 ? "interview today" : `interview in ${inDays} days`);
     }
 
-    if (app.applicationStatus === "Wishlist") {
+    if (app.applicationStatus === "Wishlist" || app.applicationStatus === "Not Completed") {
       const age = daysSince(app.createdAt);
       if (age !== null && age >= WISHLIST_STALE_DAYS) {
         reasons.push("never-applied");
-        observed.push(`saved ${age} days ago, never applied`);
+        observed.push(app.applicationStatus === "Wishlist"
+          ? `saved ${age} days ago, never applied`
+          : `started ${age} days ago, application not completed`);
       }
     } else if (applied !== null && applied >= SILENT_DAYS && !upcoming.has(app._id)) {
       reasons.push("silent-since-applied");

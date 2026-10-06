@@ -1,5 +1,6 @@
 export const APPLICATION_STATUSES = [
   "Wishlist",
+  "Not Completed",
   "Submitted",
   "No Response",
   "Interview Scheduled",

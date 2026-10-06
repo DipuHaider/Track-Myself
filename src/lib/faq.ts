@@ -66,7 +66,7 @@ export const FAQ: FaqItem[] = [
     id: "ten-stages",
     category: "Tracking",
     q: "What are the ten stages?",
-    a: "Wishlist, Submitted, No Response, Interview Scheduled, four Active rounds (Written, HR, Technical, Cultural Fit), Offer Received and Rejected. The four Active rounds are separate on purpose — a technical round and a culture interview are not the same signal, and collapsing them loses the pattern.",
+    a: "Wishlist, Not Completed, Submitted, No Response, Interview Scheduled, four Active rounds (Written, HR, Technical, Cultural Fit), Offer Received and Rejected. The four Active rounds are separate on purpose — a technical round and a culture interview are not the same signal, and collapsing them loses the pattern.",
   },
   {
     id: "ghost-jobs",

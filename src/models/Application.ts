@@ -1,4 +1,5 @@
 import mongoose, { Schema, type InferSchemaType } from "mongoose";
+import { APPLICATION_STATUSES, DEFAULT_APPLICATION_STATUS } from "@/constants/applicationStatus";
 
 const ApplicationSchema = new Schema(
   {
@@ -12,19 +13,8 @@ const ApplicationSchema = new Schema(
     submissionMethod: { type: String },
     applicationStatus: {
       type: String,
-      enum: [
-        "Wishlist",
-        "Submitted",
-        "No Response",
-        "Interview Scheduled",
-        "Active - Written",
-        "Active - HR",
-        "Active - Technical",
-        "Active - Cultural Fit",
-        "Offer Received",
-        "Rejected",
-      ],
-      default: "Wishlist",
+      enum: [...APPLICATION_STATUSES],
+      default: DEFAULT_APPLICATION_STATUS,
     },
     responseStatus: { type: String },
     platformDetail: { type: String },

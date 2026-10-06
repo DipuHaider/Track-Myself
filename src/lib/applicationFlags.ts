@@ -1,6 +1,6 @@
 import type { Application } from "@/types/application";
 
-const GHOST_STATUSES = new Set(["Submitted", "No Response", "Wishlist"]);
+const GHOST_STATUSES = new Set(["Submitted", "No Response", "Wishlist", "Not Completed"]);
 const GHOST_DAYS = 45;
 
 /* Wishlist rows carry no appliedDate — the user has not applied yet — so they
