@@ -20,7 +20,7 @@ export interface Application {
   postedAgeText?: string;
   postingObservedAt?: string | Date | null;
   postingPrecision?: "exact" | "approximate";
-  statusHistory?: { status: string; at: string | Date; kind: string }[];
+  statusHistory?: { status: string; at: string | Date; kind: string; byId?: string; byName?: string }[];
   applicationType?: string;
   submissionMethod?: string;
   submissionDetail?: string;

@@ -1,19 +1,34 @@
 import Application from "@/models/Application";
+import User from "@/models/User";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 
 const HISTORY_MAX = 100;
 
 export type StatusKind = "created" | "transition" | "observed_baseline";
 
-export type StatusEvent = { status: string; at: Date; kind: StatusKind };
+export type HistoryActor = { id: string; name: string };
+
+export type StatusEvent = { status: string; at: Date; kind: StatusKind; byId?: string; byName?: string };
 
 function isStatus(value: unknown): value is string {
   return typeof value === "string" && (APPLICATION_STATUSES as readonly string[]).includes(value);
 }
 
-export function initialHistory(status: unknown): StatusEvent[] {
+function stamp(actor?: HistoryActor | null) {
+  return actor ? { byId: actor.id, byName: actor.name } : {};
+}
+
+/* The name is copied onto each event rather than looked up when the timeline is
+   drawn, so it reads as it did at the time even if the account is renamed or
+   deleted later. */
+export async function historyActor(userId: string): Promise<HistoryActor> {
+  const row = (await User.findById(userId, "name email").lean()) as { name?: string; email?: string } | null;
+  return { id: userId, name: row?.name || row?.email || "" };
+}
+
+export function initialHistory(status: unknown, actor?: HistoryActor | null): StatusEvent[] {
   if (!isStatus(status)) return [];
-  return [{ status, at: new Date(), kind: "created" }];
+  return [{ status, at: new Date(), kind: "created", ...stamp(actor) }];
 }
 
 /* Both application update routes take whatever the client sent and spread it, so
@@ -22,12 +37,18 @@ export function initialHistory(status: unknown): StatusEvent[] {
    update AND differs from what is stored — otherwise editing a note would record
    a transition that never happened.
 
+   statusHistory itself is never taken from the client: it records who did what,
+   so a request must not be able to rewrite it.
+
    The write is guarded on the status we read, so two concurrent edits cannot both
    append. If the guard misses, the row moved underneath us and we re-read once. */
 export async function updateApplication(
   filter: Record<string, unknown>,
-  update: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  actor?: HistoryActor | null,
 ) {
+  const update = { ...incoming };
+  delete update.statusHistory;
   const next = update.applicationStatus;
 
   if (!isStatus(next)) {
@@ -44,7 +65,7 @@ export async function updateApplication(
       return Application.findOneAndUpdate(filter, update, { new: true });
     }
 
-    const event: StatusEvent = { status: next, at: new Date(), kind: "transition" };
+    const event: StatusEvent = { status: next, at: new Date(), kind: "transition", ...stamp(actor) };
 
     const guarded = await Application.findOneAndUpdate(
       { ...filter, applicationStatus: before.applicationStatus },

@@ -81,6 +81,8 @@ const ApplicationSchema = new Schema(
             enum: ["created", "transition", "observed_baseline"],
             default: "transition",
           },
+          byId: { type: Schema.Types.ObjectId, ref: "User" },
+          byName: { type: String },
         },
       ],
       default: [],

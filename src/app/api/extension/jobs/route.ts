@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { initialHistory } from "@/lib/applicationHistory";
+import { historyActor, initialHistory } from "@/lib/applicationHistory";
 import {
   DEFAULT_APPLICATION_STATUS, JOB_TYPES, PLATFORMS, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, WORKPLACE_TYPES, joinJobTypes,
 } from "@/constants/applicationStatus";
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
     postingPrecision:  oneOf(str("postingPrecision"), ["exact", "approximate"]),
     notes:             str("notes"),
     applicationStatus,
-    statusHistory: initialHistory(applicationStatus),
+    statusHistory: initialHistory(applicationStatus, await historyActor(user.id)),
     submissionMethod,
     submissionDetail:  submissionMethod && SUBMISSION_DETAIL_METHODS.has(submissionMethod) ? str("submissionDetail").slice(0, 300) : undefined,
     appliedDate:       submissionMethod ? new Date() : undefined,

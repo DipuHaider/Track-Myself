@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { updateApplication } from "@/lib/applicationHistory";
+import { historyActor, updateApplication } from "@/lib/applicationHistory";
 import Interview from "@/models/Interview";
 import Reminder from "@/models/Reminder";
 import { requireAction } from "@/lib/serverAuth";
@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: Params) {
     if (!IMMUTABLE.includes(key)) update[key] = value;
   }
 
-  const updated = await updateApplication({ _id: id }, update);
+  const updated = await updateApplication({ _id: id }, update, await historyActor(auth.id));
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json(updated);

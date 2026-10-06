@@ -5,6 +5,7 @@ import { postingAge } from "@/lib/applicationFlags";
 import Modal from "@/components/shared/Modal";
 import GapAnalysisSection from "@/components/applications/GapAnalysisSection";
 import StatusBadge from "@/components/applications/StatusBadge";
+import ApplicationTimeline from "@/components/applications/ApplicationTimeline";
 import { joinJobTypes, parseJobTypes } from "@/constants/applicationStatus";
 import { formatLocation } from "@/lib/applicationLocation";
 import { formatSalary } from "@/lib/salary";
@@ -90,8 +91,9 @@ export default function ViewApplicationModal({
     .filter((u): u is string => Boolean(u && /^https?:\/\//i.test(u)));
 
   return (
-    <Modal open={open} onClose={onClose} title="Application Details">
-      <div className="max-h-[75vh] overflow-y-auto px-5 py-4">
+    <Modal open={open} onClose={onClose} title="Application Details" size="xl">
+      <div className="grid max-h-[75vh] overflow-y-auto md:grid-cols-[minmax(0,1fr)_17rem] md:overflow-hidden">
+      <div className="px-5 py-4 md:max-h-[75vh] md:overflow-y-auto">
         {/* Header */}
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -199,6 +201,11 @@ export default function ViewApplicationModal({
             Created: {formatDateTime(application.createdAt)} · Updated: {formatDateTime(application.updatedAt)}
           </p>
         </div>
+      </div>
+
+      <aside className="border-t px-5 py-4 md:max-h-[75vh] md:overflow-y-auto md:border-l md:border-t-0">
+        <ApplicationTimeline application={application} />
+      </aside>
       </div>
 
       <div className="flex justify-end border-t px-5 py-4">

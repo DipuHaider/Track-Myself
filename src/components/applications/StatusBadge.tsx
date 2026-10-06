@@ -1,4 +1,4 @@
-const STATUS_CLASS: Record<string, string> = {
+export const STATUS_CLASS: Record<string, string> = {
   "Wishlist":              "status-wishlist",
   "Not Completed":         "status-not-completed",
   "Submitted":             "status-submitted",

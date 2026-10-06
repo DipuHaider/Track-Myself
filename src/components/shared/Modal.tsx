@@ -8,11 +8,13 @@ export default function Modal({
   onClose,
   title,
   children,
+  size = "md",
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  size?: "md" | "xl";
 }) {
   const { closing, close } = useDismissable(onClose);
 
@@ -32,7 +34,7 @@ export default function Modal({
       onClick={close}
     >
       <div
-        className={`surface w-full max-w-lg rounded-xl border shadow-2xl ${closing ? "anim-panel-out" : "anim-panel"}`}
+        className={`surface w-full ${size === "xl" ? "max-w-4xl" : "max-w-lg"} rounded-xl border shadow-2xl ${closing ? "anim-panel-out" : "anim-panel"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b px-5 py-4">
