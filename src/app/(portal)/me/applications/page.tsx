@@ -4,6 +4,8 @@ import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ApplicationFormModal from "@/components/applications/ApplicationFormModal";
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
+import RecentlyDeletedModal from "@/components/applications/RecentlyDeletedModal";
+import { Trash2 } from "lucide-react";
 import ApplicationTable from "@/components/applications/ApplicationTable";
 import { useApplications } from "@/hooks/useApplications";
 import type { Application } from "@/types/application";
@@ -22,6 +24,7 @@ function PortalApplicationsContent() {
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Application | null>(null);
   const [viewTarget, setViewTarget] = useState<Application | null>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState(initialQuery);
   const [filterStatus, setFilterStatus] = useState("");
@@ -69,7 +72,7 @@ function PortalApplicationsContent() {
   };
 
   const handleDelete = async (app: Application) => {
-    if (!confirm(`Delete application for "${app.jobTitle}" at ${app.companyName}?`)) return;
+    if (!confirm(`Delete "${app.jobTitle}" at ${app.companyName}? You can restore it from Recently deleted for 30 days.`)) return;
     setDeletingId(app._id);
     const res = await fetch(`/api/applications/${app._id}`, { method: "DELETE" });
     setDeletingId(null);
@@ -104,6 +107,14 @@ function PortalApplicationsContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">My Applications</h2>
+        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setTrashOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition hover:bg-[var(--surface-2)]"
+        >
+          <Trash2 size={14} /> Recently deleted
+        </button>
         <button
           type="button"
           onClick={() => setAddOpen(true)}
@@ -111,6 +122,7 @@ function PortalApplicationsContent() {
         >
           + New Application
         </button>
+        </div>
       </div>
 
       {/* Search + Filters */}
@@ -246,6 +258,15 @@ function PortalApplicationsContent() {
         application={editTarget ?? undefined}
         applications={applications}
       />
+      {trashOpen && (
+        <RecentlyDeletedModal<Application>
+          open
+          onClose={() => setTrashOpen(false)}
+          endpoint="/api/applications/trash"
+          onRestored={(app) => addApplication(app)}
+        />
+      )}
+
       <ViewApplicationModal
         open={!!viewTarget}
         onClose={() => setViewTarget(null)}

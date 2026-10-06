@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   }
 
   const { force: _force, ...data } = body;
-  for (const key of ["_id", "userId", "createdAt", "updatedAt"]) delete data[key];
+  for (const key of ["_id", "userId", "createdAt", "updatedAt", "deletedAt", "deletedBy", "deletedByName"]) delete data[key];
   const application = await Application.create({
     ...data,
     userId,

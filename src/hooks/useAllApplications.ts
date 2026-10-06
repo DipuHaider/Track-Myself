@@ -46,5 +46,9 @@ export function useAllApplications() {
     setApplications((prev) => prev.filter((a) => a._id !== id));
   }
 
-  return { applications, loading, failed, updateApplication, patchApplication, removeApplication };
+  function addApplication(app: AdminApplication) {
+    setApplications((prev) => [app, ...prev.filter((a) => a._id !== app._id)]);
+  }
+
+  return { applications, loading, failed, updateApplication, patchApplication, removeApplication, addApplication };
 }

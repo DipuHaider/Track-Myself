@@ -1,4 +1,4 @@
-import mongoose, { Schema, type InferSchemaType } from "mongoose";
+import mongoose, { Schema, type InferSchemaType, type MongooseQueryMiddleware, type Query } from "mongoose";
 import {
   APPLICATION_STATUSES, CONTACT_ROLES, DEFAULT_APPLICATION_STATUS, DOCUMENT_FORMATS, PROVIDED_DOCUMENTS, SUBMISSION_METHODS,
 } from "@/constants/applicationStatus";
@@ -88,9 +88,36 @@ const ApplicationSchema = new Schema(
       default: [],
     },
     interviewSeen: { type: [String], default: [] },
+
+    deletedAt: { type: Date, default: null, index: true },
+    deletedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    deletedByName: { type: String },
   },
   { timestamps: true },
 );
+
+/* Soft delete. Every read and update skips rows in "Recently deleted" unless the
+   filter names deletedAt itself (the trash queries do) or the query is run with
+   { withDeleted: true }. Hard deletes are deliberately not hooked. */
+const SOFT_DELETE_QUERIES: MongooseQueryMiddleware[] = [
+  "find", "findOne", "findOneAndUpdate", "countDocuments", "updateOne", "updateMany", "distinct",
+];
+
+function includesDeleted(filter: Record<string, unknown>, options: Record<string, unknown>) {
+  return options.withDeleted === true || Object.prototype.hasOwnProperty.call(filter, "deletedAt");
+}
+
+ApplicationSchema.pre(SOFT_DELETE_QUERIES, function (this: Query<unknown, unknown>) {
+  if (includesDeleted(this.getFilter(), this.getOptions() as Record<string, unknown>)) return;
+  this.where({ deletedAt: null });
+});
+
+ApplicationSchema.pre("aggregate", function () {
+  const options = this.options as Record<string, unknown>;
+  const first = this.pipeline()[0] as { $match?: Record<string, unknown> } | undefined;
+  if (options.withDeleted === true || (first?.$match && "deletedAt" in first.$match)) return;
+  this.pipeline().unshift({ $match: { deletedAt: null } });
+});
 
 export type ApplicationDocument = InferSchemaType<typeof ApplicationSchema>;
 

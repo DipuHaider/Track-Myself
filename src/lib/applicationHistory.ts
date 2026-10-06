@@ -48,7 +48,7 @@ export async function updateApplication(
   actor?: HistoryActor | null,
 ) {
   const update = { ...incoming };
-  delete update.statusHistory;
+  for (const key of ["statusHistory", "deletedAt", "deletedBy", "deletedByName"]) delete update[key];
   const next = update.applicationStatus;
 
   if (!isStatus(next)) {

@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import ApplicationTable, { type QuickField } from "@/components/applications/ApplicationTable";
 import ApplicationFormModal from "@/components/applications/ApplicationFormModal";
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
+import RecentlyDeletedModal from "@/components/applications/RecentlyDeletedModal";
+import { Trash2 } from "lucide-react";
 import PermissionGate from "@/components/dashboard/PermissionGate";
 import Loading, { InlineSpinner } from "@/components/shared/Spinner";
 import Pagination, { PAGE_SIZE, usePagination } from "@/components/shared/Pagination";
@@ -18,8 +20,9 @@ function ApplicationsContent() {
   const initialQuery = useSearchParams().get("q") ?? "";
   const {
     applications, loading, failed,
-    updateApplication, patchApplication, removeApplication,
+    updateApplication, patchApplication, removeApplication, addApplication,
   } = useAllApplications();
+  const [trashOpen, setTrashOpen] = useState(false);
   const { can } = usePermissions();
 
   const canEdit = can("edit:applications");
@@ -93,7 +96,7 @@ function ApplicationsContent() {
   async function handleDelete(app: Application) {
     const owner = (app as AdminApplication).owner;
     const who = owner ? ` (owned by ${owner.name})` : "";
-    if (!confirm(`Delete "${app.jobTitle}" at ${app.companyName}${who}? This cannot be undone.`)) return;
+    if (!confirm(`Delete "${app.jobTitle}" at ${app.companyName}${who}? It can be restored from Recently deleted for 30 days.`)) return;
 
     setDeletingId(app._id);
     setError("");
@@ -114,9 +117,20 @@ function ApplicationsContent() {
             {!canEdit && " Read-only for your role."}
           </p>
         </div>
-        <p className="text-muted text-sm">
-          {loading ? <InlineSpinner /> : `${applications.length} total · ${owners.length} user${owners.length === 1 ? "" : "s"}`}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-muted text-sm">
+            {loading ? <InlineSpinner /> : `${applications.length} total · ${owners.length} user${owners.length === 1 ? "" : "s"}`}
+          </p>
+          {canDelete && (
+          <button
+          type="button"
+          onClick={() => setTrashOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition hover:bg-[var(--surface-2)]"
+        >
+          <Trash2 size={14} /> Recently deleted
+        </button>
+          )}
+        </div>
       </div>
 
       {failed && (
@@ -198,6 +212,16 @@ function ApplicationsContent() {
         endpoint={editTarget ? `/api/admin/applications/${editTarget._id}` : undefined}
         method="PATCH"
       />
+
+      {canDelete && trashOpen && (
+        <RecentlyDeletedModal<AdminApplication>
+          open
+          onClose={() => setTrashOpen(false)}
+          endpoint="/api/admin/applications/trash"
+          showOwner
+          onRestored={(app) => addApplication(app)}
+        />
+      )}
 
       <ViewApplicationModal
         open={!!viewTarget}

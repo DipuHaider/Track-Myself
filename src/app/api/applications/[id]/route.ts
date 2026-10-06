@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { historyActor, updateApplication } from "@/lib/applicationHistory";
-import Interview from "@/models/Interview";
-import Reminder from "@/models/Reminder";
+import { softDeleteApplication } from "@/lib/applicationTrash";
 import { requireActiveAuth } from "@/lib/serverAuth";
 
 type Params = { params: Promise<{ id: string }> };
@@ -52,13 +52,10 @@ export async function DELETE(_: Request, { params }: Params) {
 
   await dbConnect();
   const { id } = await params;
-  const deleted = await Application.findOneAndDelete({ _id: id, userId });
+  if (!mongoose.isValidObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const deleted = await softDeleteApplication({ _id: id, userId }, await historyActor(userId));
   if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await Promise.all([
-    Interview.deleteMany({ applicationId: id }),
-    Reminder.deleteMany({ applicationId: id }),
-  ]);
-
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, deletedAt: deleted.deletedAt });
 }

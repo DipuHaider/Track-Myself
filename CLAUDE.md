@@ -98,6 +98,11 @@ Models in `src/models/` — all thirteen:
 - `Application` — full job record, userId-scoped (see `src/types/application.ts`). How it was
   applied lives in `submissionMethod` (+ `submissionDetail` for In Person); people dealt with
   directly in `contacts[]` (role, name, email, phone), and `contactNumber` mirrors the first phone
+  **Soft delete:** `deletedAt` / `deletedBy` / `deletedByName`. Query and aggregate hooks in the
+  model hide deleted rows unless the filter names `deletedAt` or the query sets
+  `{ withDeleted: true }`. Deleting moves a row to "Recently deleted" for 30 days
+  (`src/lib/applicationTrash.ts`); it is purged, with its interviews and reminders, when a trash
+  list is read after that. Hard deletes (`deleteMany`) are not hooked
 - `Interview` — applicationId, stageName, status, scheduledDate, feedback, notes
 - `Document` — application attachments: userId, name, size, mimeType, base64 `data`
   (`url` is legacy). Served by `/api/attachments/[...parts]`, owner-scoped

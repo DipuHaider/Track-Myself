@@ -25,7 +25,7 @@ export type PurgeSummary = {
 };
 
 export async function purgeUserData(userId: string, email?: string | null): Promise<PurgeSummary> {
-  const applications = await Application.find({ userId }, "_id").lean();
+  const applications = await Application.find({ userId }, "_id").setOptions({ withDeleted: true }).lean();
   const applicationIds = applications.map((a) => a._id);
 
   const [
