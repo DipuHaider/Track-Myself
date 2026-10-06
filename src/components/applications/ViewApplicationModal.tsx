@@ -56,6 +56,14 @@ function postedLabel(app: Application): string {
   return app.postedAgeText ? `${app.postedAgeText} · ${age.label}` : age.label;
 }
 
+function linkLabel(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 export default function ViewApplicationModal({
   open,
   onClose,
@@ -68,6 +76,8 @@ export default function ViewApplicationModal({
   if (!application) return null;
 
   const att = application.attachments ?? [];
+  const links = [application.jobPostUrl, ...(application.additionalJobPostUrls ?? [])]
+    .filter((u): u is string => Boolean(u && /^https?:\/\//i.test(u)));
 
   return (
     <Modal open={open} onClose={onClose} title="Application Details">
@@ -95,17 +105,22 @@ export default function ViewApplicationModal({
           <Row label="Response Status" value={application.responseStatus} />
         </div>
 
-        {application.jobPostUrl && (
+        {links.length > 0 && (
           <div className="mt-4">
-            <p className="text-muted text-xs">Job Post</p>
-            <a
-              href={application.jobPostUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-0.5 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-            >
-              Open listing <ExternalLink size={12} />
-            </a>
+            <p className="text-muted text-xs">{links.length > 1 ? "Job Post Links" : "Job Post"}</p>
+            <div className="mt-0.5 flex flex-col items-start gap-1">
+              {links.map((url, i) => (
+                <a
+                  key={url}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                >
+                  {i === 0 ? "Open listing" : linkLabel(url)} <ExternalLink size={12} />
+                </a>
+              ))}
+            </div>
           </div>
         )}
 

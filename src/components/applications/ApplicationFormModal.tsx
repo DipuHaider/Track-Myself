@@ -75,7 +75,7 @@ type FormData = {
   salaryMin: string;
   salaryMax: string;
   contactNumber: string;
-  jobPostUrl: string;
+  jobPostUrls: string[];
   jobDescription: string;
   appliedDate: string;
   priority: string;
@@ -97,7 +97,7 @@ const EMPTY: FormData = {
   salaryMin: "",
   salaryMax: "",
   contactNumber: "",
-  jobPostUrl: "",
+  jobPostUrls: [""],
   jobDescription: "",
   appliedDate: "",
   priority: "Medium",
@@ -121,13 +121,15 @@ function toForm(app: Application): FormData {
     salaryMin: editableAmount(app.salaryMin),
     salaryMax: editableAmount(app.salaryMax),
     contactNumber: app.contactNumber ?? "",
-    jobPostUrl: app.jobPostUrl ?? "",
+    jobPostUrls: [app.jobPostUrl ?? "", ...(app.additionalJobPostUrls ?? [])].filter((u, i) => i === 0 || u),
     jobDescription: app.jobDescription ?? "",
     appliedDate: toDateTimeStr(app.appliedDate),
     priority: app.priority ?? "Medium",
     notes: app.notes ?? "",
   };
 }
+
+const MAX_JOB_POST_URLS = 10;
 
 const inputCls =
   "w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]";
@@ -206,6 +208,15 @@ export default function ApplicationFormModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [field]: e.target.value }));
 
+  const setJobPostUrl = (i: number, value: string) =>
+    setForm((f) => ({ ...f, jobPostUrls: f.jobPostUrls.map((u, j) => (j === i ? value : u)) }));
+
+  const addJobPostUrl = () =>
+    setForm((f) => (f.jobPostUrls.length >= MAX_JOB_POST_URLS ? f : { ...f, jobPostUrls: [...f.jobPostUrls, ""] }));
+
+  const removeJobPostUrl = (i: number) =>
+    setForm((f) => ({ ...f, jobPostUrls: f.jobPostUrls.filter((_, j) => j !== i) }));
+
   const toggleJobType = (t: string) =>
     setForm((f) => ({
       ...f,
@@ -259,6 +270,7 @@ export default function ApplicationFormModal({
       const p = await uploadFile(file, form.companyName || "unknown");
       uploadedPaths.push(p);
     }
+    const links = [...new Set(form.jobPostUrls.map((u) => u.trim()).filter(Boolean))];
     const attachments = [...existingAttachments, ...uploadedPaths];
     return {
       companyName: form.companyName,
@@ -277,7 +289,8 @@ export default function ApplicationFormModal({
       salaryMin: form.salaryType === "range" ? parseAmount(form.salaryMin) : null,
       salaryMax: form.salaryType === "range" ? parseAmount(form.salaryMax) : null,
       contactNumber: form.contactNumber || undefined,
-      jobPostUrl: form.jobPostUrl || undefined,
+      jobPostUrl: links[0] ?? "",
+      additionalJobPostUrls: links.slice(1),
       jobDescription: form.jobDescription || undefined,
       appliedDate: form.appliedDate || undefined,
       priority: form.priority,
@@ -555,16 +568,45 @@ export default function ApplicationFormModal({
                 onChange={set("appliedDate")}
               />
             </Field>
-            <Field label="Job Post URL">
-              <input
-                type="url"
-                className={inputCls}
-                placeholder="https://..."
-                value={form.jobPostUrl}
-                onChange={set("jobPostUrl")}
-              />
-            </Field>
           </div>
+
+          <Field label="Job Post URL">
+            <div className="space-y-2">
+              {form.jobPostUrls.map((url, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    className={inputCls}
+                    placeholder={i === 0 ? "https://..." : "Another link, e.g. the company careers page"}
+                    value={url}
+                    onChange={(e) => setJobPostUrl(i, e.target.value)}
+                  />
+                  {i === 0 ? (
+                    <button
+                      type="button"
+                      onClick={addJobPostUrl}
+                      disabled={form.jobPostUrls.length >= MAX_JOB_POST_URLS}
+                      title="Add another link"
+                      aria-label="Add another link"
+                      className="shrink-0 rounded-md border p-2 transition hover:bg-[var(--surface-2)] disabled:opacity-40"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => removeJobPostUrl(i)}
+                      title="Remove link"
+                      aria-label="Remove link"
+                      className="shrink-0 rounded-md border p-2 transition hover:bg-[var(--surface-2)]"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Field>
 
           {/* Job description — the text AI tailoring reads when generating for this job. */}
           <Field label="Job description">

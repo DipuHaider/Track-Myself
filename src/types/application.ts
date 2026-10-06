@@ -29,6 +29,7 @@ export interface Application {
   salaryMin?: number;
   salaryMax?: number;
   jobPostUrl?: string;
+  additionalJobPostUrls?: string[];
   jobDescription?: string;
   appliedDate?: Date;
   notes?: string;
