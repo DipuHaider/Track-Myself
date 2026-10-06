@@ -6,7 +6,7 @@ import Modal from "@/components/shared/Modal";
 import { APPLICATION_STATUSES, FACEBOOK_PLATFORMS, JOB_TYPES, PLATFORMS, joinJobTypes, parseJobTypes } from "@/constants/applicationStatus";
 import type { Application } from "@/types/application";
 import { formatLocation, splitLocation } from "@/lib/applicationLocation";
-import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, isValidAmount, parseAmount, type SalaryType } from "@/lib/salary";
+import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, editableAmount, isValidAmount, parseAmount, type SalaryType } from "@/lib/salary";
 
 /* ── helpers ─────────────────────────────────────── */
 
@@ -117,9 +117,9 @@ function toForm(app: Application): FormData {
     country: parsed ? parsed.country : app.country ?? "",
     salaryType: app.salaryType ?? "fixed",
     salaryCurrency: app.salaryCurrency ?? "USD",
-    salaryFixed: app.salaryFixed != null ? String(app.salaryFixed) : "",
-    salaryMin: app.salaryMin != null ? String(app.salaryMin) : "",
-    salaryMax: app.salaryMax != null ? String(app.salaryMax) : "",
+    salaryFixed: editableAmount(app.salaryFixed),
+    salaryMin: editableAmount(app.salaryMin),
+    salaryMax: editableAmount(app.salaryMax),
     contactNumber: app.contactNumber ?? "",
     jobPostUrl: app.jobPostUrl ?? "",
     jobDescription: app.jobDescription ?? "",

@@ -15,6 +15,14 @@ export function hasSalaryAmount(type?: string | null): boolean {
   return type !== "negotiable" && type !== "not-mentioned";
 }
 
+export function compactAmount(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "";
+  const trim = (v: number) => String(Math.round(v * 100) / 100);
+  if (Math.abs(n) >= 1_000_000) return `${trim(n / 1_000_000)}M`;
+  if (Math.abs(n) >= 1_000) return `${trim(n / 1_000)}K`;
+  return String(n);
+}
+
 const CURRENCY_SYM: Record<string, string> = { EUR: "€", USD: "$", BDT: "৳" };
 
 export function formatSalary(app: Partial<Application>): string {
@@ -22,9 +30,9 @@ export function formatSalary(app: Partial<Application>): string {
   if (app.salaryType === "not-mentioned") return SALARY_TYPE_LABELS["not-mentioned"];
   const sym = CURRENCY_SYM[app.salaryCurrency ?? ""] ?? "";
   if (app.salaryType === "range" && app.salaryMin != null && app.salaryMax != null) {
-    return `${sym}${app.salaryMin.toLocaleString("en-US")} – ${sym}${app.salaryMax.toLocaleString("en-US")}`;
+    return `${sym}${compactAmount(app.salaryMin)} – ${sym}${compactAmount(app.salaryMax)}`;
   }
-  if (app.salaryFixed != null) return `${sym}${app.salaryFixed.toLocaleString("en-US")}`;
+  if (app.salaryFixed != null) return `${sym}${compactAmount(app.salaryFixed)}`;
   return app.salary ?? "";
 }
 
@@ -37,6 +45,12 @@ export function parseAmount(raw: string): number | null {
   if (!m) return NaN;
   const scale = m[2] === "k" ? 1_000 : m[2] === "m" ? 1_000_000 : 1;
   return Math.round(Number(m[1]) * scale);
+}
+
+export function editableAmount(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "";
+  const short = compactAmount(n);
+  return parseAmount(short) === n ? short : String(n);
 }
 
 export function isValidAmount(raw: string): boolean {
