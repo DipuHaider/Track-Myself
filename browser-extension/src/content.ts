@@ -90,6 +90,19 @@ function qs(...sels: string[]): string {
   return "";
 }
 
+function descText(...sels: string[]): string {
+  for (const sel of sels) {
+    const el = document.querySelector(sel) as HTMLElement | null;
+    const t = (el?.innerText || el?.textContent || "")
+      .replace(/[ \t\u00a0]+/g, " ")
+      .replace(/ *\n */g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    if (t) return t;
+  }
+  return "";
+}
+
 function detectSite(): State["site"] {
   const h = location.hostname.replace("www.", "");
   if (h === "linkedin.com") return "linkedin";
@@ -362,7 +375,6 @@ function parseJobLd(): Partial<JobData> {
         ].filter((p, i, all) => p && all.findIndex((q) => q.toLowerCase() === p.toLowerCase()) === i);
         const remote = /telecommute/i.test(String(d.jobLocationType ?? ""));
         const rawDesc  = (typeof d.description === "string" ? d.description : "") as string;
-        const notes    = rawDesc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 600);
         const employment = Array.isArray(d.employmentType)
           ? d.employmentType.join(" ")
           : typeof d.employmentType === "string" ? d.employmentType : "";
@@ -385,7 +397,6 @@ function parseJobLd(): Partial<JobData> {
           jobTitle:    typeof d.title       === "string" ? d.title.trim()    : "",
           companyName: typeof org?.name     === "string" ? org.name.trim()   : "",
           location:    locParts.join(", "),
-          notes,
           jobDescription: rawDesc.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 24000),
           jobType: employment,
           workplaceType: remote ? "Remote" : "",
@@ -471,7 +482,7 @@ function scrapeLinkedIn(): JobData {
     || placeOnly(title.location ?? "")
     || "";
 
-  const description = stripHeading(qs(
+  const description = stripHeading(descText(
     "#job-details",
     ".jobs-description-content__text--stretch",
     ".jobs-description-content__text",
@@ -581,7 +592,7 @@ function scrapeIndeed(): JobData {
     || placeOnly(title.location ?? "")
     || "";
 
-  const description = qs(
+  const description = descText(
     "#jobDescriptionText",
     "[data-testid='jobsearch-JobComponent-description']",
     ".jobsearch-jobDescriptionText",
@@ -641,7 +652,8 @@ function scrapeJobUnsafe(site: State["site"]): JobData {
     jobTitle:    ld.jobTitle    ?? document.title.split(/\s*[|\-–]\s*/)[0].trim(),
     location:    placeOnly(ld.location ?? ""),
     jobPostUrl:  location.href,
-    notes:       ld.notes       ?? metaAttr(["description", "og:description"]).slice(0, 600),
+    notes:       "",
+    jobDescription: ld.jobDescription || metaAttr(["description", "og:description"]),
   };
 }
 
@@ -710,12 +722,11 @@ shadow.appendChild(panelEl);
 
 // ── render ────────────────────────────────────────────────────────────────
 
-/* The pay, employment type and full description are saved but have no field in
-   this panel, so they would otherwise vanish silently. */
+/* The pay and employment type are saved but have no field in this panel, so
+   they would otherwise vanish silently. */
 function capturedLine(job: JobData): string {
   const bits = [job.jobType, job.workplaceType, job.salary].filter(Boolean);
   if (job.postedAgeText) bits.push(`posted ${job.postedAgeText}`);
-  if (job.jobDescription) bits.push("job description");
   return bits.join(" · ");
 }
 
@@ -788,8 +799,8 @@ function renderPanel() {
         <input id="tm-url" class="tm-input" type="url" placeholder="https://…" value="${escHtml(job.jobPostUrl)}">
       </div>
       <div class="tm-field">
-        <label class="tm-label" for="tm-notes">Notes</label>
-        <textarea id="tm-notes" class="tm-textarea" placeholder="Your own notes — the job description is saved separately">${escHtml(job.notes)}</textarea>
+        <label class="tm-label" for="tm-description">Description</label>
+        <textarea id="tm-description" class="tm-textarea" rows="7" style="resize:vertical;" placeholder="Job description">${escHtml(job.jobDescription ?? "")}</textarea>
       </div>
       ${addError ? `<p class="tm-error">${escHtml(addError)}</p>` : ""}
       <button id="tm-add-btn" class="tm-btn-primary" style="margin-top:4px;" ${addBusy ? "disabled" : ""}>
@@ -911,7 +922,7 @@ function bindEvents() {
   });
 
   // Job form fields
-  (["tm-company","tm-title","tm-location","tm-url","tm-notes"] as const).forEach(id => {
+  (["tm-company","tm-title","tm-location","tm-url","tm-description"] as const).forEach(id => {
     const el = shadow.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
     if (!el) return;
     el.addEventListener("input", () => {
@@ -920,7 +931,7 @@ function bindEvents() {
         "tm-title":    "jobTitle",
         "tm-location": "location",
         "tm-url":      "jobPostUrl",
-        "tm-notes":    "notes",
+        "tm-description": "jobDescription",
       };
       (state.job[map[id]] as string) = el.value;
     });
