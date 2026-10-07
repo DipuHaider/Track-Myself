@@ -25,7 +25,9 @@ export interface Application {
   submissionMethod?: string;
   submissionDetail?: string;
   applicationStatus: (typeof APPLICATION_STATUSES)[number];
-  responseStatus?: string;
+  responseStatus?: string | null;
+  responseNote?: string;
+  responseAt?: Date | string | null;
   country?: string;
   city?: string;
   location?: string;

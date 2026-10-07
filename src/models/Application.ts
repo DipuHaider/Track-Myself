@@ -1,7 +1,7 @@
 import mongoose, { Schema, type InferSchemaType, type MongooseQueryMiddleware, type Query } from "mongoose";
 import {
   APPLICATION_STATUSES, CONTACT_ROLES, DEFAULT_APPLICATION_STATUS, DOCUMENT_FORMATS, MAX_CONTACTS, MAX_JOB_POST_URLS,
-  PROVIDED_DOCUMENTS, SUBMISSION_METHODS,
+  PROVIDED_DOCUMENTS, REJECTION_FEEDBACK, SUBMISSION_METHODS,
 } from "@/constants/applicationStatus";
 
 const HTTP_URL = /^https?:\/\/\S+$/i;
@@ -22,7 +22,9 @@ const ApplicationSchema = new Schema(
       enum: [...APPLICATION_STATUSES],
       default: DEFAULT_APPLICATION_STATUS,
     },
-    responseStatus: { type: String },
+    responseStatus: { type: String, enum: [...REJECTION_FEEDBACK] },
+    responseNote: { type: String, trim: true, maxlength: 1000 },
+    responseAt: { type: Date },
     platformDetail: { type: String },
     country: { type: String },
     city: { type: String },

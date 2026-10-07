@@ -6,10 +6,12 @@ import Modal from "@/components/shared/Modal";
 import {
   APPLICATION_STATUSES, CONTACT_FIRST_METHODS, CONTACT_ROLES, DEFAULT_DOCUMENT_FORMAT, DOCUMENT_FORMATS,
   FACEBOOK_PLATFORMS, JOB_TYPES, MAX_CONTACTS, MAX_JOB_POST_URLS, PLATFORMS, PROVIDED_DOCUMENTS, SUBMISSION_DETAIL_HINTS,
-  SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, joinJobTypes, parseJobTypes,
+  REJECTED_STATUS, REJECTION_FEEDBACK, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, WARM_LEAD_FEEDBACK,
+  joinJobTypes, parseJobTypes,
 } from "@/constants/applicationStatus";
 import type { Application, ApplicationContact } from "@/types/application";
 import { formatLocation, splitLocation } from "@/lib/applicationLocation";
+import { isWarmLead, normaliseCompany } from "@/lib/applicationFlags";
 import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, editableAmount, isValidAmount, isValidRange, parseAmount, type SalaryType } from "@/lib/salary";
 
 /* ── helpers ─────────────────────────────────────── */
@@ -88,6 +90,9 @@ type FormData = {
   priority: string;
   notes: string;
   documents: Record<string, string>;
+  responseStatus: string;
+  responseNote: string;
+  responseAt: string;
 };
 
 type ContactRow = { role: string; name: string; email: string; phone: string };
@@ -135,6 +140,9 @@ const EMPTY: FormData = {
   priority: "Medium",
   notes: "",
   documents: {},
+  responseStatus: "",
+  responseNote: "",
+  responseAt: "",
 };
 
 function toForm(app: Application): FormData {
@@ -162,6 +170,9 @@ function toForm(app: Application): FormData {
     followUpDate: toDateTimeStr(app.followUpDate).slice(0, 10),
     priority: app.priority ?? "Medium",
     notes: app.notes ?? "",
+    responseStatus: app.responseStatus ?? "",
+    responseNote: app.responseNote ?? "",
+    responseAt: toDateTimeStr(app.responseAt ?? undefined).slice(0, 10),
     documents: Object.fromEntries(
       (app.providedDocuments ?? []).map((d) => [d.name, d.format || DEFAULT_DOCUMENT_FORMAT]),
     ),
@@ -227,6 +238,17 @@ export default function ApplicationFormModal({
       setServerDuplicate(null);
     }
   }
+
+  const warmLeads = useMemo(() => {
+    if (!applications || !form.companyName.trim()) return [];
+    const company = normaliseCompany(form.companyName);
+    return applications.filter(
+      (a) =>
+        (!application || a._id !== application._id) &&
+        isWarmLead(a) &&
+        normaliseCompany(a.companyName) === company,
+    );
+  }, [applications, form.companyName, application]);
 
   const duplicateWarnings = useMemo(() => {
     if (!applications || !form.companyName || !form.jobTitle) return [];
@@ -366,6 +388,13 @@ export default function ApplicationFormModal({
       followUpDate: form.followUpDate ? new Date(`${form.followUpDate}T12:00`).toISOString() : null,
       priority: form.priority,
       notes: form.notes || undefined,
+      ...(form.applicationStatus === REJECTED_STATUS && form.responseStatus
+        ? {
+            responseStatus: form.responseStatus,
+            responseNote: form.responseNote.trim(),
+            responseAt: form.responseAt ? new Date(`${form.responseAt}T12:00`).toISOString() : null,
+          }
+        : { responseStatus: null, responseNote: "", responseAt: null }),
       providedDocuments: PROVIDED_DOCUMENTS
         .filter((name) => form.documents[name])
         .map((name) => ({ name, format: form.documents[name] })),
@@ -493,6 +522,54 @@ export default function ApplicationFormModal({
               </select>
             </Field>
           </div>
+
+          {form.applicationStatus === REJECTED_STATUS && (
+            <div className="surface-muted space-y-2 rounded-md border p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Feedback">
+                  <select
+                    className={inputCls}
+                    value={form.responseStatus}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setForm((f) => ({
+                        ...f,
+                        responseStatus: value,
+                        responseAt: value && !f.responseAt ? new Date().toLocaleDateString("en-CA") : f.responseAt,
+                      }));
+                    }}
+                  >
+                    <option value="">—</option>
+                    {REJECTION_FEEDBACK.map((r) => (
+                      <option key={r}>{r}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Feedback received">
+                  <input
+                    type="date"
+                    className={inputCls}
+                    value={form.responseAt}
+                    disabled={!form.responseStatus}
+                    onChange={set("responseAt")}
+                  />
+                </Field>
+              </div>
+              {form.responseStatus && (
+                <textarea
+                  className={inputCls}
+                  rows={2}
+                  maxLength={1000}
+                  aria-label="Feedback note"
+                  placeholder={form.responseStatus === WARM_LEAD_FEEDBACK
+                    ? "e.g. Liked my profile, will reach out about future openings"
+                    : "What did they say?"}
+                  value={form.responseNote}
+                  onChange={set("responseNote")}
+                />
+              )}
+            </div>
+          )}
 
           {/* Facebook page/group detail */}
           {isFbPlatform && (
@@ -910,6 +987,14 @@ export default function ApplicationFormModal({
               onChange={handleFileAdd}
             />
           </div>
+
+          {warmLeads.length > 0 && (
+            <div className="status-offer rounded-md px-3 py-2 text-sm">
+              <strong>Warm lead:</strong> {warmLeads[0].companyName} turned you down for{" "}
+              <em>{warmLeads[0].jobTitle}</em> but asked to stay in touch
+              {warmLeads[0].contacts?.[0]?.name ? ` — your contact there is ${warmLeads[0].contacts[0].name}` : ""}.
+            </div>
+          )}
 
           {/* Client-side duplicate warning (live as user types) */}
           {duplicateWarnings.length > 0 && !serverDuplicate && (

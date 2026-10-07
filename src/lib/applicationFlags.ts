@@ -1,7 +1,11 @@
 import type { Application } from "@/types/application";
-import { GHOST_STATUSES } from "@/constants/applicationStatus";
+import { GHOST_STATUSES, REJECTED_STATUS, WARM_LEAD_FEEDBACK } from "@/constants/applicationStatus";
 
 const GHOST_STATUS_SET = new Set(GHOST_STATUSES);
+
+export function isWarmLead(app: Pick<Application, "applicationStatus" | "responseStatus">): boolean {
+  return app.applicationStatus === REJECTED_STATUS && app.responseStatus === WARM_LEAD_FEEDBACK;
+}
 const GHOST_DAYS = 45;
 
 /* Wishlist rows carry no appliedDate — the user has not applied yet — so they

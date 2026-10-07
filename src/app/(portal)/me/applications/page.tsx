@@ -12,7 +12,7 @@ import { useApplications } from "@/hooks/useApplications";
 import type { Application } from "@/types/application";
 import { APPLICATION_STATUSES, JOB_TYPES, parseJobTypes } from "@/constants/applicationStatus";
 import type { QuickField } from "@/components/applications/ApplicationTable";
-import { computeDuplicateGroups, isPossibleGhost } from "@/lib/applicationFlags";
+import { computeDuplicateGroups, isPossibleGhost, isWarmLead } from "@/lib/applicationFlags";
 import Loading, { InlineSpinner } from "@/components/shared/Spinner";
 import Pagination, { PAGE_SIZE, usePagination } from "@/components/shared/Pagination";
 
@@ -44,6 +44,7 @@ function PortalApplicationsContent() {
   const [filterJobType, setFilterJobType] = useState("");
   const [filterGhost, setFilterGhost] = useState<"" | "auto" | "manual">("");
   const [filterDuplicates, setFilterDuplicates] = useState(false);
+  const [filterWarm, setFilterWarm] = useState(false);
 
   const duplicateKinds = useMemo(() => computeDuplicateGroups(applications), [applications]);
   const duplicateIds = useMemo(() => new Set(duplicateKinds.keys()), [duplicateKinds]);
@@ -56,6 +57,7 @@ function PortalApplicationsContent() {
     if (filterGhost === "auto") result = result.filter(isPossibleGhost);
     if (filterGhost === "manual") result = result.filter((a) => !!a.isGhostJob);
     if (filterDuplicates)       result = result.filter((a) => duplicateIds.has(a._id));
+    if (filterWarm)             result = result.filter(isWarmLead);
     const q = search.toLowerCase().trim();
     if (q) {
       result = result.filter((app) =>
@@ -67,7 +69,7 @@ function PortalApplicationsContent() {
       );
     }
     return result;
-  }, [applications, search, filterStatus, filterPriority, filterJobType, filterGhost, filterDuplicates, duplicateIds]);
+  }, [applications, search, filterStatus, filterPriority, filterJobType, filterGhost, filterDuplicates, filterWarm, duplicateIds]);
 
   const { page: safePage, setPage: goToPage, totalPages, pageItems, startIndex } =
     usePagination(filtered, PAGE_SIZE);
@@ -80,7 +82,7 @@ function PortalApplicationsContent() {
 
   const clearAll = () => {
     onSearch(""); onFilterStatus(""); onFilterPriority(""); onFilterJobType("");
-    setFilterGhost(""); setFilterDuplicates(false);
+    setFilterGhost(""); setFilterDuplicates(false); setFilterWarm(false);
   };
 
   const undoDelete = async (app: Application) => {
@@ -124,7 +126,8 @@ function PortalApplicationsContent() {
     (filterPriority ? 1 : 0) +
     (filterJobType ? 1 : 0) +
     (filterGhost ? 1 : 0) +
-    (filterDuplicates ? 1 : 0);
+    (filterDuplicates ? 1 : 0) +
+    (filterWarm ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -226,6 +229,16 @@ function PortalApplicationsContent() {
             className="rounded accent-[var(--primary)]"
           />
           Duplicates only
+        </label>
+
+        <label className="flex cursor-pointer items-center gap-1.5 text-sm">
+          <input
+            type="checkbox"
+            checked={filterWarm}
+            onChange={(e) => { setFilterWarm(e.target.checked); resetPage(); }}
+            className="rounded accent-[var(--primary)]"
+          />
+          Warm leads only
         </label>
 
         {(search || activeFilters > 0) && (

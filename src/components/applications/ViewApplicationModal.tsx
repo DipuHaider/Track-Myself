@@ -113,10 +113,18 @@ export default function ViewApplicationModal({
           <Row label="Priority" value={application.priority} />
           {!contacts.length && <Row label="Contact Number" value={application.contactNumber} />}
           <Row label="Applied through" value={appliedVia} />
+          <Row label="Feedback" value={application.responseStatus ?? ""} />
           <Row label="Documents provided" value={documents} />
           <Row label="Applied" value={formatDateTime(application.appliedDate)} />
           <Row label="Follow Up" value={formatDate(application.followUpDate)} />
         </div>
+
+        {application.responseNote && (
+          <div className="mt-4">
+            <p className="text-muted text-xs">Feedback note</p>
+            <p className="mt-0.5 whitespace-pre-wrap text-sm">{application.responseNote}</p>
+          </div>
+        )}
 
         {contacts.length > 0 && (
           <div className="mt-4">

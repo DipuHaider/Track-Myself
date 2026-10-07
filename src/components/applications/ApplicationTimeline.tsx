@@ -2,10 +2,12 @@
 
 import { useState, type ReactNode } from "react";
 import {
-  BellRing, CalendarClock, CircleDashed, Clock, Code, Flag, HeartHandshake, PenLine, Send, Star, Trophy, Users, XCircle,
+  BellRing, CalendarClock, CircleDashed, Clock, Code, Flag, Heart, HeartHandshake, MessageSquareText, PenLine, Send, Star,
+  Trophy, Users, XCircle,
 } from "lucide-react";
 import { STATUS_CLASS } from "@/components/applications/StatusBadge";
 import type { Application } from "@/types/application";
+import { REJECTED_STATUS, WARM_LEAD_FEEDBACK } from "@/constants/applicationStatus";
 
 const STATUS_ICON: Record<string, ReactNode> = {
   "Wishlist":              <Star size={14} />,
@@ -21,7 +23,7 @@ const STATUS_ICON: Record<string, ReactNode> = {
   "Rejected":              <XCircle size={14} />,
 };
 
-type Step = { status: string; at?: string | Date; kind: string; byId?: string; byName?: string };
+type Step = { status: string; at?: string | Date; kind: string; byId?: string; byName?: string; note?: string };
 
 function formatWhen(d?: string | Date) {
   if (!d) return "";
@@ -30,17 +32,41 @@ function formatWhen(d?: string | Date) {
   });
 }
 
+function formatDay(d?: string | Date) {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 function stepsOf(app: Application): Step[] {
-  const history = [...(app.statusHistory ?? [])].sort(
-    (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
-  );
-  if (history.length) return history;
-  return [{ status: app.applicationStatus, at: app.createdAt, kind: "created" }];
+  const history: Step[] = app.statusHistory?.length
+    ? [...app.statusHistory]
+    : [{ status: app.applicationStatus, at: app.createdAt, kind: "created" }];
+  if (app.applicationStatus === REJECTED_STATUS && app.responseStatus) {
+    history.push({
+      status: `Feedback: ${app.responseStatus}`,
+      at: app.responseAt ?? app.updatedAt,
+      kind: "feedback",
+      note: app.responseNote,
+    });
+  }
+  return history.sort((a, b) => new Date(a.at ?? 0).getTime() - new Date(b.at ?? 0).getTime());
 }
 
 function doneBy(step: Step, ownerId: string): string {
   if (!step.byId) return "";
   return String(step.byId) === String(ownerId) ? "Self" : step.byName || "Admin";
+}
+
+function iconFor(step: Step): ReactNode {
+  if (step.kind === "feedback") {
+    return step.status.endsWith(WARM_LEAD_FEEDBACK) ? <Heart size={14} /> : <MessageSquareText size={14} />;
+  }
+  return STATUS_ICON[step.status] ?? <Flag size={14} />;
+}
+
+function classFor(step: Step): string {
+  if (step.kind === "feedback") return step.status.endsWith(WARM_LEAD_FEEDBACK) ? "status-offer" : "status-wishlist";
+  return STATUS_CLASS[step.status] ?? "status-wishlist";
 }
 
 function detailOf(step: Step, app: Application): string {
@@ -70,9 +96,9 @@ export default function ApplicationTimeline({ application }: { application: Appl
                 <span aria-hidden className="absolute left-[13px] top-7 h-[calc(100%-1.75rem)] w-px bg-[var(--border)]" />
               )}
               <span
-                className={`role-badge ${STATUS_CLASS[step.status] ?? "status-wishlist"} relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full p-0`}
+                className={`role-badge ${classFor(step)} relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full p-0`}
               >
-                {STATUS_ICON[step.status] ?? <Flag size={14} />}
+                {iconFor(step)}
               </span>
               <div className="min-w-0 pt-0.5">
                 <p className="text-sm font-medium leading-tight">
@@ -83,8 +109,9 @@ export default function ApplicationTimeline({ application }: { application: Appl
                   )}
                 </p>
                 <p className="text-muted mt-0.5 text-xs">
-                  {[formatWhen(step.at), by].filter(Boolean).join(" · ")}
+                  {[step.kind === "feedback" ? formatDay(step.at) : formatWhen(step.at), by].filter(Boolean).join(" · ")}
                 </p>
+                {step.note && <p className="text-muted mt-1 text-xs italic">&ldquo;{step.note}&rdquo;</p>}
               </div>
             </li>
           );

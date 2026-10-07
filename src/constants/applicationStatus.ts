@@ -24,6 +24,17 @@ export const NOT_APPLIED_STATUSES: readonly string[] = [DEFAULT_APPLICATION_STAT
 
 export const GHOST_STATUSES: readonly string[] = [...NOT_APPLIED_STATUSES, SUBMITTED_STATUS, "No Response"];
 
+export const REJECTED_STATUS = "Rejected" as const;
+
+export const REJECTION_FEEDBACK = [
+  "No reason given",
+  "Generic rejection",
+  "Detailed feedback",
+  "Positive – keep in touch",
+] as const;
+
+export const WARM_LEAD_FEEDBACK = "Positive – keep in touch" as const;
+
 export const PLATFORMS = [
   "LinkedIn",
   "Indeed",

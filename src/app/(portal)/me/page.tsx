@@ -5,11 +5,11 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   Briefcase, Copy, Ghost, Star, Send, MessageSquare,
-  Trophy, XCircle, Clock, TrendingUp, CircleDashed,
+  Trophy, XCircle, Clock, TrendingUp, CircleDashed, Heart,
 } from "lucide-react";
 import type { Application } from "@/types/application";
 import StatsModal from "@/components/applications/StatsModal";
-import { computeDuplicateIds } from "@/lib/applicationFlags";
+import { computeDuplicateIds, isWarmLead } from "@/lib/applicationFlags";
 import { NOT_COMPLETED_STATUS, parseJobTypes } from "@/constants/applicationStatus";
 import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
 import Loading from "@/components/shared/Spinner";
@@ -107,6 +107,7 @@ export default function MePage() {
       interviews:  c((a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled"),
       offers:      c((a) => a.applicationStatus === "Offer Received"),
       rejected:    c((a) => a.applicationStatus === "Rejected"),
+      warmLeads:   c(isWarmLead),
       noResponse:  c((a) => a.applicationStatus === "No Response"),
       favourites:  c((a) => !!a.favourite),
       ghostManual: c((a) => !!a.isGhostJob),
@@ -135,6 +136,7 @@ export default function MePage() {
     { label: "Interviews",         value: stats.interviews,  icon: <MessageSquare size={20} />, color: "#8b5cf6", filter: (a) => a.applicationStatus.startsWith("Active") || a.applicationStatus === "Interview Scheduled" },
     { label: "Offers Received",    value: stats.offers,      icon: <Trophy size={20} />,        color: "#10b981", filter: (a) => a.applicationStatus === "Offer Received" },
     { label: "Rejected",           value: stats.rejected,    icon: <XCircle size={20} />,       color: "#ef4444", filter: (a) => a.applicationStatus === "Rejected" },
+    { label: "Warm Leads",         value: stats.warmLeads,   icon: <Heart size={20} />,         color: "#db2777", filter: isWarmLead },
     { label: "Success Rate %",     value: stats.total ? Math.round((stats.offers / stats.total) * 100) : 0, icon: <TrendingUp size={20} />, color: "#06b6d4", filter: (a) => a.applicationStatus === "Offer Received" },
     { label: "Ghost Jobs",         value: stats.ghostManual, icon: <Ghost size={20} />,         color: "#be123c", filter: (a) => !!a.isGhostJob },
     { label: "Duplicates",         value: stats.duplicates,  icon: <Copy size={20} />,          color: "#c2410c", filter: (a) => stats._dupIds.has(a._id) },
@@ -219,7 +221,7 @@ export default function MePage() {
         </div>
         {appsLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 12 }).map((_, i) => (
+            {Array.from({ length: 13 }).map((_, i) => (
               <div key={i} className="surface h-20 animate-pulse rounded-xl border" />
             ))}
           </div>
