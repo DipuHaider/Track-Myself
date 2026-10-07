@@ -248,6 +248,9 @@ export default function ApplicationTable({
                         jobPostUrl: app.jobPostUrl ?? undefined,
                         platform: app.platform ?? undefined,
                         jobDescription: app.jobDescription ?? undefined,
+                        contactName: app.contacts?.find(
+                          (c) => c.name && ["Recruiter", "Hiring Manager", "HR"].includes(c.role ?? ""),
+                        )?.name,
                       }}
                     />
                   </td>

@@ -10,7 +10,8 @@ import {
   checkGenerationGates, isTooThinToPrint, resolveGenerationContent,
 } from "@/lib/cv/generatePipeline";
 import { CORRECTION_MAX, JD_MAX, applyTailorOutput, runTailor } from "@/lib/cv/ai/adapt";
-import { draftHash, findDraft, saveDraft } from "@/lib/cv/draftCache";
+import { draftHash, findDraft, findLetterDraft, saveDraft, saveLetterDraft } from "@/lib/cv/draftCache";
+import { writeCoverLetter } from "@/lib/cv/coverLetter";
 import { tailorToApplication } from "@/lib/cv/import/merge";
 import { textForFile } from "@/lib/cv/import/sources";
 import { contentToSections } from "@/lib/cv/diff/contentText";
@@ -82,6 +83,42 @@ export async function POST(req: Request) {
   const premium = superadmin || isPremiumUser(auth.role, auth.plan);
   const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan };
   const jobDescription = appInfo ? jobDescriptionFrom(appInfo) : "";
+
+  if (docType === "cover-letter" && appInfo) {
+    if (isTooThinToPrint(baseline)) {
+      return NextResponse.json(
+        { error: "There is not enough in your CV to write a letter from. Add your name, experience and skills first." },
+        { status: 400 },
+      );
+    }
+    const useAi = premium && (await aiAvailableFor(actor, userKey));
+    const hash = draftHash({
+      userId: auth.id, docType, format: "letter", variant: "letter",
+      jobDescription: `${jobDescription}\n${appInfo.contactName ?? ""}`, correction, baseline,
+    });
+    const cached = useAi ? await findLetterDraft(auth.id, hash) : null;
+    const written = cached
+      ? { letter: cached, mode: "ai" as const, note: "Reusing the letter already written for this job.", providerLabel: "" }
+      : await writeCoverLetter({ content: baseline, info: appInfo, actor, userKey, correction, useAi });
+    if (!cached && written.mode === "ai") {
+      await saveLetterDraft(auth.id, hash, `cover-letter-${appInfo.companyName}`, written.letter);
+    }
+
+    return NextResponse.json({
+      kind: "cover-letter",
+      letter: written.letter,
+      tailoredContent: baseline,
+      filename: appDocFileName(baseline, appInfo, docType).replace(/\.(docx|pdf)$/, output === "pdf" ? ".pdf" : ".docx"),
+      isoDate: new Date().toISOString().slice(0, 10),
+      tailorMode: written.mode,
+      tailorNote: premium
+        ? written.note
+        : "Free plan: drafted from your CV and the posting's keywords. Upgrade to Premium for an AI-written letter.",
+      providerLabel: written.providerLabel,
+      upgrade: !premium,
+      reused: Boolean(cached),
+    });
+  }
 
   if (!appInfo || !jobDescription.trim()) {
     tailorNote = "Nothing to tailor against — this is your CV as it stands.";

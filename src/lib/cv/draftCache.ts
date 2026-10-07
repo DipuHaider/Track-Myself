@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import CVFile from "@/models/CVFile";
 import type { CVContent } from "@/types/cv";
+import { sanitizeLetter, type CoverLetterText } from "@/lib/cv/coverLetter";
 
 const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -63,6 +64,44 @@ export async function saveDraft(
         genOutput: "preview",
         genInputHash: hash,
         genContent: JSON.stringify({ ...content, photo: "" }),
+        genContentAt: new Date(),
+      },
+    },
+    { upsert: true },
+  ).catch(() => {});
+}
+
+export async function findLetterDraft(userId: string, hash: string): Promise<CoverLetterText | null> {
+  const row = (await CVFile.findOne(
+    { userId, generated: true, genOutput: "preview", genInputHash: hash },
+    "genContent genContentAt",
+  ).lean()) as { genContent?: string; genContentAt?: Date } | null;
+  if (!row?.genContent) return null;
+  if (Date.now() - new Date(row.genContentAt ?? 0).getTime() > DRAFT_TTL_MS) return null;
+  try {
+    return sanitizeLetter(JSON.parse(row.genContent)?.coverLetter);
+  } catch {
+    return null;
+  }
+}
+
+export async function saveLetterDraft(
+  userId: string,
+  hash: string,
+  name: string,
+  letter: CoverLetterText,
+): Promise<void> {
+  await CVFile.findOneAndUpdate(
+    { userId, generated: true, genOutput: "preview", genInputHash: hash },
+    {
+      $set: {
+        userId,
+        category: "cover-letter",
+        name,
+        generated: true,
+        genOutput: "preview",
+        genInputHash: hash,
+        genContent: JSON.stringify({ coverLetter: letter }),
         genContentAt: new Date(),
       },
     },

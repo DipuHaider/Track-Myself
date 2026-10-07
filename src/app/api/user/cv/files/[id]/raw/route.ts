@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { sanitizeLetter, type CoverLetterText } from "@/lib/cv/coverLetter";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { requireAuth } from "@/lib/serverAuth";
@@ -67,10 +68,13 @@ export async function GET(
        re-derives from the live profile and shows today's CV, not the one in the file. */
     let content = normaliseContent(doc?.content);
     let fromSnapshot = false;
+    let savedLetter: CoverLetterText | null = null;
 
     if (file.genContent) {
       try {
-        content = normaliseContent(JSON.parse(file.genContent));
+        const parsed = JSON.parse(file.genContent);
+        savedLetter = sanitizeLetter(parsed?.coverLetter);
+        content = normaliseContent(parsed);
         fromSnapshot = !isContentEmpty(content);
       } catch {
         fromSnapshot = false;
@@ -104,7 +108,7 @@ export async function GET(
     };
 
     const pdf =
-      file.genDocType === "cover-letter" ? await renderCoverLetterPdf(content, info)
+      file.genDocType === "cover-letter" ? await renderCoverLetterPdf(content, info, savedLetter)
       : file.genDocType === "resume" ? await renderTailoredResumePdf(content, info, variant)
       : await renderCVPdf(content, format, variant);
 

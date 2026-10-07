@@ -3,6 +3,7 @@ import type { CVContent, CVFormat, CVVariant } from "@/types/cv";
 import { safeFileName } from "@/lib/cv/content";
 import { buildATS } from "./ats";
 import { buildCoverLetter, type AppInfo } from "./coverLetter";
+import { draftCoverLetter, type CoverLetterText } from "@/lib/cv/coverLetter";
 import { buildDesigner } from "./designer";
 import { buildEuropass } from "./europass";
 import { buildLebenslauf } from "./lebenslauf";
@@ -40,8 +41,12 @@ export function cvFileName(content: CVContent, format: CVFormat, variant: CVVari
   return `${person}_${FORMAT_LABELS[format]}${suffix}.docx`;
 }
 
-export async function renderCoverLetterDocx(content: CVContent, info: AppInfo): Promise<Buffer> {
-  return Packer.toBuffer(buildCoverLetter(content, info));
+export async function renderCoverLetterDocx(
+  content: CVContent,
+  info: AppInfo,
+  letter?: CoverLetterText | null,
+): Promise<Buffer> {
+  return Packer.toBuffer(buildCoverLetter(content, info, letter ?? draftCoverLetter(content, info)));
 }
 
 export async function renderTailoredResumeDocx(

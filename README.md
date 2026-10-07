@@ -185,6 +185,16 @@ The compact variant swaps in `summaryShort` + `skillsCompact` and drops projects
 bullet-count arrays control page length. Builders live in `src/lib/cv/docx/`; the content
 model and the importer for old free-text profiles are in `src/lib/cv/content.ts`.
 
+**Cover letters are written, not templated** (`src/lib/cv/coverLetter.ts`). From an
+application's Docs menu, Premium users get a letter from the `cover-letter.write` AI task —
+3–4 paragraphs tied to the job description, facts only from the CV, in the posting's language,
+addressed to the application's recruiter / hiring-manager / HR contact when there is one. Without
+AI (free plan, no key, budget spent) a keyword draft matches the CV's strongest experience
+bullets and skills to the posting's own terms. The review step shows the letter as editable
+paragraphs with Regenerate-with-corrections; the Word and PDF builders render exactly the
+approved text, and the saved copy in My Documents keeps it (`coverLetter` in the snapshot).
+AI drafts are cached for 24 h per job + CV, so reopening the review does not bill again.
+
 `My Documents` (`/me/my-cv`) is the file library — CVs, resumes, cover letters, certificates,
 a profile picture, a cover image. Starring an item marks it as the one used when generating
 documents for a job.

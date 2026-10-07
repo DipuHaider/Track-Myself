@@ -18,6 +18,8 @@ import {
 import { canExportPdf, canUseCVFormat } from "@/lib/permissions";
 import { useDismissable } from "@/hooks/useDismissable";
 import DocDiffPanel, { type DocDiff, type LeftSource } from "./DocDiffPanel";
+import CoverLetterReview from "./CoverLetterReview";
+import type { CoverLetterText } from "@/lib/cv/coverLetter";
 import type { CVContent, CVFormat, CVVariant } from "@/types/cv";
 
 export type AppInfo = {
@@ -28,6 +30,7 @@ export type AppInfo = {
   jobPostUrl?: string;
   platform?: string;
   jobDescription?: string;
+  contactName?: string;
 };
 
 type DocType = "cv" | "resume" | "cover-letter";
@@ -35,9 +38,11 @@ type DocType = "cv" | "resume" | "cover-letter";
 type Spec = { docType: DocType; format: CVFormat; variant: CVVariant; output: "docx" | "pdf" };
 
 type PreviewResponse = {
+  kind?: "cover-letter";
+  letter?: CoverLetterText;
   tailoredContent: CVContent;
-  diff: DocDiff;
-  leftSource: LeftSource;
+  diff?: DocDiff;
+  leftSource?: LeftSource;
   filename: string;
   tailorMode: "ai" | "heuristic" | "none";
   tailorNote: string;
@@ -102,6 +107,7 @@ export default function AppDocModal({
 
   const [review, setReview] = useState<{ spec: Spec; data: PreviewResponse } | null>(null);
   const [correction, setCorrection] = useState("");
+  const [letter, setLetter] = useState<CoverLetterText | null>(null);
 
   const { closing, close } = useDismissable(onClose);
 
@@ -177,7 +183,9 @@ export default function AppDocModal({
     setDone("");
     try {
       const spec = specFor(docType);
-      setReview({ spec, data: await runPreview(spec, "") });
+      const data = await runPreview(spec, "");
+      setReview({ spec, data });
+      setLetter(data.letter ?? null);
       setCorrection("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not generate that document.");
@@ -258,7 +266,9 @@ export default function AppDocModal({
     setBusyKey("regenerate");
     setError("");
     try {
-      setReview({ spec: review.spec, data: await runPreview(review.spec, correction.trim()) });
+      const data = await runPreview(review.spec, correction.trim());
+      setReview({ spec: review.spec, data });
+      setLetter(data.letter ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not regenerate that document.");
     } finally {
@@ -292,9 +302,11 @@ export default function AppDocModal({
         pretailored: true,
         genTailor: review.data.tailorMode,
         genNote: correction.trim(),
+        ...(letter ? { letter } : {}),
       });
       const ticked = applicationId ? await markProvided(review.spec) : false;
       setReview(null);
+      setLetter(null);
       setCorrection("");
       setDone(`${filename} downloaded and saved to My Documents.${ticked ? " Ticked under Documents provided." : ""}`);
     } catch (e) {
@@ -357,14 +369,27 @@ export default function AppDocModal({
 
         {reviewing ? (
           <>
-            <DocDiffPanel
-              diff={review!.data.diff}
-              leftSource={review!.data.leftSource}
-              tailorMode={review!.data.tailorMode}
-              tailorNote={review!.data.tailorNote}
-              providerLabel={review!.data.providerLabel}
-              upgrade={review!.data.upgrade}
-            />
+            {letter ? (
+              <CoverLetterReview
+                letter={letter}
+                onChange={setLetter}
+                senderName={review!.data.tailoredContent.name}
+                companyName={info.companyName}
+                jobTitle={info.jobTitle}
+                tailorMode={review!.data.tailorMode}
+                tailorNote={review!.data.tailorNote}
+                upgrade={review!.data.upgrade}
+              />
+            ) : (
+              <DocDiffPanel
+                diff={review!.data.diff!}
+                leftSource={review!.data.leftSource!}
+                tailorMode={review!.data.tailorMode}
+                tailorNote={review!.data.tailorNote}
+                providerLabel={review!.data.providerLabel}
+                upgrade={review!.data.upgrade}
+              />
+            )}
 
             <div className="space-y-2.5 border-t px-5 py-3">
               <label className="block">
@@ -375,7 +400,9 @@ export default function AppDocModal({
                   className="surface w-full rounded-md border px-2.5 py-1.5 text-xs"
                   rows={2}
                   maxLength={2000}
-                  placeholder="e.g. lead with the payments work, and keep the summary to three sentences."
+                  placeholder={letter
+                    ? "e.g. open with the payments platform, keep it under 250 words, more formal."
+                    : "e.g. lead with the payments work, and keep the summary to three sentences."}
                   value={correction}
                   onChange={(e) => setCorrection(e.target.value)}
                 />
@@ -384,7 +411,7 @@ export default function AppDocModal({
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => { setReview(null); setCorrection(""); }}
+                  onClick={() => { setReview(null); setLetter(null); setCorrection(""); }}
                   disabled={busy}
                   className="rounded-lg border px-3 py-2 text-xs font-semibold transition hover:bg-[var(--surface-2)] disabled:opacity-50"
                 >

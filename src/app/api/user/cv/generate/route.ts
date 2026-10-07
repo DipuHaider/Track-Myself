@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { draftCoverLetter, sanitizeLetter } from "@/lib/cv/coverLetter";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
 import CVFile from "@/models/CVFile";
@@ -114,10 +115,14 @@ export async function POST(req: Request) {
   let filename: string;
   const naming = generatedFileName({ content, info: appInfo, docType, format, variant, output });
 
-  if (docType === "cover-letter" && appInfo) {
+  const letter = docType === "cover-letter" && appInfo
+    ? sanitizeLetter(body.letter) ?? draftCoverLetter(content, appInfo)
+    : null;
+
+  if (docType === "cover-letter" && appInfo && letter) {
     buffer = output === "pdf"
-      ? await renderCoverLetterPdf(content, appInfo)
-      : await renderCoverLetterDocx(content, appInfo);
+      ? await renderCoverLetterPdf(content, appInfo, letter)
+      : await renderCoverLetterDocx(content, appInfo, letter);
     filename = naming.name;
   } else if (docType === "resume" && appInfo) {
     buffer = output === "pdf"
@@ -135,7 +140,7 @@ export async function POST(req: Request) {
 
   /* The photo is a data URI up to 3 MB — keeping it in the snapshot would roughly
      double the row. It is re-injected from the profile on re-render. */
-  const snapshot = JSON.stringify({ ...content, photo: "" });
+  const snapshot = JSON.stringify({ ...content, photo: "", ...(letter ? { coverLetter: letter } : {}) });
 
   /* Keep a copy in My Docs. Upserted on a stable signature so downloading the same
      document twice replaces the entry instead of stacking duplicates. */

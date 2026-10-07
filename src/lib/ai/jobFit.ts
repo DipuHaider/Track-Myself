@@ -159,6 +159,15 @@ function tokens(text: string): string[] {
     .filter(Boolean);
 }
 
+export function postingTerms(jobDescription: string): string[] {
+  return [...new Set(
+    jobDescription
+      .toLowerCase()
+      .split(/[^a-z0-9+#]+/)
+      .filter((w) => (w.length >= 3 || /[+#]/.test(w)) && !STOP.has(w)),
+  )];
+}
+
 export function keywordGaps(cv: CVContent, jobDescription: string): GapAnalysis {
   /* Whole tokens, not substrings. "sql" appears inside "postgresql" and "go"
      inside "google", so a substring test reports skills the CV never claimed. */

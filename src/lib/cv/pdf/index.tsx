@@ -4,6 +4,7 @@ import { safeFileName } from "@/lib/cv/content";
 import { FORMAT_LABELS, type AppInfo } from "@/lib/cv/docx";
 import { ATSDocument } from "./ats";
 import { CoverLetterDocument } from "./coverLetter";
+import { draftCoverLetter, type CoverLetterText } from "@/lib/cv/coverLetter";
 import { DesignerDocument } from "./designer";
 import { EuropassDocument } from "./europass";
 import { LebenslaufDocument } from "./lebenslauf";
@@ -35,8 +36,14 @@ export async function renderTailoredResumePdf(
   return renderToBuffer(documentFor(content, "ats", variant, banner));
 }
 
-export async function renderCoverLetterPdf(content: CVContent, info: AppInfo): Promise<Buffer> {
-  return renderToBuffer(<CoverLetterDocument content={content} info={info} />);
+export async function renderCoverLetterPdf(
+  content: CVContent,
+  info: AppInfo,
+  letter?: CoverLetterText | null,
+): Promise<Buffer> {
+  return renderToBuffer(
+    <CoverLetterDocument content={content} info={info} letter={letter ?? draftCoverLetter(content, info)} />,
+  );
 }
 
 /** Same naming as the .docx path, so a user's files sort together. */

@@ -16,7 +16,8 @@ export type AiTaskId =
   | "cv.preview"
   | "interview.questions"
   | "tools.banner-brief"
-  | "cv.gap-analysis";
+  | "cv.gap-analysis"
+  | "cover-letter.write";
 
 export const AI_TASKS: AiTaskId[] = [
   "cv.adapt",
@@ -24,6 +25,7 @@ export const AI_TASKS: AiTaskId[] = [
   "interview.questions",
   "tools.banner-brief",
   "cv.gap-analysis",
+  "cover-letter.write",
 ];
 
 export type AiConfig = {

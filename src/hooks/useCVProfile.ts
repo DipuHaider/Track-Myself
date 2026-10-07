@@ -131,9 +131,10 @@ export async function downloadCVDocx(payload: {
   docType?: "cv" | "resume" | "cover-letter";
   appInfo?: {
     companyName: string; jobTitle: string; location?: string; notes?: string;
-    jobPostUrl?: string; platform?: string; jobDescription?: string;
+    jobPostUrl?: string; platform?: string; jobDescription?: string; contactName?: string;
   };
   content?: CVContent;
+  letter?: { greeting: string; paragraphs: string[]; closing: string };
   useSources?: boolean;
   /* Set by the review modal: the content was already tailored, so the server must
      not reorder it again or the download stops matching the approved diff. */
