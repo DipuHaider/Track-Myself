@@ -2,12 +2,12 @@
 
 import { useState, type ReactNode } from "react";
 import {
-  BellRing, CalendarClock, CircleDashed, Clock, Code, Flag, Heart, HeartHandshake, MessageSquareText, PenLine, Send, Star,
-  Trophy, Users, XCircle,
+  Ban, BellRing, CalendarClock, CircleDashed, Clock, Code, FileText, Flag, Heart, HeartHandshake, MessageSquareText,
+  PenLine, PartyPopper, Send, Star, Trophy, Users, XCircle,
 } from "lucide-react";
 import { STATUS_CLASS } from "@/components/applications/StatusBadge";
 import type { Application } from "@/types/application";
-import { REJECTED_STATUS, WARM_LEAD_FEEDBACK } from "@/constants/applicationStatus";
+import { OFFER_RECEIVED_STATUS, WARM_LEAD_FEEDBACK, responseOptionsFor } from "@/constants/applicationStatus";
 
 const STATUS_ICON: Record<string, ReactNode> = {
   "Wishlist":              <Star size={14} />,
@@ -23,7 +23,19 @@ const STATUS_ICON: Record<string, ReactNode> = {
   "Rejected":              <XCircle size={14} />,
 };
 
-type Step = { status: string; at?: string | Date; kind: string; byId?: string; byName?: string; note?: string };
+type Step = {
+  status: string; at?: string | Date; kind: string; byId?: string; byName?: string; note?: string; value?: string;
+};
+
+const RESPONSE_LOOK: Record<string, { icon: ReactNode; cls: string }> = {
+  [WARM_LEAD_FEEDBACK]:   { icon: <Heart size={14} />,             cls: "status-offer" },
+  "Verbal offer":         { icon: <MessageSquareText size={14} />, cls: "status-active" },
+  "Written offer":        { icon: <FileText size={14} />,          cls: "status-active" },
+  "Negotiating":          { icon: <MessageSquareText size={14} />, cls: "status-interview" },
+  "Accepted":             { icon: <PartyPopper size={14} />,       cls: "status-offer" },
+  "Declined by me":       { icon: <XCircle size={14} />,           cls: "status-wishlist" },
+  "Withdrawn by company": { icon: <Ban size={14} />,               cls: "status-rejected" },
+};
 
 function formatWhen(d?: string | Date) {
   if (!d) return "";
@@ -41,9 +53,11 @@ function stepsOf(app: Application): Step[] {
   const history: Step[] = app.statusHistory?.length
     ? [...app.statusHistory]
     : [{ status: app.applicationStatus, at: app.createdAt, kind: "created" }];
-  if (app.applicationStatus === REJECTED_STATUS && app.responseStatus) {
+  if (app.responseStatus && responseOptionsFor(app.applicationStatus).includes(app.responseStatus)) {
+    const prefix = app.applicationStatus === OFFER_RECEIVED_STATUS ? "Offer" : "Feedback";
     history.push({
-      status: `Feedback: ${app.responseStatus}`,
+      value: app.responseStatus,
+      status: `${prefix}: ${app.responseStatus}`,
       at: app.responseAt ?? app.updatedAt,
       kind: "feedback",
       note: app.responseNote,
@@ -58,14 +72,12 @@ function doneBy(step: Step, ownerId: string): string {
 }
 
 function iconFor(step: Step): ReactNode {
-  if (step.kind === "feedback") {
-    return step.status.endsWith(WARM_LEAD_FEEDBACK) ? <Heart size={14} /> : <MessageSquareText size={14} />;
-  }
+  if (step.kind === "feedback") return RESPONSE_LOOK[step.value ?? ""]?.icon ?? <MessageSquareText size={14} />;
   return STATUS_ICON[step.status] ?? <Flag size={14} />;
 }
 
 function classFor(step: Step): string {
-  if (step.kind === "feedback") return step.status.endsWith(WARM_LEAD_FEEDBACK) ? "status-offer" : "status-wishlist";
+  if (step.kind === "feedback") return RESPONSE_LOOK[step.value ?? ""]?.cls ?? "status-wishlist";
   return STATUS_CLASS[step.status] ?? "status-wishlist";
 }
 

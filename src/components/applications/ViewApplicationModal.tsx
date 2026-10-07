@@ -6,7 +6,7 @@ import Modal from "@/components/shared/Modal";
 import GapAnalysisSection from "@/components/applications/GapAnalysisSection";
 import StatusBadge from "@/components/applications/StatusBadge";
 import ApplicationTimeline from "@/components/applications/ApplicationTimeline";
-import { joinJobTypes, parseJobTypes } from "@/constants/applicationStatus";
+import { OFFER_RECEIVED_STATUS, joinJobTypes, parseJobTypes, responseOptionsFor } from "@/constants/applicationStatus";
 import { formatLocation } from "@/lib/applicationLocation";
 import { formatSalary } from "@/lib/salary";
 import type { Application } from "@/types/application";
@@ -113,7 +113,12 @@ export default function ViewApplicationModal({
           <Row label="Priority" value={application.priority} />
           {!contacts.length && <Row label="Contact Number" value={application.contactNumber} />}
           <Row label="Applied through" value={appliedVia} />
-          <Row label="Feedback" value={application.responseStatus ?? ""} />
+          <Row
+            label={application.applicationStatus === OFFER_RECEIVED_STATUS ? "Offer status" : "Feedback"}
+            value={responseOptionsFor(application.applicationStatus).includes(application.responseStatus ?? "")
+              ? application.responseStatus
+              : ""}
+          />
           <Row label="Documents provided" value={documents} />
           <Row label="Applied" value={formatDateTime(application.appliedDate)} />
           <Row label="Follow Up" value={formatDate(application.followUpDate)} />
@@ -121,7 +126,9 @@ export default function ViewApplicationModal({
 
         {application.responseNote && (
           <div className="mt-4">
-            <p className="text-muted text-xs">Feedback note</p>
+            <p className="text-muted text-xs">
+              {application.applicationStatus === OFFER_RECEIVED_STATUS ? "Offer note" : "Feedback note"}
+            </p>
             <p className="mt-0.5 whitespace-pre-wrap text-sm">{application.responseNote}</p>
           </div>
         )}

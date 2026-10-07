@@ -35,6 +35,26 @@ export const REJECTION_FEEDBACK = [
 
 export const WARM_LEAD_FEEDBACK = "Positive – keep in touch" as const;
 
+export const OFFER_RECEIVED_STATUS = "Offer Received" as const;
+
+export const OFFER_OUTCOMES = [
+  "Verbal offer",
+  "Written offer",
+  "Negotiating",
+  "Accepted",
+  "Declined by me",
+  "Withdrawn by company",
+] as const;
+
+const RESPONSE_OPTIONS: Record<string, readonly string[]> = {
+  [REJECTED_STATUS]: REJECTION_FEEDBACK,
+  [OFFER_RECEIVED_STATUS]: OFFER_OUTCOMES,
+};
+
+export function responseOptionsFor(status: string): readonly string[] {
+  return RESPONSE_OPTIONS[status] ?? [];
+}
+
 export const PLATFORMS = [
   "LinkedIn",
   "Indeed",

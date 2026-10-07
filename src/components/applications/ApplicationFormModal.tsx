@@ -6,7 +6,7 @@ import Modal from "@/components/shared/Modal";
 import {
   APPLICATION_STATUSES, CONTACT_FIRST_METHODS, CONTACT_ROLES, DEFAULT_DOCUMENT_FORMAT, DOCUMENT_FORMATS,
   FACEBOOK_PLATFORMS, JOB_TYPES, MAX_CONTACTS, MAX_JOB_POST_URLS, PLATFORMS, PROVIDED_DOCUMENTS, SUBMISSION_DETAIL_HINTS,
-  REJECTED_STATUS, REJECTION_FEEDBACK, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, WARM_LEAD_FEEDBACK,
+  OFFER_RECEIVED_STATUS, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, WARM_LEAD_FEEDBACK, responseOptionsFor,
   joinJobTypes, parseJobTypes,
 } from "@/constants/applicationStatus";
 import type { Application, ApplicationContact } from "@/types/application";
@@ -239,6 +239,10 @@ export default function ApplicationFormModal({
     }
   }
 
+  const responseOptions = responseOptionsFor(form.applicationStatus);
+  const responseValue = responseOptions.includes(form.responseStatus) ? form.responseStatus : "";
+  const isOffer = form.applicationStatus === OFFER_RECEIVED_STATUS;
+
   const warmLeads = useMemo(() => {
     if (!applications || !form.companyName.trim()) return [];
     const company = normaliseCompany(form.companyName);
@@ -388,7 +392,7 @@ export default function ApplicationFormModal({
       followUpDate: form.followUpDate ? new Date(`${form.followUpDate}T12:00`).toISOString() : null,
       priority: form.priority,
       notes: form.notes || undefined,
-      ...(form.applicationStatus === REJECTED_STATUS && form.responseStatus
+      ...(responseOptionsFor(form.applicationStatus).includes(form.responseStatus)
         ? {
             responseStatus: form.responseStatus,
             responseNote: form.responseNote.trim(),
@@ -523,13 +527,13 @@ export default function ApplicationFormModal({
             </Field>
           </div>
 
-          {form.applicationStatus === REJECTED_STATUS && (
+          {responseOptions.length > 0 && (
             <div className="surface-muted space-y-2 rounded-md border p-3">
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Feedback">
+                <Field label={isOffer ? "Offer status" : "Feedback"}>
                   <select
                     className={inputCls}
-                    value={form.responseStatus}
+                    value={responseValue}
                     onChange={(e) => {
                       const value = e.target.value;
                       setForm((f) => ({
@@ -540,30 +544,32 @@ export default function ApplicationFormModal({
                     }}
                   >
                     <option value="">—</option>
-                    {REJECTION_FEEDBACK.map((r) => (
+                    {responseOptions.map((r) => (
                       <option key={r}>{r}</option>
                     ))}
                   </select>
                 </Field>
-                <Field label="Feedback received">
+                <Field label={isOffer ? "As of" : "Feedback received"}>
                   <input
                     type="date"
                     className={inputCls}
                     value={form.responseAt}
-                    disabled={!form.responseStatus}
+                    disabled={!responseValue}
                     onChange={set("responseAt")}
                   />
                 </Field>
               </div>
-              {form.responseStatus && (
+              {responseValue && (
                 <textarea
                   className={inputCls}
                   rows={2}
                   maxLength={1000}
-                  aria-label="Feedback note"
-                  placeholder={form.responseStatus === WARM_LEAD_FEEDBACK
-                    ? "e.g. Liked my profile, will reach out about future openings"
-                    : "What did they say?"}
+                  aria-label={isOffer ? "Offer note" : "Feedback note"}
+                  placeholder={isOffer
+                    ? "e.g. €75K base + bonus, start 1 Jan, answer by Friday"
+                    : responseValue === WARM_LEAD_FEEDBACK
+                      ? "e.g. Liked my profile, will reach out about future openings"
+                      : "What did they say?"}
                   value={form.responseNote}
                   onChange={set("responseNote")}
                 />
