@@ -107,6 +107,7 @@ export default function ViewApplicationModal({
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           <Row label="Location" value={formatLocation(application)} />
           <Row label="Salary" value={formatSalary(application)} />
+          <Row label="My expectation" value={application.salaryExpectation?.text ?? ""} />
           <Row label="Found on" value={application.platform} />
           <Row label="Job Type" value={joinJobTypes(parseJobTypes(application.jobType, application.workplaceType))} />
           <Row label="Posted" value={postedLabel(application)} />

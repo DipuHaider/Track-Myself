@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
+import { Calculator, Copy, FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
+import { toast } from "sonner";
+import SalaryExpectationModal, { type CalculatorApply } from "@/components/applications/SalaryExpectationModal";
+import {
+  EXPECTATION_MODES, EXPECTATION_MODE_LABELS, expectationText, type ExpectationMode, type SalaryPeriod,
+} from "@/lib/salaryExpectation";
 import Modal from "@/components/shared/Modal";
 import {
   APPLICATION_STATUSES, CONTACT_FIRST_METHODS, CONTACT_ROLES, DEFAULT_DOCUMENT_FORMAT, DOCUMENT_FORMATS,
@@ -9,10 +14,13 @@ import {
   OFFER_RECEIVED_STATUS, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, WARM_LEAD_FEEDBACK, responseOptionsFor,
   joinJobTypes, parseJobTypes,
 } from "@/constants/applicationStatus";
-import type { Application, ApplicationContact } from "@/types/application";
+import type { Application, ApplicationContact, SalaryExpectation } from "@/types/application";
 import { formatLocation, splitLocation } from "@/lib/applicationLocation";
 import { isWarmLead, normaliseCompany } from "@/lib/applicationFlags";
-import { SALARY_TYPES, SALARY_TYPE_LABELS, hasSalaryAmount, editableAmount, isValidAmount, isValidRange, parseAmount, type SalaryType } from "@/lib/salary";
+import {
+  SALARY_TYPES, SALARY_TYPE_LABELS, editableAmount, formatSalary, hasSalaryAmount, isValidAmount, isValidRange,
+  parseAmount, type SalaryType,
+} from "@/lib/salary";
 
 /* ── helpers ─────────────────────────────────────── */
 
@@ -80,6 +88,7 @@ type FormData = {
   salaryFixed: string;
   salaryMin: string;
   salaryMax: string;
+  expectation: ExpectationForm;
   submissionMethod: string;
   submissionDetail: string;
   contacts: ContactRow[];
@@ -96,6 +105,51 @@ type FormData = {
 };
 
 type ContactRow = { role: string; name: string; email: string; phone: string };
+
+type ExpectationForm = {
+  mode: ExpectationMode | "";
+  currency: Currency;
+  period: SalaryPeriod;
+  amount: string;
+  min: string;
+  max: string;
+  text: string;
+  textEdited: boolean;
+  inputs?: SalaryExpectation["inputs"];
+  estimate?: SalaryExpectation["estimate"];
+};
+
+const EMPTY_EXPECTATION: ExpectationForm = {
+  mode: "", currency: "EUR", period: "year", amount: "", min: "", max: "", text: "", textEdited: false,
+};
+
+function toExpectationForm(e?: SalaryExpectation | null): ExpectationForm {
+  if (!e?.mode) return EMPTY_EXPECTATION;
+  return {
+    mode: e.mode,
+    currency: e.currency ?? "EUR",
+    period: e.period ?? "year",
+    amount: editableAmount(e.amount),
+    min: editableAmount(e.min),
+    max: editableAmount(e.max),
+    text: e.text ?? "",
+    textEdited: Boolean(e.text),
+    inputs: e.inputs,
+    estimate: e.estimate,
+  };
+}
+
+function generatedExpectationText(e: ExpectationForm): string {
+  if (!e.mode) return "";
+  return expectationText({
+    mode: e.mode,
+    currency: e.currency,
+    period: e.period,
+    amount: parseAmount(e.amount),
+    min: parseAmount(e.min),
+    max: parseAmount(e.max),
+  });
+}
 
 const EMPTY_CONTACT: ContactRow = { role: "", name: "", email: "", phone: "" };
 
@@ -130,6 +184,7 @@ const EMPTY: FormData = {
   salaryFixed: "",
   salaryMin: "",
   salaryMax: "",
+  expectation: EMPTY_EXPECTATION,
   submissionMethod: "",
   submissionDetail: "",
   contacts: [],
@@ -161,6 +216,7 @@ function toForm(app: Application): FormData {
     salaryFixed: editableAmount(app.salaryFixed),
     salaryMin: editableAmount(app.salaryMin),
     salaryMax: editableAmount(app.salaryMax),
+    expectation: toExpectationForm(app.salaryExpectation),
     submissionMethod: app.submissionMethod ?? "",
     submissionDetail: app.submissionDetail ?? "",
     contacts: toContactRows(app),
@@ -294,6 +350,45 @@ export default function ApplicationFormModal({
   const addContact = () =>
     setForm((f) => (f.contacts.length >= MAX_CONTACTS ? f : { ...f, contacts: [...f.contacts, { ...EMPTY_CONTACT }] }));
 
+  const [calcOpen, setCalcOpen] = useState(false);
+
+  const setExpectation = (
+    patch: Partial<ExpectationForm> | ((e: ExpectationForm) => Partial<ExpectationForm>),
+  ) =>
+    setForm((f) => ({
+      ...f,
+      expectation: { ...f.expectation, ...(typeof patch === "function" ? patch(f.expectation) : patch) },
+    }));
+
+  const expectationAnswer = form.expectation.textEdited
+    ? form.expectation.text
+    : generatedExpectationText(form.expectation);
+
+  const copyExpectation = async () => {
+    try {
+      await navigator.clipboard.writeText(expectationAnswer);
+      toast.success("Answer copied");
+    } catch {
+      toast.error("Could not copy — select the text instead.");
+    }
+  };
+
+  const applyCalculation = (v: CalculatorApply) => {
+    setExpectation((e) => ({
+      mode: v.answer.mode,
+      currency: e.mode ? e.currency : form.salaryCurrency,
+      period: v.answer.period,
+      amount: editableAmount(v.amount),
+      min: editableAmount(v.min),
+      max: editableAmount(v.max),
+      text: v.answer.text,
+      textEdited: true,
+      inputs: v.inputs,
+      estimate: v.estimate,
+    }));
+    setCalcOpen(false);
+  };
+
   const toggleDocument = (name: string) =>
     setForm((f) => {
       const documents = { ...f.documents };
@@ -357,6 +452,13 @@ export default function ApplicationFormModal({
     if (form.salaryType === "range" && !isValidRange(form.salaryMin, form.salaryMax)) {
       throw new Error("The salary Min can't be higher than the Max.");
     }
+    const exp = form.expectation;
+    if (![exp.amount, exp.min, exp.max].every(isValidAmount)) {
+      throw new Error("Your expected salary must be a number such as 48000, 48,000 or 48K.");
+    }
+    if (exp.mode === "range" && !isValidRange(exp.min, exp.max)) {
+      throw new Error("Your expected Min can't be higher than the Max.");
+    }
     const uploadedPaths: string[] = [];
     for (const file of pendingFiles) {
       const p = await uploadFile(file, form.companyName || "unknown");
@@ -381,6 +483,19 @@ export default function ApplicationFormModal({
       salaryFixed: form.salaryType === "fixed" ? parseAmount(form.salaryFixed) : null,
       salaryMin: form.salaryType === "range" ? parseAmount(form.salaryMin) : null,
       salaryMax: form.salaryType === "range" ? parseAmount(form.salaryMax) : null,
+      salaryExpectation: form.expectation.mode
+        ? {
+            mode: form.expectation.mode,
+            currency: form.expectation.currency,
+            period: form.expectation.period,
+            amount: ["amount", "negotiable"].includes(form.expectation.mode) ? parseAmount(form.expectation.amount) : null,
+            min: form.expectation.mode === "range" ? parseAmount(form.expectation.min) : null,
+            max: form.expectation.mode === "range" ? parseAmount(form.expectation.max) : null,
+            text: (form.expectation.textEdited ? form.expectation.text : generatedExpectationText(form.expectation)).trim(),
+            inputs: form.expectation.inputs,
+            estimate: form.expectation.estimate,
+          }
+        : null,
       submissionMethod: form.submissionMethod || null,
       submissionDetail: SUBMISSION_DETAIL_METHODS.has(form.submissionMethod) ? form.submissionDetail.trim() : "",
       contacts,
@@ -700,6 +815,163 @@ export default function ApplicationFormModal({
               </div>
             )}
           </Field>
+
+          <Field label="My expectation">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex overflow-hidden rounded-md border shrink-0">
+                {EXPECTATION_MODES.map((m, i) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() =>
+                      setExpectation((e) => ({
+                        mode: e.mode === m ? "" : m,
+                        currency: e.mode ? e.currency : form.salaryCurrency,
+                      }))
+                    }
+                    className={`whitespace-nowrap px-3 py-1.5 text-xs transition ${i > 0 ? "border-l" : ""} ${form.expectation.mode === m ? "bg-[var(--primary)] text-white" : "hover:bg-[var(--surface-2)]"}`}
+                  >
+                    {EXPECTATION_MODE_LABELS[m]}
+                  </button>
+                ))}
+              </div>
+              {form.expectation.mode && form.expectation.mode !== "ask-budget" && (
+                <>
+                  <div className="flex overflow-hidden rounded-md border shrink-0">
+                    {CURRENCIES.map((c, i) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        title={c.code}
+                        onClick={() => setExpectation({ currency: c.code })}
+                        className={`w-8 py-1.5 text-sm transition ${i > 0 ? "border-l" : ""} ${form.expectation.currency === c.code ? "bg-[var(--primary)] text-white" : "hover:bg-[var(--surface-2)]"}`}
+                      >
+                        {c.symbol}
+                      </button>
+                    ))}
+                  </div>
+                  <select
+                    aria-label="Expectation period"
+                    className="surface rounded-md border px-2 py-1.5 text-xs"
+                    value={form.expectation.period}
+                    onChange={(e) => setExpectation({ period: e.target.value as SalaryPeriod })}
+                  >
+                    <option value="year">per year</option>
+                    <option value="month">per month</option>
+                  </select>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setCalcOpen(true)}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition hover:bg-[var(--surface-2)]"
+              >
+                <Calculator size={13} /> Calculate
+              </button>
+            </div>
+
+            {(form.expectation.mode === "amount" || form.expectation.mode === "negotiable") && (
+              <input
+                type="text"
+                aria-label="Expected salary"
+                className={`${inputCls} mt-2 ${isValidAmount(form.expectation.amount) ? "" : "border-red-500"}`}
+                placeholder={form.expectation.mode === "negotiable" ? "Around (optional), e.g. 48K" : "e.g. 48K"}
+                value={form.expectation.amount}
+                onChange={(e) => setExpectation({ amount: e.target.value })}
+              />
+            )}
+            {form.expectation.mode === "range" && (
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                <input
+                  type="text"
+                  aria-label="Expected minimum"
+                  className={`${inputCls} ${isValidAmount(form.expectation.min) ? "" : "border-red-500"}`}
+                  placeholder="Min, e.g. 46K"
+                  value={form.expectation.min}
+                  onChange={(e) => setExpectation({ min: e.target.value })}
+                />
+                <span className="text-muted text-sm">—</span>
+                <input
+                  type="text"
+                  aria-label="Expected maximum"
+                  className={`${inputCls} ${isValidAmount(form.expectation.max) && isValidRange(form.expectation.min, form.expectation.max) ? "" : "border-red-500"}`}
+                  placeholder="Max, e.g. 50K"
+                  value={form.expectation.max}
+                  onChange={(e) => setExpectation({ max: e.target.value })}
+                />
+              </div>
+            )}
+
+            {form.expectation.mode && (
+              <div className="mt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    aria-label="Answer to paste"
+                    maxLength={500}
+                    className={inputCls}
+                    value={expectationAnswer}
+                    onChange={(e) => setExpectation({ text: e.target.value, textEdited: true })}
+                  />
+                  <button
+                    type="button"
+                    onClick={copyExpectation}
+                    disabled={!expectationAnswer}
+                    aria-label="Copy answer"
+                    className="shrink-0 rounded-md border p-2 transition hover:bg-[var(--surface-2)] disabled:opacity-40"
+                  >
+                    <Copy size={14} />
+                  </button>
+                </div>
+                <p className="text-muted mt-1 text-[11px]">
+                  The answer to paste when a form or recruiter asks for your expectations.
+                  {form.expectation.textEdited && (
+                    <button
+                      type="button"
+                      onClick={() => setExpectation({ textEdited: false })}
+                      className="ml-1 underline"
+                    >
+                      Reset to match the fields
+                    </button>
+                  )}
+                </p>
+              </div>
+            )}
+          </Field>
+
+          {calcOpen && (
+            <SalaryExpectationModal
+              onClose={() => setCalcOpen(false)}
+              onApply={applyCalculation}
+              currency={form.expectation.mode ? form.expectation.currency : form.salaryCurrency}
+              posted={{
+                salaryType: form.salaryType,
+                salaryFixed: parseAmount(form.salaryFixed),
+                salaryMin: parseAmount(form.salaryMin),
+                salaryMax: parseAmount(form.salaryMax),
+              }}
+              postedLabel={formatSalary({
+                salaryType: form.salaryType,
+                salaryCurrency: form.salaryCurrency,
+                salaryFixed: parseAmount(form.salaryFixed) ?? undefined,
+                salaryMin: parseAmount(form.salaryMin) ?? undefined,
+                salaryMax: parseAmount(form.salaryMax) ?? undefined,
+              })}
+              role={{
+                jobTitle: form.jobTitle,
+                companyName: form.companyName,
+                location: formatLocation({ city: form.city, country: form.country }),
+                jobDescription: form.jobDescription,
+              }}
+              initial={{
+                mode: form.expectation.mode || "amount",
+                currency: form.expectation.currency,
+                period: form.expectation.period,
+                inputs: form.expectation.inputs,
+                estimate: form.expectation.estimate,
+              }}
+            />
+          )}
 
           {/* Row 6 — Priority + how the application was made */}
           <div className="grid grid-cols-2 gap-3">

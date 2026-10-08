@@ -97,7 +97,9 @@ Models in `src/models/` — all thirteen:
 - `User` — name, email, password?, googleId, role, plan, status, bio, image, aiKey, a11y
 - `Application` — full job record, userId-scoped (see `src/types/application.ts`). How it was
   applied lives in `submissionMethod` (+ `submissionDetail` for In Person); people dealt with
-  directly in `contacts[]` (role, name, email, phone), and `contactNumber` mirrors the first phone
+  directly in `contacts[]` (role, name, email, phone), and `contactNumber` mirrors the first phone.
+  The posted salary is `salaryType/Fixed/Min/Max/Currency`; the candidate's own expectation is
+  `salaryExpectation` (calculator: `src/lib/salaryExpectation.ts`, AI estimate: `src/lib/salaryEstimate.ts`)
   **Soft delete:** `deletedAt` / `deletedBy` / `deletedByName`. Query and aggregate hooks in the
   model hide deleted rows unless the filter names `deletedAt` or the query sets
   `{ withDeleted: true }`. Deleting moves a row to "Recently deleted" for 30 days

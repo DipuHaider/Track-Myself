@@ -4,6 +4,8 @@ import {
   OFFER_OUTCOMES, PROVIDED_DOCUMENTS, REJECTION_FEEDBACK, SUBMISSION_METHODS,
 } from "@/constants/applicationStatus";
 
+import { EXPECTATION_MODES, SALARY_PERIODS } from "@/lib/salaryExpectation";
+
 const HTTP_URL = /^https?:\/\/\S+$/i;
 
 const ApplicationSchema = new Schema(
@@ -52,6 +54,36 @@ const ApplicationSchema = new Schema(
     salaryFixed: { type: Number },
     salaryMin: { type: Number },
     salaryMax: { type: Number },
+    salaryExpectation: {
+      type: {
+        _id: false,
+        mode: { type: String, enum: [...EXPECTATION_MODES] },
+        currency: { type: String, enum: ["EUR", "USD", "BDT"] },
+        period: { type: String, enum: [...SALARY_PERIODS] },
+        amount: { type: Number, min: 0 },
+        min: { type: Number, min: 0 },
+        max: { type: Number, min: 0 },
+        text: { type: String, trim: true, maxlength: 500 },
+        inputs: {
+          current: { type: Number, min: 0 },
+          minimum: { type: Number, min: 0 },
+          raisePct: { type: Number, min: 0, max: 100 },
+          period: { type: String, enum: [...SALARY_PERIODS] },
+        },
+        estimate: {
+          low: { type: Number, min: 0 },
+          high: { type: Number, min: 0 },
+          note: { type: String, maxlength: 300 },
+          at: { type: Date },
+        },
+      },
+      default: undefined,
+      validate: {
+        validator: (v: { min?: number | null; max?: number | null } | undefined) =>
+          !v || v.min == null || v.max == null || v.min <= v.max,
+        message: "The expected minimum can't be higher than the maximum.",
+      },
+    },
     jobPostUrl: { type: String, trim: true, maxlength: 2048 },
     additionalJobPostUrls: {
       type: [String],

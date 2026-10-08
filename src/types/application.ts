@@ -1,5 +1,17 @@
 import type { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 
+export interface SalaryExpectation {
+  mode: "amount" | "range" | "negotiable" | "ask-budget";
+  currency: "EUR" | "USD" | "BDT";
+  period: "year" | "month";
+  amount?: number | null;
+  min?: number | null;
+  max?: number | null;
+  text?: string;
+  inputs?: { current?: number | null; minimum?: number | null; raisePct?: number | null; period?: "year" | "month" };
+  estimate?: { low: number; high: number; note?: string; at?: string | Date } | null;
+}
+
 export interface ApplicationContact {
   role?: string;
   name?: string;
@@ -39,6 +51,7 @@ export interface Application {
   salaryFixed?: number;
   salaryMin?: number;
   salaryMax?: number;
+  salaryExpectation?: SalaryExpectation | null;
   jobPostUrl?: string;
   additionalJobPostUrls?: string[];
   jobDescription?: string;
