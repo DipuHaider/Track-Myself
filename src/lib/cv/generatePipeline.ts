@@ -43,7 +43,7 @@ export function checkGenerationGates(
   if (!CV_VARIANTS.includes(spec.variant)) {
     return { ok: false, status: 400, error: "Unknown CV variant." };
   }
-  if (spec.format === "lebenslauf" && !canUseLebenslauf(auth.role, auth.email)) {
+  if (spec.format === "lebenslauf" && !canUseLebenslauf(auth.role)) {
     return { ok: false, status: 403, error: "The Lebenslauf format is not available on your account." };
   }
   if (spec.docType === "cv" && !canUseCVFormat(auth.role, auth.plan, spec.format, spec.variant)) {

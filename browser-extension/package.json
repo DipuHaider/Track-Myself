@@ -6,9 +6,11 @@
   "scripts": {
     "build": "node build.js",
     "watch": "node build.js --watch",
-    "icons": "node scripts/gen-icons.js"
+    "icons": "node scripts/gen-icons.js",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/chrome": "^0.3.5",
     "esbuild": "^0.25.0",
     "typescript": "^5.4.0"
   }

@@ -72,7 +72,8 @@ export default function NotificationBell() {
         className="notif-trigger"
         aria-label={signedIn ? `Notifications${unread ? `, ${unread} unread` : ""}` : "Sign in to see notifications"}
         aria-expanded={open}
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
+        aria-controls={open && signedIn ? "notification-panel" : undefined}
       >
         <Bell size={17} aria-hidden="true" />
         {signedIn && unread > 0 && (
@@ -81,7 +82,7 @@ export default function NotificationBell() {
       </button>
 
       {open && signedIn && (
-        <div className="notif-panel anim-panel" role="menu">
+        <div id="notification-panel" className="notif-panel anim-panel" role="region" aria-label="Notifications">
           <div className="notif-head">
             <span className="text-sm font-semibold">Notifications</span>
             {unread > 0 && (

@@ -1,10 +1,7 @@
 "use client";
 
 import { Ghost, Briefcase, MessageSquare, Send, Trophy, Users, XCircle } from "lucide-react";
-import ApplicationsChart from "@/components/dashboard/ApplicationsChart";
-import FunnelChart from "@/components/dashboard/FunnelChart";
-import StatusDistribution from "@/components/dashboard/StatusDistribution";
-import TopBreakdown from "@/components/dashboard/TopBreakdown";
+import { ApplicationsChart, FunnelChart, StatusDistribution, TopBreakdown } from "@/components/dashboard/LazyCharts";
 import { useAdminAnalytics } from "@/hooks/useAdminAnalytics";
 import PermissionGate from "@/components/dashboard/PermissionGate";
 
@@ -49,7 +46,7 @@ function AnalyticsContent() {
       </div>
 
       {failed && (
-        <p className="surface rounded-lg border p-4 text-sm text-red-600">
+        <p role="alert" className="alert alert-danger">
           Could not load analytics. Please refresh and try again.
         </p>
       )}

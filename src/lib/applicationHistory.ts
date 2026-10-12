@@ -1,5 +1,7 @@
 import Application from "@/models/Application";
+import Document from "@/models/Document";
 import User from "@/models/User";
+import { attachmentIdFromUrl } from "@/lib/attachments";
 import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
 
 const HISTORY_MAX = 100;
@@ -68,7 +70,31 @@ async function resolveActor(actor: ActorSource): Promise<HistoryActor | null> {
   return actor ?? null;
 }
 
+/* Attachments are uploaded before the application exists, so the link from
+   Document back to Application is made here once the write lands. Best
+   effort: an unlinked attachment still downloads, it is just not purged with
+   its application. */
+export async function linkAttachments(doc: { _id: unknown; userId: unknown; attachments?: string[] } | null) {
+  if (!doc?.attachments?.length) return;
+  const ids = doc.attachments.map(attachmentIdFromUrl).filter((id): id is string => Boolean(id));
+  if (!ids.length) return;
+  await Document.updateMany(
+    { _id: { $in: ids }, userId: doc.userId, applicationId: null },
+    { $set: { applicationId: doc._id } },
+  ).catch(() => {});
+}
+
 export async function updateApplication(
+  filter: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  actor?: ActorSource,
+) {
+  const result = await writeApplication(filter, incoming, actor);
+  if (result && "attachments" in sanitizeUpdate(incoming)) await linkAttachments(result);
+  return result;
+}
+
+async function writeApplication(
   filter: Record<string, unknown>,
   incoming: Record<string, unknown>,
   actor?: ActorSource,

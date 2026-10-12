@@ -2,9 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
-import { isSuperAdmin } from "@/lib/permissions";
 import { getUserCredential } from "@/lib/ai/userKey";
-import { runAiTask } from "@/lib/ai/gateway";
+import { runAiJsonTask } from "@/lib/ai/gateway";
+import { fence } from "@/lib/ai/prompt";
+import { bannerBriefSchema } from "@/lib/ai/schemas";
 import { clientIp } from "@/lib/rateLimit";
 import { checkRateLimitDb } from "@/lib/rateLimitStore";
 
@@ -169,13 +170,15 @@ export async function POST(req: Request) {
     return NextResponse.json(localBrief(prompt));
   }
 
-  const superadmin = isSuperAdmin(auth.role);
+  if (auth.status === "paused") {
+    return NextResponse.json(localBrief(prompt));
+  }
   const userId = auth.id;
   const userKey = await getUserCredential(userId);
 
   const instruction = `You design profile banners. Turn the request below into a banner brief for ${platform}.
 
-REQUEST: ${prompt}
+${fence("request", prompt)}
 
 Rules:
 - headline: the person's name or the single strongest phrase. Max 5 words, no punctuation at the end.
@@ -190,12 +193,16 @@ Return ONLY this JSON object, no markdown:
 {"headline":"","subheadline":"","tagline":"","keywords":[],"palette":{"background":"#","backgroundAlt":"#","accent":"#","text":"#","muted":"#"},"style":"","layout":""}`;
 
   try {
-    const run = await runAiTask({
+    const run = await runAiJsonTask({
       task: "tools.banner-brief",
-      actor: { kind: "user", id: userId, role: auth.role, plan: auth.plan },
+      actor: { kind: "user", id: userId, role: auth.role, plan: auth.plan, status: auth.status },
       prompt: instruction,
       maxOutputTokens: 800,
       userKey,
+      schema: bannerBriefSchema,
+      kind: "object",
+      schemaHint: '{"headline": string, "subheadline": string, "tagline": string, "keywords": string[], "palette": {hex colours}, "style": string, "layout": string}',
+      repair: false,
     });
 
     /* Every refusal here degrades to the local brief rather than erroring: the
@@ -204,13 +211,7 @@ Return ONLY this JSON object, no markdown:
       return NextResponse.json(localBrief(prompt));
     }
 
-    const text = run.text;
-    if (!text) return NextResponse.json(localBrief(prompt));
-
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return NextResponse.json(localBrief(prompt));
-
-    const parsed = JSON.parse(match[0]) as Record<string, unknown>;
+    const parsed = run.value as Record<string, unknown>;
     const fallback = localBrief(prompt);
 
     const keywords = Array.isArray(parsed.keywords)

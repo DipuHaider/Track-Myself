@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { Download, ExternalLink, FileText, Loader2, X } from "lucide-react";
 import type { CVFileMeta } from "@/types/cv";
 import { useDismissable } from "@/hooks/useDismissable";
+import { useEscapeToClose } from "@/hooks/useModalStack";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useScrollLock } from "@/hooks/useScrollLock";
 
 const FORMAT_NAME: Record<string, string> = {
   ats: "ATS", europass: "Europass", designer: "Designer", lebenslauf: "Lebenslauf",
@@ -34,17 +37,17 @@ export default function SavedCVModal({
   const [activeId, setActiveId] = useState(files[0]?._id ?? "");
   const [frameLoading, setFrameLoading] = useState(true);
   const { closing, close } = useDismissable(onClose);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
   const active = useMemo(
     () => files.find((f) => f._id === activeId) ?? files[0],
     [files, activeId],
   );
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [close]);
+  useEscapeToClose(close, true);
+  useFocusTrap(panelRef, true);
+  useScrollLock(true);
 
   /* A .docx is re-rendered to PDF for viewing; a stored PDF is served as-is. */
   const isPdf = active?.mimeType === "application/pdf";
@@ -55,14 +58,18 @@ export default function SavedCVModal({
       className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${closing ? "anim-backdrop-out" : "anim-backdrop"}`}
       style={{ background: "rgba(0,0,0,0.6)" }}
       onClick={(e) => { if (e.target === e.currentTarget) close(); }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Saved CV preview"
     >
-      <div className={`surface flex h-[88dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border shadow-2xl ${closing ? "anim-panel-out" : "anim-panel"}`}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className={`surface flex h-[88dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border shadow-2xl outline-none ${closing ? "anim-panel-out" : "anim-panel"}`}
+      >
         <div className="flex items-center justify-between gap-3 border-b px-5 py-3">
           <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold">{active?.name ?? "Saved CV"}</h2>
+            <h2 id={titleId} className="truncate text-base font-semibold">{active?.name ?? "Saved CV"}</h2>
             {active && (
               <p className="text-muted truncate text-xs">
                 {describe(active)}
@@ -112,6 +119,7 @@ export default function SavedCVModal({
                   key={f._id}
                   type="button"
                   onClick={() => { setActiveId(f._id); setFrameLoading(true); }}
+                  aria-pressed={on}
                   className="shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition"
                   style={on
                     ? { borderColor: "var(--primary)", color: "var(--primary)", background: "var(--primary)14" }

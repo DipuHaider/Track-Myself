@@ -150,8 +150,13 @@ const ApplicationSchema = new Schema(
   { timestamps: true },
 );
 
+ApplicationSchema.index({ userId: 1, deletedAt: 1, createdAt: -1 });
+ApplicationSchema.index({ userId: 1, applicationStatus: 1 });
+ApplicationSchema.index({ userId: 1, companyName: 1 });
+
 const SOFT_DELETE_QUERIES: MongooseQueryMiddleware[] = [
-  "find", "findOne", "findOneAndUpdate", "countDocuments", "updateOne", "updateMany", "distinct",
+  "find", "findOne", "findOneAndUpdate", "findOneAndDelete", "findOneAndReplace", "countDocuments",
+  "updateOne", "updateMany", "replaceOne", "deleteOne", "distinct",
 ];
 
 function includesDeleted(filter: Record<string, unknown>, options: Record<string, unknown>) {

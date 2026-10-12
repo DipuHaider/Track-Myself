@@ -7,6 +7,14 @@ import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { SUPERADMIN_EMAILS, isPremiumRole, type AccountStatus, type Plan } from "@/lib/permissions";
 import { checkRateLimitDb, clearRateLimitDb } from "@/lib/rateLimitStore";
+import { clientIpFromHeaders } from "@/lib/rateLimit";
+import { normaliseEmail } from "@/lib/emailAddress";
+import { isVerified } from "@/lib/verified";
+import EmailVerificationToken from "@/models/EmailVerificationToken";
+
+/* Compared against when the email is unknown or has no password, so a wrong
+   email and a wrong password take the same time to answer. */
+const DUMMY_HASH = "$2a$10$CwTycUXWue0Thq9StjUM0uJ8gDgyHz9xd6g0Yz2wqX7l6gq7VQ8y2";
 
 export const CLAIMS_TTL_MS = 5 * 60 * 1000;
 
@@ -15,14 +23,17 @@ export const ABSOLUTE_TIMEOUT_SECONDS = 7 * 24 * 60 * 60;
 export const SESSION_REFRESH_SECONDS = 15 * 60;
 export const EXTENSION_TOKEN_SECONDS = 7 * 24 * 60 * 60;
 
-type ClaimSource = { _id: { toString(): string }; email: string; role: string; plan?: string; image?: string; status?: string };
+type ClaimSource = {
+  _id: { toString(): string }; email: string; role: string; plan?: string; image?: string; status?: string;
+  password?: string; emailVerifiedAt?: Date | null;
+};
 
 type CachedClaims = { id: string; role: string; plan: Plan; image?: string; status: AccountStatus; at: number };
 
 const claimsCache = new Map<string, CachedClaims>();
 
 export function invalidateClaims(email?: string | null) {
-  if (email) claimsCache.delete(email);
+  if (email) claimsCache.delete(normaliseEmail(email));
 }
 
 type ClaimsResult =
@@ -30,7 +41,8 @@ type ClaimsResult =
   | { kind: "missing" }
   | { kind: "unavailable" };
 
-async function loadClaims(email: string, force: boolean): Promise<ClaimsResult> {
+async function loadClaims(rawEmail: string, force: boolean): Promise<ClaimsResult> {
+  const email = normaliseEmail(rawEmail);
   const cached = claimsCache.get(email);
   if (!force && cached && Date.now() - cached.at < CLAIMS_TTL_MS) return { kind: "ok", claims: cached };
 
@@ -39,7 +51,7 @@ async function loadClaims(email: string, force: boolean): Promise<ClaimsResult> 
     await dbConnect();
     dbUser = (await User.findOne(
       { email },
-      "email role plan image status",
+      "email role plan image status password emailVerifiedAt",
     ).lean()) as ClaimSource | null;
   } catch {
     return cached ? { kind: "ok", claims: cached } : { kind: "unavailable" };
@@ -50,7 +62,7 @@ async function loadClaims(email: string, force: boolean): Promise<ClaimsResult> 
     return { kind: "missing" };
   }
 
-  const role = effectiveRole(dbUser.email, dbUser.role);
+  const role = effectiveRole(dbUser.email, dbUser.role, isVerified(dbUser));
   const claims: CachedClaims = {
     id: dbUser._id.toString(),
     role,
@@ -81,8 +93,12 @@ export async function loadPresence(userId: string, fallback: AccountStatus): Pro
   }
 }
 
-export function effectiveRole(email: string, dbRole: string): string {
-  if (SUPERADMIN_EMAILS.includes(email as (typeof SUPERADMIN_EMAILS)[number])) return "superadmin";
+/* The hard-coded superadmin addresses only count once the inbox has been
+   proven. Otherwise registering one of them first would hand over the platform. */
+export function effectiveRole(email: string, dbRole: string, verified = true): string {
+  if (verified && SUPERADMIN_EMAILS.includes(normaliseEmail(email) as (typeof SUPERADMIN_EMAILS)[number])) {
+    return "superadmin";
+  }
   return dbRole ?? "free";
 }
 
@@ -113,28 +129,39 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials: { email?: string; password?: string } | undefined) {
+      async authorize(credentials: { email?: string; password?: string } | undefined, req) {
         await dbConnect();
         if (!credentials?.email || !credentials.password) return null;
 
-        const throttleKey = `login:${credentials.email.toLowerCase().trim()}`;
-        const gate = await checkRateLimitDb({
-          key: throttleKey,
-          limit: 8,
-          windowMs: 15 * 60 * 1000,
-          blockMs: 15 * 60 * 1000,
+        const email = normaliseEmail(credentials.email);
+        const headers = (req?.headers ?? {}) as Record<string, string | string[] | undefined>;
+        const ip = clientIpFromHeaders((name) => {
+          const v = headers[name] ?? headers[name.toLowerCase()];
+          return Array.isArray(v) ? v[0] ?? null : v ?? null;
         });
-        if (!gate.ok) return null;
 
-        const user = await User.findOne({ email: credentials.email });
-        if (!user || !user.password) return null;
+        const throttleKey = `login:${email}`;
+        const window = { windowMs: 15 * 60 * 1000, blockMs: 15 * 60 * 1000 };
+        const [gate, ipGate] = await Promise.all([
+          checkRateLimitDb({ key: throttleKey, limit: 8, ...window }),
+          checkRateLimitDb({ key: `login-ip:${ip}`, limit: 30, ...window }),
+        ]);
+        if (!gate.ok || !ipGate.ok) return null;
+
+        const user = await User.findOne({ email });
+        if (!user || !user.password) {
+          await bcrypt.compare(credentials.password, DUMMY_HASH);
+          return null;
+        }
 
         const match = await bcrypt.compare(credentials.password, user.password);
         if (!match) return null;
 
+        if (!isVerified(user)) throw new Error("unverified");
+
         await clearRateLimitDb(throttleKey);
 
-        const role = effectiveRole(user.email, user.role);
+        const role = effectiveRole(user.email, user.role, true);
 
         return {
           id: user._id.toString(),
@@ -158,27 +185,43 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
+        const email = normaliseEmail(user.email);
+        if (!email) return false;
+        if ((profile as { email_verified?: boolean } | undefined)?.email_verified === false) return false;
+
         await dbConnect();
-        const existing = await User.findOne({ email: user.email });
+        const existing = await User.findOne({ email });
         if (!existing) {
           await User.create({
             name: user.name ?? "Google User",
-            email: user.email,
+            email,
             googleId: user.id,
             image: user.image ?? "",
             role: "free",
             plan: "free",
+            emailVerifiedAt: new Date(),
           });
-        } else {
-          let dirty = false;
-          if (!existing.googleId) { existing.googleId = user.id; dirty = true; }
-          if (user.image && existing.image !== user.image) { existing.image = user.image; dirty = true; }
-          if (dirty) {
-            await existing.save();
-            invalidateClaims(existing.email);
-          }
+          return true;
+        }
+
+        /* Google has just proven this inbox. A password row that never verified
+           was set by whoever typed the address first — possibly not the owner —
+           so it is replaced rather than linked, and every token for it is voided. */
+        if (existing.password && existing.emailVerifiedAt === null) {
+          existing.password = undefined;
+          existing.sessionsValidFrom = new Date();
+          await EmailVerificationToken.updateMany({ userId: existing._id, usedAt: null }, { usedAt: new Date() });
+        }
+
+        let dirty = false;
+        if (!existing.googleId) { existing.googleId = user.id; dirty = true; }
+        if (!existing.emailVerifiedAt) { existing.emailVerifiedAt = new Date(); dirty = true; }
+        if (user.image && existing.image !== user.image) { existing.image = user.image; dirty = true; }
+        if (dirty || existing.isModified()) {
+          await existing.save();
+          invalidateClaims(existing.email);
         }
       }
       return true;
@@ -193,6 +236,9 @@ export const authOptions: NextAuthOptions = {
         token.status = user.status ?? "active";
         token.claimsAt = Date.now();
         token.sessionStart = Date.now();
+        if (token.email) {
+          await User.updateOne({ email: normaliseEmail(token.email) }, { $set: { lastLoginAt: new Date() } }).catch(() => {});
+        }
       }
 
       if (!token.sessionStart) {

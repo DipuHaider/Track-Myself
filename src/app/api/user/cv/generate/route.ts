@@ -6,6 +6,8 @@ import { requireAuth } from "@/lib/serverAuth";
 import CVFile from "@/models/CVFile";
 import { isTooThinToPrint, resolveGenerationContent } from "@/lib/cv/generatePipeline";
 import { generatedFileName } from "@/lib/cv/fileName";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
+import { tooMany } from "@/lib/api/respond";
 
 /* How many generated documents the library keeps before trimming the oldest. */
 const GENERATED_KEEP = 60;
@@ -26,6 +28,9 @@ export async function POST(req: Request) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
+  const gate = await checkRateLimitDb({ key: `cv-generate:user:${auth.id}`, limit: 30, windowMs: 10 * 60 * 1000 });
+  if (!gate.ok) return tooMany(gate, "Too many documents generated at once. Try again in a few minutes.");
+
   const body = await req.json().catch(() => ({}));
   const format = (body.format ?? "ats") as CVFormat;
   const variant = (body.variant ?? "full") as CVVariant;
@@ -45,7 +50,7 @@ export async function POST(req: Request) {
   if (!CV_VARIANTS.includes(variant)) {
     return NextResponse.json({ error: "Unknown CV variant." }, { status: 400 });
   }
-  if (format === "lebenslauf" && !canUseLebenslauf(auth.role, auth.email)) {
+  if (format === "lebenslauf" && !canUseLebenslauf(auth.role)) {
     return NextResponse.json(
       { error: "The Lebenslauf format is not available on your account." },
       { status: 403 },

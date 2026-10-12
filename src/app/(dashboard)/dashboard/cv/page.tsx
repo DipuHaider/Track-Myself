@@ -101,7 +101,7 @@ function DashboardCVContent() {
       </div>
 
       {failed && (
-        <p className="surface rounded-lg border p-4 text-sm text-red-600">
+        <p role="alert" className="alert alert-danger">
           Could not load CV data. Please refresh and try again.
         </p>
       )}

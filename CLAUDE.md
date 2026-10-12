@@ -2,24 +2,27 @@
 
 # TrackMyself — Project Reference
 
-Job application tracker. Next.js 16.3.4, React 19, TypeScript, MongoDB/Mongoose, NextAuth 4,
-Tailwind CSS 4, Zod 4, React Hook Form, TanStack Table, Recharts, Three.js, pdf-lib, docx,
-@react-pdf/renderer, Resend.
+Job application tracker. Next.js 16.3 (App Router), React 19, TypeScript, MongoDB/Mongoose 9,
+NextAuth 4, Tailwind CSS 4, Zod 4, SWR, Recharts, pdf-lib, docx, @react-pdf/renderer, Resend,
+@sentry/nextjs, vitest.
 
-Path alias: `@/` → `src/`. Theme: CSS custom properties via `data-theme` on `<html>`. Fonts: Geist Sans + Geist Mono.
+Path alias: `@/` → `src/`. Theme: CSS custom properties via `data-theme` on `<html>`. Fonts: Geist
+Sans + Geist Mono, Josefin (display), Atkinson Hyperlegible (dyslexia mode, lazy).
 
 ## Route Zones
 
 | Zone | Path | Guard |
 |---|---|---|
-| Public | `/`, `/tools/*` | None |
-| Auth | `/(auth)/login`, `/register`, `/redirect` | Redirect if already authed |
-| Portal | `/(portal)/me`, `/me/applications`, `/me/my-cv`, `/me/cv`, `/me/todos`, `/me/issues`, `/me/notifications`, `/me/ai-key` | Any session → layout redirects to `/login` |
-| Dashboard | `/(dashboard)/dashboard`, `/applications` (`/create`, `/edit/[id]`, `/[id]` only redirect), `/analytics`, `/users`, `/dashboard/cv`, `/dashboard/issues`, `/dashboard/users`, `/profile` | editor+ → layout redirects to `/me` |
+| Public | `/`, `/tools/*`, `/faq`, `/terms`, `/privacy`, `/pricing`, `/verify-email` | None |
+| Auth | `/(auth)/login`, `/register`, `/forgot-password`, `/reset-password`, `/redirect` | `(auth)/layout.tsx` redirects signed-in users to `/me` |
+| Portal | `/(portal)/me`, `/me/applications`, `/me/settings`, `/me/my-cv`, `/me/cv`, `/me/todos`, `/me/issues`, `/me/notifications`, `/me/ai-key` | Any session → layout redirects to `/login` |
+| Dashboard | `/(dashboard)/dashboard`, `/applications`, `/analytics`, `/dashboard/cv`, `/dashboard/issues`, `/dashboard/users`, `/dashboard/audit`, `/profile` (redirect), `/users` (redirect) | editor+ → layout redirects to `/me` |
 | Dashboard (admin) | `/settings`, `/dashboard/rbac` | admin+ → page redirects to `/dashboard` |
-| Admin | `/admin/*` | Superadmin only (legacy, kept for compatibility) |
+| Legacy | `/admin/*` | `redirects()` in `next.config.ts` → `/dashboard` |
 
-Route protection is in **layout.tsx files**, not middleware. `src/proxy.ts` exists (withAuth for legacy paths). `src/middleware.ts` does not exist — do not create it.
+Route protection is in **layout.tsx files**. `src/proxy.ts` is the active Next 16 proxy (the
+file convention that replaced middleware) and covers the legacy `withAuth` paths.
+`src/middleware.ts` does not exist — do not create it.
 
 ## Role System (`src/lib/permissions.ts`)
 
@@ -27,50 +30,47 @@ Route protection is in **layout.tsx files**, not middleware. `src/proxy.ts` exis
 superadmin > admin > editor > paid > free
 ```
 
-- `isEditor(role)` → superadmin | admin | editor
-- `isAdmin(role)` → superadmin | admin
-- `isSuperAdmin(role)` → exact match
+- `isEditor` / `isAdmin` / `isSuperAdmin`, `roleRank()`, `canManageRole(actor, target)` and
+  `canAssignRole(actor, next)` (strictly lower rank for non-superadmin)
 - `canDo(role, action)` → static ACTION_ROLES defaults (client fallback only)
-- Superadmin emails hardcoded in SUPERADMIN_EMAILS; effectiveRole() in auth.ts applies at JWT creation
+- Superadmin emails are hardcoded in `SUPERADMIN_EMAILS`; `effectiveRole(email, dbRole, verified)`
+  in `auth.ts` grants superadmin **only when the email is verified**
 
 ### Plans (premium)
 
-`superadmin` and `paid` are always premium. `admin`, `editor` and `free` follow the `User.plan`
-field, which admins set from `/dashboard/users`. `effectivePlan()` (auth.ts) writes it to the JWT;
-`isPremiumUser(role, plan)` is the single predicate for UI and `requirePremiumAuth()`. Role and
-plan claims refresh from the DB at most every 5 minutes (`CLAIMS_TTL_MS`, in-process cache) — no
-re-login needed after an upgrade.
+`superadmin` and `paid` are always premium. `admin`, `editor` and `free` follow `User.plan`, which
+admins set from `/dashboard/users` (writes go through `applyBillingEvent()` in
+`src/lib/billing/apply.ts`). `isPremiumUser(role, plan)` is the single predicate. Claims refresh
+from the DB at most every 5 minutes (`CLAIMS_TTL_MS`); `invalidateClaims(email)` forces it.
 
 ### RBAC (`src/lib/rbac.ts`)
 
-The permission matrix is stored in the `AccessControl` collection and edited at `/dashboard/rbac`
-(superadmin + admin only, hardcoded — not part of the matrix, so nobody can lock themselves out).
-Superadmin always holds every permission; `assign:superadmin` is locked to superadmin.
-
-- Server: `requireAction(action)` in serverAuth checks the live matrix (60s cache)
-- Client: `usePermissions()` → `/api/user/permissions`, with `canDo()` as the pre-load fallback
-- Pages wrap content in `<PermissionGate action="…">`
+Matrix in the `AccessControl` collection, edited at `/dashboard/rbac` (superadmin + admin,
+hardcoded). Superadmin always holds every permission; `assign:superadmin` is locked. Actions
+include `view:audit`. Server: `requireAction(action)` (60 s cache). Client: `usePermissions()`
+(SWR) with `canDo()` as the pre-load fallback; pages wrap content in `<PermissionGate>`.
 
 ## Auth (`src/lib/serverAuth.ts`)
 
-Always use these helpers in API routes — never call getServerSession() directly:
+Always use these in API routes — never `getServerSession()` directly:
 
-- `requireAuth()` → any session
-- `requirePremiumAuth()` → premium plan (or superadmin/paid role)
-- `requireAction(action)` → live RBAC matrix check (prefer this for dashboard APIs)
-- `requireEditorAuth()` → editor+
-- `requireAdminAuth()` → admin+
-- `requireSuperAdminAuth()` → superadmin
+- `requireAuth()` → any session (paused accounts included)
+- `requireActiveAuth()` → not paused (application writes, AI spend, interviews, key changes)
+- `requirePremiumAuth()` → premium (non-AI perks only; AI entitlement is `aiEntitlement()`)
+- `requireAction(action)` → live RBAC matrix (dashboard APIs)
+- `requireAdminAuth()` / `requireActiveAdminAuth()`, `requireSuperAdminAuth()` /
+  `requireActiveSuperAdminAuth()`
 
-Pattern:
-```ts
-const auth = await requireEditorAuth();
-if (auth instanceof NextResponse) return auth;
-await dbConnect();
-```
+The one sanctioned exception is `/api/billing/webhook`, which has no session and authenticates by
+provider signature. `/api/cron/maintenance` authenticates with `CRON_SECRET`.
 
-SessionUser shape: `{ id: string; role: Role; email: string | null | undefined }`
-Session augmentation: `src/types/next-auth.d.ts` — `session.user.id` and `session.user.role`
+`SessionUser`: `{ id, role, plan, status, email }`. Augmentation: `src/types/next-auth.d.ts`.
+
+Accounts: email verification (`EmailVerificationToken`, `src/lib/emailVerification.ts`,
+`src/lib/verified.ts` — an absent `emailVerifiedAt` means a pre-feature account and counts as
+verified); Google sign-in replaces an unverified password row; password reset also serves as
+"set a password" for Google-only accounts; sessions can be revoked everywhere
+(`POST /api/user/account/sessions/revoke`).
 
 ## API Route Pattern
 
@@ -78,75 +78,95 @@ Session augmentation: `src/types/next-auth.d.ts` — `session.user.id` and `sess
 export const dynamic = "force-dynamic"; // must be first export
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAuth();
+  const auth = await requireActiveAuth();
   if (auth instanceof NextResponse) return auth;
+  const { id } = await params;
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await dbConnect();
-  const { id } = await params; // Next.js 16: params is a Promise
   // portal routes: always scope to { userId: auth.id }
 }
 ```
 
+Helpers: `parseObjectId` (`src/lib/objectId.ts`), `tooMany/badRequest/notFound/forbidden`
+(`src/lib/api/respond.ts`), `checkRateLimitDb` (`src/lib/rateLimitStore.ts` — every limiter is
+DB-backed; there is no in-memory limiter), `clientIp` (`src/lib/rateLimit.ts`),
+`recordAdminAction` (`src/lib/audit.ts`) beside every `/api/admin/*` mutation,
+`adminUserRow` / `profileView` (`src/lib/serialisers/user.ts`) for anything that returns a User.
+
+List endpoints return a bare array without `?page` and `{ items, total, page, limit, hasMore }`
+with it (`src/lib/pagination.ts`).
+
 ## Database (`src/lib/db.ts`)
 
-`dbConnect()` singleton with global cache. Pool: 10. Call before every Mongoose query.
+`dbConnect()` singleton. Pool: 10. Call before every Mongoose query. Models in `src/models/`:
 
-Models in `src/models/` — all thirteen:
-`AccessControl`, `AppSettings`, `Application`, `CVFile`, `CVProfile`, `Document`, `Interview`,
-`IssueReport`, `Notification`, `PasswordResetToken`, `Reminder`, `Todo`, `User`.
+`AccessControl`, `AdminAction`, `AiBudget`, `AiCallLog`, `AiDraft`, `AiUsageCounter`,
+`AppSettings`, `Application`, `CVFile`, `CVProfile`, `Document`, `EmailVerificationToken`,
+`Interview`, `IssueReport`, `Notification`, `PasswordResetToken`, `RateBucket`, `Todo`, `User`.
 
-- `User` — name, email, password?, googleId, role, plan, status, bio, image, aiKey, a11y
-- `Application` — full job record, userId-scoped (see `src/types/application.ts`). How it was
-  applied lives in `submissionMethod` (+ `submissionDetail` for In Person); people dealt with
-  directly in `contacts[]` (role, name, email, phone), and `contactNumber` mirrors the first phone.
-  The posted salary is `salaryType/Fixed/Min/Max/Currency`; the candidate's own expectation is
-  `salaryExpectation` (calculator: `src/lib/salaryExpectation.ts`, AI estimate: `src/lib/salaryEstimate.ts`)
-  **Soft delete:** `deletedAt` / `deletedBy` / `deletedByName`. Query and aggregate hooks in the
-  model hide deleted rows unless the filter names `deletedAt` or the query sets
-  `{ withDeleted: true }`. Deleting moves a row to "Recently deleted" for 30 days
-  (`src/lib/applicationTrash.ts`); it is purged, with its interviews and reminders, when a trash
-  list is read after that. Hard deletes (`deleteMany`) are not hooked
-- `Interview` — applicationId, stageName, status, scheduledDate, feedback, notes
-- `Document` — application attachments: userId, name, size, mimeType, base64 `data`
-  (`url` is legacy). Served by `/api/attachments/[...parts]`, owner-scoped
-- `Todo`, `Notification`, `IssueReport`, `PasswordResetToken` — all userId-indexed, and all
-  purged by `src/lib/accountDeletion.ts`
-- `Reminder` — applicationId, title, remindAt, completed
-- `CVProfile` — one per user: structured `content` (CVContent), `primary` file slots, legacy flat fields
-- `CVFile` — one document per uploaded file (base64 `data`, `category`), userId-indexed
-- `AccessControl` — single `key: "default"` doc holding the RBAC matrix
+- `User` — name, email (lowercase), password?, googleId, role, plan, status, `emailVerifiedAt`,
+  `lastLoginAt`, `deletingAt`, bio, image, aiKey (encrypted), aiUsage/aiSharedUsage, a11y,
+  notifSeen/notifDismissed (bounded), notifPrefs, billing
+- `Application` — userId-scoped (`src/types/application.ts`); `statusHistory`; posting
+  observation fields; **soft delete** (`deletedAt`; query/aggregate hooks hide deleted rows unless
+  the filter names `deletedAt` or `{ withDeleted: true }`); 30-day trash
+  (`src/lib/applicationTrash.ts`), purged by the maintenance job. Indexes on `userId`.
+- `Interview` — applicationId, **userId**, stageName, status, scheduledDate, feedback, notes;
+  CRUD at `/api/applications/[id]/interviews`
+- `Document` — attachments: userId, **applicationId**, base64 `data`; served by
+  `/api/attachments/[...parts]`; cascades on forever-delete
+- `AiDraft` — cached AI outputs (cv-preview, cover-letter, interview-questions), 24 h TTL
+- `AiCallLog` / `AiUsageCounter` / `AiBudget` — the AI ledger (see AI)
+- `AdminAction` — audit log, 400-day TTL
+- All userId-scoped collections are purged by `purgeUserData()` (`src/lib/accountDeletion.ts`),
+  ordered, per-step isolated, `User` last; stale `deletingAt` rows are retried by maintenance.
+- `CVProfile.userId` and `CVFile.userId` are `String`; other models use `ObjectId`.
+
+Migrations are idempotent entries in `src/lib/migrations/index.ts`, run by a superadmin via
+`POST /api/admin/migrations/<name>` (Settings → Maintenance). Nothing runs on deploy.
 
 ## CV System
 
-One engine, server-side, real `.docx` via the `docx` package — ported from the reference build
-scripts. There is no HTML-as-.doc path any more.
+One engine, server-side, real `.docx` via `docx` and PDF via `@react-pdf/renderer`.
 
-- `src/types/cv.ts` — CVContent, CVFormat (`ats | europass | designer | lebenslauf`), CVVariant, categories
-- `src/lib/cv/content.ts` — defaults, `normaliseContent()`, `importFromLegacy()` (parses old free-text)
-- `src/lib/cv/docx/` — `ats.ts`, `europass.ts`, `designer.ts`, `lebenslauf.ts`, `coverLetter.ts`, `index.ts`
-- `src/lib/cvFileTypes.ts` — accepted mime types per category, size caps, primary slots,
-  `resolveFileMime()` (the extension decides for `.md`/`.json`, which browsers report
-  inconsistently) and `fileTypeLabel()`. No model imports, so client components may use it.
-- `src/lib/cvFiles.ts` — DB helpers (list/read/migrate); re-exports the tables above
+- `src/types/cv.ts`, `src/lib/cv/content.ts`, `src/lib/cv/docx/`, `src/lib/cv/pdf/`,
+  `src/lib/cv/coverLetter.ts`, `src/lib/cv/draftCache.ts` (AiDraft-backed),
+  `src/lib/cvFileTypes.ts` (caps: documents 3 MB, photo 2 MB — Vercel body limit), `src/lib/cvFiles.ts`
+- **Lebenslauf is superadmin-only** — `canUseLebenslauf(role)`.
 
-The CV, Resume, Cover Letters and Other sections also accept **`.json` and `.md`** as source
-data. A `.json` is read structurally (it is already CVContent) and ranks with the pasted JSON
-versions at weight 2; a `.md` is flattened to plain text by `textFromMarkdown()` and parsed
-like any other CV at weight 1. Both flow into the same cascade, so they aid CV, resume and
-cover-letter generation alike.
+Endpoints: `GET/PUT /api/user/cv`, `/api/user/cv/files[...]`, `POST /api/user/cv/generate`,
+`POST /api/user/cv/generate/preview`, `/api/user/cv/import`, `POST /api/cv/sample` (public,
+rate-limited), `POST /api/cv/adapt`.
 
-Rules baked into the builders: no photo on ATS or Europass; per-format bullet-count arrays control
-page length; the compact ATS variant swaps in `summaryShort` + `skillsCompact` and drops projects.
+## AI (`src/lib/ai/`)
 
-**Lebenslauf is superadmin-only** — `canUseLebenslauf(role, email)`, enforced in the UI and in
-`/api/user/cv/generate`.
+Every provider call goes through **`runAiTask()` / `runAiJsonTask()` in `gateway.ts`** (ESLint
+forbids importing `callProvider` elsewhere). Order: entitlement → DB rate limit → atomic
+reservation (`budget.ts`: per-user monthly attempt counter + global money ceiling) → dispatch →
+settle → ledger. `runAiJsonTask` validates with a zod schema from `schemas.ts` and makes exactly
+one repair call. Prompts wrap untrusted text in `fence()` under `SYSTEM_PROMPT` (`prompt.ts`).
 
-Endpoints:
-- `GET/PUT /api/user/cv` — profile + structured content + primary slots + file list
-- `GET/POST /api/user/cv/files`, `GET/PATCH/DELETE /api/user/cv/files/[id]`,
-  `PATCH …/[id]/main` (toggle primary for that file's category), `GET …/[id]/raw` (bytes, for `<img>`)
-- `POST /api/user/cv/generate` — `{format, variant, docType, appInfo}` → `.docx` stream
-- `POST /api/cv/sample` — public, rate-limited (10 / 10 min / IP), no Lebenslauf
-- `POST /api/cv/adapt` — premium AI tailoring of summary / positioning / skill order
+**Entitlement** (`aiEntitlement(actor, task, userKey)`): a user's own key → every task, any
+plan, never counted; premium → shared model; free → `freeMonthlyAttempts` (10) shared uses a
+month, then the feature's non-AI mode. Paused accounts are denied.
+
+Tasks (`config.ts`): `cv.adapt`, `cv.preview`, `interview.questions`, `tools.banner-brief`,
+`cv.gap-analysis`, `cover-letter.write`, `salary.estimate`, `applications.triage`.
+
+Models (`models.ts`): shared default `anthropic:claude-haiku-4-5`; `anthropic:claude-sonnet-5`
+and `openai:gpt-6-luna` (needs `OPENAI_API_KEY`) toggled by admins; `gemini:superadmin` is a
+superadmin-only retry after a failed shared call. BYOK defaults: Sonnet 5 / gemini-3.6-flash /
+gpt-4o-mini (`src/lib/cv/ai/provider.ts`). `src/lib/ai/shared.ts` holds only the BYOK UI options.
+
+Money ceiling: **hard-capped at USD 10** (`MAX_CEILING_USD`), default 9, superadmin-only.
+BYOK keys: AES-256-GCM under `AI_KEY_SECRET`; OpenAI-compatible base URLs pass
+`assertSafeBaseUrl()` (`src/lib/net/safeUrl.ts`).
+
+## Billing (`src/lib/billing/`)
+
+Provider-agnostic: `BillingProvider` interface, `manual` provider, `applyBillingEvent()` writes
+`User.plan` + `User.billing`. `/api/billing/checkout` returns 501 until an adapter is configured
+(`BILLING_PROVIDER`); the UI then files an "Upgrade request" issue. See `docs/ROADMAP.md`.
 
 ## Application Status Values (`src/constants/applicationStatus.ts`)
 
@@ -156,132 +176,88 @@ Endpoints:
 "Offer Received" | "Rejected"
 ```
 
-Ghost job = 45+ days in Wishlist/Not Completed/Submitted/No Response. Logic: `src/lib/applicationFlags.ts`
+Ghost job = 45+ days in Wishlist/Not Completed/Submitted/No Response (`src/lib/applicationFlags.ts`).
 
 ## CSS (`src/app/globals.css`)
 
-Dark mode via `[data-theme="dark"]` — do NOT use Tailwind `dark:` variants.
+Dark mode via `[data-theme="dark"]` — never Tailwind `dark:`. Raw palette classes
+(`text-red-600`, `bg-gray-100`…) are lint-flagged. Use:
 
-Semantic classes to prefer over inline Tailwind:
-- `.surface` / `.surface-muted` — card backgrounds
-- `.text-muted` / `.text-primary` — semantic text colors
-- `.btn-primary` — gradient primary button
-- `.role-badge` + `.role-{superadmin|admin|editor|paid|free}`
-- `.plan-{free|premium}`
-- `.priority-{high|medium|low}`
-- `.status-{wishlist|not-completed|submitted|no-resp|interview|active|offer|rejected}`
-- `.ghost-auto` / `.ghost-manual` / `.badge-dup`
+- `.surface` / `.surface-muted`, `.text-muted` / `.text-primary`
+- `.text-danger|success|warning|info`, `.alert` + `.alert-danger|success|warning|info`
+- `.btn-primary` / `.btn-secondary` / `.btn-danger`, `.icon-chip`
+- `.role-*`, `.plan-*`, `.priority-*`, `.status-*`, `.ghost-*`, `.badge-dup`, `.diff-*`
+- `.dropzone` (via `<DropZone>`), tokens `--danger/--success/--warning/--info` (+`-bg`, `-border`)
+
+## Client data
+
+SWR everywhere (`src/providers/AppProviders.tsx` sets the fetcher). `src/lib/api/client.ts`:
+`fetcher`, `apiFetch`, `ApiError`, `downloadFile`. Hooks: `useApi`, `useProfile`/`useAccount`,
+`usePermissions`, `useAdminAnalytics`, `useNotifications`, `useAiKeyState`, `useTourState`,
+`useA11y`, `useCVProfile` (with `dirty` + per-user autosave), `useApplicationsPage`,
+`useApplicationStats`, `useInterviews`, `useTriage`. Overlays: `Modal` (focus trap, scroll lock,
+`onRequestClose` veto), `useEscapeToClose`, `useUnsavedChanges`, `useConfirm()` + sonner `toast`.
 
 ## Key File Map
 
 ```
 src/
   lib/
-    permissions.ts      ROLES, isAdmin/Editor/etc, canDo(), ACTION_ROLES
-    auth.ts             NextAuth config, effectiveRole(), authOptions
-    serverAuth.ts       requireAuth/Editor/Admin/SuperAdmin helpers
-    db.ts               dbConnect() singleton
-    applicationFlags.ts isPossibleGhost(), computeDuplicateIds()
-    rbac.ts             access matrix load/save, canDoServer(), getAllowedActions()
-    chartTheme.ts       useChartTheme() — validated light/dark chart palette
-    cvFileTypes.ts      Accepted mimes, size caps, resolveFileMime(), fileTypeLabel() (client-safe)
-    cvFiles.ts          CV file DB helpers, legacy migration; re-exports cvFileTypes
-    cv/                 content.ts, docx/ and pdf/ builders, ai/provider.ts, import/, diff/
-    mail/               index.ts dispatcher, resend.ts, web3forms.ts (fallback), templates.ts
-    notifications/      create.ts — writes in-app Notification rows
-    passwordReset.ts    token create/hash/expiry for the reset flow
-    attachments.ts      attachmentUrl() for /api/attachments/<id>/<name>
-    accountDeletion.ts  purgeUserData() — must cover every userId-scoped collection
-    rateLimit.ts        checkRateLimit(), clientIp() — in-process, per key
-    utils.ts            cn() className helper
-  models/               User, Application, Interview, Document, Reminder, CVProfile, CVFile, AccessControl
-  types/
-    application.ts      Application interface
-    analytics.ts        AnalyticsSummary interface
-    interview.ts        Interview interface
-    cv.ts               CVContent, CVFormat, CVVariant, CV_FILE_CATEGORIES, CVPrimaryFiles
-    next-auth.d.ts      Session/User/JWT augmentation (id, role, plan)
-  schemas/
-    authSchema.ts         registerSchema + RegisterSchema type
-  constants/
-    applicationStatus.ts  APPLICATION_STATUSES
-    platforms.ts          PLATFORMS
-  hooks/
-    useApplications.ts    client-side state + CRUD
-    useAnalytics.ts       fetches /api/analytics
-    useAdminAnalytics.ts  fetches /api/admin/analytics (cached, dashboard-wide)
-    useCVProfile.ts       shared CV cache, save, downloadCVDocx()
-    usePermissions.ts     live RBAC actions for the current user
-    useFilters.ts         generic filter state
-  services/
-    applicationService.ts  getApplications()
-    analyticsService.ts    getAnalyticsSummary()
-    reminderService.ts
+    permissions.ts      roles, ranks, actions, CV entitlements
+    auth.ts             NextAuth config, effectiveRole(), claims cache
+    serverAuth.ts       require* helpers
+    verified.ts         isVerified()
+    emailVerification.ts, tokens.ts, passwordReset.ts
+    safeReturnTo.ts, extensionCors.ts, extensionToken.ts
+    db.ts, objectId.ts, pagination.ts, api/respond.ts, api/client.ts
+    rateLimit.ts        clientIp() only; rateLimitStore.ts is the limiter
+    rbac.ts, audit.ts, serialisers/user.ts
+    applicationFlags.ts, applicationHistory.ts (updateApplication, linkAttachments), applicationTrash.ts
+    accountDeletion.ts, maintenance.ts, migrations/
+    ai/                 gateway.ts, budget.ts, config.ts, models.ts, meter.ts, schemas.ts, prompt.ts, jobFit.ts, triage.ts, userKey.ts, shared.ts
+    net/safeUrl.ts, fileSniff.ts, attachments.ts
+    cv/                 content.ts, docx/, pdf/, ai/, import/, diff/, coverLetter.ts, draftCache.ts, generatePipeline.ts
+    mail/               index.ts, resend.ts, web3forms.ts, templates.ts
+    notifications/      derive.ts (deriveItems pure + deriveNotifications), create.ts, types.ts
+    billing/            types.ts, manual.ts, plan.ts, apply.ts, index.ts
+    observability/scrub.ts
+  models/               (19, listed above)
+  schemas/              authSchema, passwordResetSchema, profileSchema, interviewSchema
+  hooks/                see Client data
   components/
-    dashboard/    StatCard, ApplicationsChart, StatusDistribution, FunnelChart, TopBreakdown,
-                  ChartFrame, RecentApplications, UserStatsSection, SettingsPanel,
-                  AccessControlPanel, PermissionGate
-    cv/           DocumentSection (My Documents), fields.tsx (builder inputs)
-    applications/ ApplicationTable, ApplicationFormModal, ViewApplicationModal, ApplicationTimeline,
-                  RecentlyDeletedModal, AppDocModal, StatsModal, ApplicationFilters, StatusBadge
-    site/         SiteHeader, HeroSection, TrendingSection, ToolsSection, CallToAction, SiteFooter,
-                  SiteSearch, ThreeBanner
-    portal/       PortalSidebar
-    layout/       Sidebar, Header, MobileNav, ThemeToggle
-    shared/       Modal, SearchBar, DateRangePicker
-  providers/      SessionProvider.tsx
-  proxy.ts        withAuth middleware (legacy)
+    shared/     Modal, DropZone, ConfirmDialog, ErrorPanel, A11ySync, A11ySettingsModal/Body, QuickBubble, …
+    applications/ ApplicationTable, ApplicationCard, ApplicationFormModal, ViewApplicationModal, InterviewRounds, …
+    portal/     PortalSidebar, PausedBanner, StatsGrid, GettingStarted, TriagePanel, PlanBadge, VerifyEmailBanner, AccountControls
+    settings/   SettingsTabs + tabs
+    pricing/    PlanComparison, UpgradeCta, RequestUpgradeModal
+    dashboard/  StatCard, charts, UserStatsSection, SettingsPanel, AiBudgetPanel, AccessControlPanel, IssueReportsPanel, PermissionGate
+    layout/     AppSidebar, Sidebar, ThemeToggle
   app/
-    layout.tsx    Root: SessionProvider, theme hydration script, Geist fonts
-    globals.css   CSS custom properties, all semantic utility classes
-
-public/uploads/   Server filesystem uploads (organized by year/month)
+    layout.tsx  SessionProvider → AppProviders (SWR + Confirm), A11ySync, theme boot script
+    error.tsx, global-error.tsx, (zone)/error.tsx
+    api/health, api/cron/maintenance, api/admin/audit, api/admin/migrations/[name], api/billing/*
+  instrumentation.ts, instrumentation-client.ts   Sentry (DSN optional; scrubbed)
+sentry.server.config.ts, sentry.edge.config.ts, vercel.json (daily cron), vitest.config.ts
 ```
 
-## Build
+## Build, test, verify
 
 ```
-cross-env NODE_OPTIONS=--max-old-space-size=4096 next build
+npm run verify   # typecheck + lint + check:env + vitest
+npm run build    # cross-env NODE_OPTIONS=--max-old-space-size=4096 next build
+npm run typecheck:ext
 ```
 
-`next.config.ts`: `serverExternalPackages: ["mongoose", "bcryptjs", "@react-pdf/renderer",
-"unpdf", "word-extractor"]`, `typescript.ignoreBuildErrors: true`, and
-`NODE_TLS_REJECT_UNAUTHORIZED=0` **only when `NODE_ENV !== "production"`** — it exists for
-corporate TLS-inspection proxies in dev and must never reach production.
+Tests are colocated `*.test.ts` (pure modules, `vi.mock` for models); DB-backed `*.dbtest.ts`
+run only with `MONGODB_TEST_URI` (CI service container). `next.config.ts`:
+`typescript.ignoreBuildErrors: true` (CI is the type gate), `withSentryConfig`, CSP without
+`'unsafe-eval'` in production (`'wasm-unsafe-eval'` only under `/tools`), TLS verification is
+disabled only when `NODE_ENV !== "production"` **and** `DEV_INSECURE_TLS=1`.
 
 ## What Does Not Exist
 
-Verified against the repository — do not extend this list from memory.
-
-- `src/middleware.ts` — do not create (confirmed absent)
-- `src/lib/cvDownload.ts` — deleted; the HTML-as-.doc generator is gone, use `src/lib/cv/docx/`
-- Payment/Stripe integration (no `stripe` dependency; plan is a manual admin toggle, and a
-  webhook would only need to write `User.plan`)
-- Test suite (no `test` script in `package.json`, no runner installed)
-
-### Previously listed here, but they do exist
-
-- **PDF export** — `src/lib/cv/pdf/` renders with `@react-pdf/renderer` (`ats.tsx`,
-  `designer.tsx`, `coverLetter.tsx`), gated by `canExportPdf()` in permissions. Interview
-  questions also render to PDF via `renderToBuffer`.
-- **Notifications** — in-app only: the `Notification` model, `/api/notifications`,
-  `/me/notifications` and `src/lib/notifications/`. There is still no scheduler, so nothing
-  fires on a timer; notifications are written when something happens.
-- **Transactional email** — `src/lib/mail/` sends issue reports and password-reset links
-  through Resend, with Web3Forms as a fallback for issue reports only. Still no digest or
-  reminder email.
-
-## AI
-
-Three providers, one interface in `src/lib/cv/ai/provider.ts`. Model IDs live in
-`src/lib/ai/shared.ts` — read them there rather than assuming:
-
-| Provider | Default model | Key |
-|---|---|---|
-| `anthropic` | `claude-sonnet-5` | `ANTHROPIC_API_KEY`, or the user's own |
-| `gemini` | `gemini-3.6-flash` (`GEMINI_MODEL` overrides) | `GEMINI_API_KEY` — superadmin fallback only |
-| `openai-compatible` | `gpt-4o-mini` | user's own key only |
-
-Users may bring their own key (BYOK), encrypted at rest with AES-256-GCM under
-`AI_KEY_SECRET` and stored on `User.aiKey`. Without any key the AI features fall back to a
-heuristic rather than failing.
+- `src/middleware.ts` — do not create (`src/proxy.ts` is the proxy)
+- A payment provider — the billing abstraction exists; checkout returns 501 (`docs/ROADMAP.md`)
+- Component tests (`@testing-library/react`, `jsdom`) and `mongodb-memory-server`
+- Email digests / scheduled notifications beyond the daily maintenance cron
+- 2FA, email change, teams, i18n, MCP, the A/B/C pack workflow

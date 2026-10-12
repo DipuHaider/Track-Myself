@@ -48,7 +48,7 @@ export async function POST() {
   const { apps, interviews } = await load(auth.id);
   const rows = shortlist(apps, interviews);
 
-  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan };
+  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan, status: auth.status };
 
   return NextResponse.json(
     await triageWithAi({ rows, actor, userKey: await getUserCredential(auth.id) }),

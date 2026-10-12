@@ -68,7 +68,7 @@ function ResetForm() {
   if (!valid) {
     return (
       <div className="surface w-full rounded-xl border p-6 text-center">
-        <LinkIcon size={30} className="mx-auto text-amber-500" aria-hidden="true" />
+        <LinkIcon size={30} className="text-warning mx-auto" aria-hidden="true" />
         <h1 className="mt-3 text-xl font-semibold">This link is no longer valid</h1>
         <p className="text-muted mt-2 text-sm">
           Reset links work once and expire after 30 minutes. Request a fresh one and it will
@@ -87,7 +87,7 @@ function ResetForm() {
   if (done) {
     return (
       <div className="surface w-full rounded-xl border p-6 text-center">
-        <CheckCircle2 size={30} className="mx-auto text-emerald-500" aria-hidden="true" />
+        <CheckCircle2 size={30} className="text-success mx-auto" aria-hidden="true" />
         <h1 className="mt-3 text-xl font-semibold">Password updated</h1>
         <p className="text-muted mt-2 text-sm">
           You have been signed out everywhere else. Taking you to sign in…
@@ -130,7 +130,7 @@ function ResetForm() {
         />
       </div>
 
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-danger mt-3 text-sm">{error}</p> : null}
 
       <button
         type="submit"

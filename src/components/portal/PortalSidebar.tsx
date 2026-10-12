@@ -2,8 +2,8 @@
 
 import { useSession } from "next-auth/react";
 import {
-  Briefcase, FileText, FolderOpen, Home,
-  Bell, KeyRound, LayoutDashboard, LifeBuoy, ListTodo, Wrench,
+  Briefcase, Crown, FileText, FolderOpen, Home,
+  Bell, KeyRound, LayoutDashboard, LifeBuoy, ListTodo, Settings, Wrench,
 } from "lucide-react";
 import AppSidebar, { type AppNavItem } from "@/components/layout/AppSidebar";
 import { isPremiumUser } from "@/lib/permissions";
@@ -14,8 +14,8 @@ export default function PortalSidebar() {
   const isPremium = isPremiumUser(sessionUser?.role, sessionUser?.plan);
 
   const proBadge = isPremium
-    ? { text: "PRO", className: "bg-emerald-400/20 text-emerald-600", title: "Included in your Premium plan" }
-    : { text: "Get Pro", className: "bg-amber-400/20 text-amber-600", title: "Premium features inside" };
+    ? { text: "PRO", className: "plan-premium", title: "Included in your Premium plan" }
+    : { text: "Get Pro", className: "plan-premium", title: "Premium features inside" };
 
   const items: AppNavItem[] = [
     { href: "/me",              icon: LayoutDashboard, label: "Overview",        mobileLabel: "Home",    exact: true },
@@ -26,6 +26,10 @@ export default function PortalSidebar() {
     { href: "/me/ai-key",       icon: KeyRound,        label: "AI key",          mobileLabel: "AI" },
     { href: "/me/notifications", icon: Bell,          label: "Notifications",   mobileLabel: "Alerts", hideMobile: true },
     { href: "/me/issues",       icon: LifeBuoy,        label: "My Reported Issues", mobileLabel: "Reports", hideMobile: true },
+    { href: "/me/settings",     icon: Settings,        label: "Settings",        mobileLabel: "Settings", hideMobile: true },
+    ...(!isPremium
+      ? [{ href: "/pricing", icon: Crown, label: "Upgrade", mobileLabel: "Upgrade", hideMobile: true, badge: { text: "Premium", className: "plan-premium", title: "See what Premium includes" } } satisfies AppNavItem]
+      : []),
     { href: "/tools",           icon: Wrench,          label: "Tools",           mobileLabel: "Tools" },
     { href: "/",                icon: Home,            label: "Home",            mobileLabel: "Home",    exact: true, hideMobile: true },
   ];

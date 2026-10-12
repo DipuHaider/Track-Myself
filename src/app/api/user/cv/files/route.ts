@@ -10,8 +10,12 @@ import {
   listCVFiles, migrateLegacyCVFiles, resolveFileMime,
 } from "@/lib/cvFiles";
 import { CV_FILE_CATEGORIES, type CVFileCategory } from "@/types/cv";
+import { base64Bytes } from "@/lib/cvFileTypes";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
+import { tooMany } from "@/lib/api/respond";
 
 const MAX_FILES = 40;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 export async function GET() {
   const auth = await requireAuth();
@@ -23,15 +27,19 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
+
+  const gate = await checkRateLimitDb({ key: `cv-files:user:${auth.id}`, limit: 30, windowMs: 60 * 60 * 1000 });
+  if (!gate.ok) return tooMany(gate, "Too many uploads this hour.");
+
   await dbConnect();
 
-  const body = await req.json();
-  const { name, size, mimeType, data } = body as {
-    name: string;
-    size: number;
-    mimeType: string;
-    data: string;
-  };
+  const body = await req.json().catch(() => ({}));
+  const { mimeType, data } = body as { mimeType: string; data: string };
+  const name = typeof body.name === "string" ? body.name.trim().slice(0, 160) : "";
+  if (typeof data !== "string" || !BASE64.test(data)) {
+    return NextResponse.json({ error: "File data must be base64." }, { status: 400 });
+  }
+  const size = base64Bytes(data);
   const category = (body.category ?? "other") as CVFileCategory;
 
   if (!name || !mimeType || !data) {

@@ -6,6 +6,8 @@ import Modal from "@/components/shared/Modal";
 import GapAnalysisSection from "@/components/applications/GapAnalysisSection";
 import StatusBadge from "@/components/applications/StatusBadge";
 import ApplicationTimeline from "@/components/applications/ApplicationTimeline";
+import InterviewRounds from "@/components/applications/InterviewRounds";
+import { useInterviews } from "@/hooks/useInterviews";
 import { OFFER_RECEIVED_STATUS, joinJobTypes, parseJobTypes, responseOptionsFor } from "@/constants/applicationStatus";
 import { formatLocation } from "@/lib/applicationLocation";
 import { formatSalary } from "@/lib/salary";
@@ -18,8 +20,8 @@ function fileExt(name: string) {
 function FileTypeIcon({ name }: { name: string }) {
   const ext = fileExt(name);
   if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext))
-    return <ImageIcon size={14} className="shrink-0 text-blue-500" />;
-  if (ext === "pdf") return <FileText size={14} className="shrink-0 text-red-500" />;
+    return <ImageIcon size={14} className="shrink-0 text-info" />;
+  if (ext === "pdf") return <FileText size={14} className="shrink-0 text-danger" />;
   return <File size={14} className="shrink-0 text-muted" />;
 }
 
@@ -74,11 +76,14 @@ export default function ViewApplicationModal({
   open,
   onClose,
   application,
+  interviewsOpen = false,
 }: {
   open: boolean;
   onClose: () => void;
   application: Application | null;
+  interviewsOpen?: boolean;
 }) {
+  const { interviews } = useInterviews(open && application ? application._id : null);
   if (!application) return null;
 
   const att = application.attachments ?? [];
@@ -219,7 +224,8 @@ export default function ViewApplicationModal({
       </div>
 
       <aside className="border-t px-5 py-4 md:max-h-[75vh] md:overflow-y-auto md:border-l md:border-t-0">
-        <ApplicationTimeline application={application} />
+        <InterviewRounds key={`${application._id}:${interviewsOpen}`} applicationId={application._id} defaultOpen={interviewsOpen} />
+        <ApplicationTimeline application={application} interviews={interviews} />
       </aside>
       </div>
 
@@ -227,7 +233,7 @@ export default function ViewApplicationModal({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md border px-4 py-2 text-sm transition hover:bg-[var(--surface-2)]"
+          className="btn-secondary rounded-md px-4 py-2 text-sm"
         >
           Close
         </button>

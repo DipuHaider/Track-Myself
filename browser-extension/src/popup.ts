@@ -1,5 +1,9 @@
 const APP_URL = "https://trackmyself.webarden.tech";
 
+/* A module, not a classic script: top-level names like `status` and `open`
+   would otherwise collide with window globals. */
+export {};
+
 type AuthReply = { ok?: boolean; user?: { name?: string; email?: string } };
 
 const dot = document.getElementById("dot");

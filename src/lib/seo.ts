@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://track-myself.vercel.app";
 
@@ -20,6 +22,7 @@ export const PUBLIC_ROUTES = [
   { path: "/tools/pdf-splitter", priority: 0.7, changeFrequency: "monthly" as const },
   { path: "/tools/pdf-editor", priority: 0.8, changeFrequency: "monthly" as const },
   { path: "/tools/docx-editor", priority: 0.8, changeFrequency: "monthly" as const },
+  { path: "/pricing", priority: 0.8, changeFrequency: "monthly" as const },
   { path: "/faq", priority: 0.7, changeFrequency: "monthly" as const },
   { path: "/register", priority: 0.6, changeFrequency: "yearly" as const },
   { path: "/terms", priority: 0.3, changeFrequency: "yearly" as const },
@@ -36,5 +39,14 @@ export function privateMetadata(title: string) {
   return {
     ...NOINDEX,
     title: { default: title, template: `%s · ${SITE_NAME}` },
+  };
+}
+
+export function toolMetadata({ slug, title, description }: { slug: string; title: string; description: string }): Metadata {
+  return {
+    title,
+    description,
+    alternates: { canonical: `/tools/${slug}` },
+    openGraph: { title, description, url: `${SITE_URL}/tools/${slug}`, type: "website" },
   };
 }

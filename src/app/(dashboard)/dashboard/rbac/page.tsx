@@ -3,6 +3,8 @@ import { getSessionUser } from "@/lib/serverAuth";
 import { isAdmin, isSuperAdmin } from "@/lib/permissions";
 import AccessControlPanel from "@/components/dashboard/AccessControlPanel";
 
+export const metadata = { title: "Access control" };
+
 export default async function AccessControlPage() {
   const user = await getSessionUser();
   if (!isAdmin(user?.role)) redirect("/dashboard");

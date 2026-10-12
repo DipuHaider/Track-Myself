@@ -3,7 +3,10 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
 const UserSchema = new Schema(
   {
     name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    emailVerifiedAt: { type: Date },
+    lastLoginAt: { type: Date, default: null },
+    deletingAt: { type: Date, default: null },
     password: { type: String, required: false },
     googleId: { type: String, default: null },
     role: {
@@ -24,10 +27,20 @@ const UserSchema = new Schema(
     },
     pausedAt: { type: Date, default: null },
     sessionsValidFrom: { type: Date, default: null },
+    billing: {
+      provider: { type: String, default: "" },
+      customerId: { type: String, default: "" },
+      subscriptionId: { type: String, default: "" },
+      status: { type: String, enum: ["none", "trialing", "active", "past_due", "cancelled"], default: "none" },
+      currentPeriodEnd: { type: Date, default: null },
+      updatedAt: { type: Date, default: null },
+    },
     bio: { type: String, default: "" },
     image: { type: String, default: "" },
     toursSeen: { type: [String], default: [] },
     notifSeen: { type: [String], default: [] },
+    notifDismissed: { type: [String], default: [] },
+    notifPrefs: { type: Map, of: Boolean, default: {} },
     aiKey: {
       provider: { type: String, enum: ["anthropic", "gemini", "openai-compatible"], default: null },
       model: { type: String, default: "" },

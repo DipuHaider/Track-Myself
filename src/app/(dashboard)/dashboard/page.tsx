@@ -1,9 +1,9 @@
+export const dynamic = "force-dynamic";
+
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import StatCard from "@/components/dashboard/StatCard";
-import ApplicationsChart from "@/components/dashboard/ApplicationsChart";
-import FunnelChart from "@/components/dashboard/FunnelChart";
-import StatusDistribution from "@/components/dashboard/StatusDistribution";
+import { ApplicationsChart, FunnelChart, StatusDistribution } from "@/components/dashboard/LazyCharts";
 import RecentApplications from "@/components/dashboard/RecentApplications";
 import UserStatsSection from "@/components/dashboard/UserStatsSection";
 

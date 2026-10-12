@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Briefcase, Compass, LifeBuoy, ListTodo, Settings2, Sparkles } from "lucide-react";
 import A11ySettingsModal from "@/components/shared/A11ySettingsModal";
 import ReportIssueModal from "@/components/shared/ReportIssueModal";
 import TodoModal from "@/components/portal/TodoModal";
 import { TOUR_EVENT, TOUR_PENDING_KEY, scopeForPath } from "@/lib/tour";
+import { useTourState } from "@/hooks/useTourState";
 
 const POS_KEY = "tm-bubble-pos";
 const ORB = 48;
@@ -67,8 +68,9 @@ export default function QuickBubble() {
   const [showSettings, setShowSettings] = useState(false);
   const [showTodos, setShowTodos] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [tourUnseen, setTourUnseen] = useState(false);
-  const tourChecked = useRef(false);
+  const [tourTaken, setTourTaken] = useState(false);
+  const { state: tourState } = useTourState();
+  const pathname = usePathname();
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setPos(readPos()));
@@ -102,22 +104,13 @@ export default function QuickBubble() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!signedIn || tourChecked.current) return;
-    tourChecked.current = true;
-
-    let cancelled = false;
-    fetch("/api/user/tour")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled) setTourUnseen(Boolean(d?.enabled) && !d?.seen);
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [signedIn]);
+  /* The old check tested `!seen` on an array, which is never true, so the
+     pulse never showed. Now it asks whether this page's tour is on and unseen. */
+  const tourUnseen = useMemo(() => {
+    if (tourTaken || !signedIn || !tourState) return false;
+    const scope = scopeForPath(pathname ?? "/");
+    return Boolean(scope && tourState.enabled[scope] && !tourState.seen.includes(scope));
+  }, [tourTaken, signedIn, tourState, pathname]);
 
   useEffect(() => {
     if (!pinned) return;
@@ -228,7 +221,7 @@ export default function QuickBubble() {
     },
     ...(signedIn
       ? [
-          { icon: <Compass size={15} aria-hidden="true" />, label: "Take the tour", onClick: () => { setTourUnseen(false); startTour(); }, pulse: tourUnseen },
+          { icon: <Compass size={15} aria-hidden="true" />, label: "Take the tour", onClick: () => { setTourTaken(true); startTour(); }, pulse: tourUnseen },
         ]
       : []),
     { icon: <Settings2 size={15} aria-hidden="true" />, label: "Accessibility", onClick: () => { setOpen(false); setPinned(false); setShowSettings(true); } },

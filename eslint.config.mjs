@@ -33,7 +33,7 @@ const eslintConfig = defineConfig([
       "no-restricted-imports": ["error", {
         paths: [{
           name: "@/lib/cv/ai/provider",
-          importNames: ["callProvider", "resolveCredentials", "aiConfigured"],
+          importNames: ["callProvider"],
           message: "Provider calls go through runAiTask() in @/lib/ai/gateway. Types are re-exported and remain importable.",
         }],
       }],
@@ -45,6 +45,39 @@ const eslintConfig = defineConfig([
         selector: "MemberExpression[object.object.name='process'][object.property.name='env'][property.name=/^(ANTHROPIC|OPENAI|GEMINI)_API_KEY$/]",
         message: "Shared provider keys are read only in the AI gateway.",
       }],
+    },
+  },
+
+  /* Dark mode lives in globals.css under [data-theme="dark"], and colour comes
+     from the semantic classes and tokens there. Tailwind's dark: variant and
+     raw palette classes bypass both and break in one theme or the other. */
+  {
+    files: ["src/**/*.tsx"],
+    ignores: [
+      "src/components/site/CVBuilderSection.tsx",
+      "src/app/opengraph-image.tsx",
+      "src/app/tools/banner-generator/**",
+      "src/lib/cv/pdf/**",
+    ],
+    rules: {
+      "no-restricted-syntax": ["error",
+        {
+          selector: "JSXAttribute[name.name='className'] Literal[value=/(^|\\s)dark:/]",
+          message: "No Tailwind dark: variants — add a [data-theme=\"dark\"] rule in globals.css.",
+        },
+        {
+          selector: "JSXAttribute[name.name='className'] TemplateElement[value.raw=/(^|\\s)dark:/]",
+          message: "No Tailwind dark: variants — add a [data-theme=\"dark\"] rule in globals.css.",
+        },
+        {
+          selector: "JSXAttribute[name.name='className'] Literal[value=/(^|\\s|:)(text|bg|border|ring|from|to|via|divide|placeholder)-(red|green|emerald|amber|rose|blue|yellow|orange|violet|purple|indigo|sky|cyan|teal|lime|pink|fuchsia|gray|slate|zinc|neutral|stone)-\\d{2,3}(\\/\\d+)?(\\s|$)/]",
+          message: "Use the semantic classes/tokens from globals.css (.alert-*, .text-danger, .surface, var(--…)) instead of raw palette classes.",
+        },
+        {
+          selector: "JSXAttribute[name.name='className'] TemplateElement[value.raw=/(^|\\s|:)(text|bg|border|ring|from|to|via|divide|placeholder)-(red|green|emerald|amber|rose|blue|yellow|orange|violet|purple|indigo|sky|cyan|teal|lime|pink|fuchsia|gray|slate|zinc|neutral|stone)-\\d{2,3}(\\/\\d+)?(\\s|$)/]",
+          message: "Use the semantic classes/tokens from globals.css (.alert-*, .text-danger, .surface, var(--…)) instead of raw palette classes.",
+        },
+      ],
     },
   },
 ]);

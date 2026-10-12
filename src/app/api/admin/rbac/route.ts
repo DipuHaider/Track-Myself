@@ -16,6 +16,7 @@ import {
   resetAccessMatrix,
   saveAccessMatrix,
 } from "@/lib/rbac";
+import { recordAdminAction } from "@/lib/audit";
 
 function payload(state: Awaited<ReturnType<typeof getAccessControl>>) {
   return {
@@ -49,6 +50,7 @@ export async function PUT(req: Request) {
   }
 
   const state = await saveAccessMatrix(body.matrix as Record<string, unknown>, auth);
+  await recordAdminAction({ actor: auth, action: "rbac.update", targetType: "settings", targetId: "rbac", after: state.matrix as unknown as Record<string, unknown>, req });
   return NextResponse.json(payload(state));
 }
 
@@ -57,5 +59,6 @@ export async function DELETE() {
   if (auth instanceof NextResponse) return auth;
 
   const state = await resetAccessMatrix(auth);
+  await recordAdminAction({ actor: auth, action: "rbac.reset", targetType: "settings", targetId: "rbac" });
   return NextResponse.json(payload(state));
 }

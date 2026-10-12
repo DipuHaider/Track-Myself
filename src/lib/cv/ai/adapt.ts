@@ -1,9 +1,8 @@
-import { runAiTask, type Actor } from "@/lib/ai/gateway";
+import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
+import { fence } from "@/lib/ai/prompt";
+import { tailorOutputSchema } from "@/lib/ai/schemas";
 import type { AiTaskId } from "@/lib/ai/config";
-import {
-  PROVIDER_LABELS,
-  type AICredential, type AIProvider, type FailureKind, type TokenUsage,
-} from "./provider";
+import type { AICredential, AIProvider } from "./provider";
 import type { CVContent, CVSkillGroup } from "@/types/cv";
 
 export const JD_MAX = 24_000;
@@ -77,7 +76,7 @@ export function buildTailorPrompt(
   const revision = opts.correction?.trim()
     ? `
 THE CANDIDATE REVIEWED YOUR PREVIOUS VERSION AND ASKED FOR THIS
-${opts.correction.trim().slice(0, CORRECTION_MAX)}
+${fence("correction", opts.correction.trim().slice(0, CORRECTION_MAX))}
 
 ${opts.previousSummary?.trim() ? `Your previous summary was:\n${opts.previousSummary.trim()}\n` : ""}
 Revise that version to address the request. Keep everything they did not ask you to change.
@@ -102,7 +101,7 @@ Education: ${content.education.map((e) => `${e.degree}, ${e.school} (${e.dates})
 Languages: ${content.languages.map((l) => `${l.name} (${l.level})`).join(", ") || "N/A"}
 
 JOB DESCRIPTION
-${jobDescription.trim()}
+${fence("job_description", jobDescription.trim())}
 ${revision}
 Return ONLY a valid JSON object with these keys, no markdown and no explanation:
 {
@@ -113,38 +112,6 @@ Return ONLY a valid JSON object with these keys, no markdown and no explanation:
 }
 The "skills" array must contain exactly the same group labels as the input, reordered so the group most
 relevant to this job comes first, and with the items inside each group reordered the same way.`;
-}
-
-function parseTailorJson(content: CVContent, text: string): TailorOutput | null {
-  /* responseMimeType gets us clean JSON from Gemini, but Claude wraps prose around
-     it often enough that the brace grab stays as the safety net. */
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-
-  let parsed: {
-    positioning?: string;
-    summary?: string;
-    summaryShort?: string;
-    skills?: { label?: string; items?: string }[];
-  };
-  try {
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch {
-    return null;
-  }
-
-  const proposed = Array.isArray(parsed.skills)
-    ? parsed.skills
-        .map((g) => ({ label: String(g?.label ?? ""), items: String(g?.items ?? "") }))
-        .filter((g) => g.label || g.items)
-    : [];
-
-  return {
-    positioning: typeof parsed.positioning === "string" ? parsed.positioning : "",
-    summary: typeof parsed.summary === "string" ? parsed.summary : "",
-    summaryShort: typeof parsed.summaryShort === "string" ? parsed.summaryShort : "",
-    skills: reconcileSkills(content.skills, proposed),
-  };
 }
 
 /**
@@ -160,9 +127,10 @@ function parseTailorJson(content: CVContent, text: string): TailorOutput | null 
    heuristic fallback still fires. An exhausted allowance is an "error" carrying
    a message worth showing, not a silent degradation. */
 function tailorKind(
-  run: Extract<Awaited<ReturnType<typeof runAiTask>>, { ok: false }>,
+  run: { reason: string; kind?: string },
 ): "no-key" | "upstream" | "unparsable" | "error" {
   if (run.reason === "disabled" || run.reason === "no-route") return "no-key";
+  if (run.reason === "unparsable") return "unparsable";
   if (run.reason === "upstream") return run.kind === "empty" ? "unparsable" : "upstream";
   return "error";
 }
@@ -181,26 +149,27 @@ export async function runTailor(
 ): Promise<TailorResult> {
   const prompt = buildTailorPrompt(content, jobDescription, opts);
 
-  const run = await runAiTask({
+  const run = await runAiJsonTask({
     task: opts.task ?? "cv.adapt",
     actor: opts.actor,
     prompt,
     userKey: opts.userKey,
     rate: opts.rate,
+    schema: tailorOutputSchema,
+    kind: "object",
+    schemaHint: '{"positioning": string, "summary": string, "summaryShort": string, "skills": [{"label": string, "items": string}]}',
   });
 
   if (!run.ok) return { ok: false, kind: tailorKind(run), error: run.message };
 
-  const value = parseTailorJson(content, run.text);
-  if (!value) {
-    return {
-      ok: false,
-      kind: "unparsable",
-      error: `${run.providerLabel} returned something that was not CV JSON.`,
-    };
-  }
+  const value: TailorOutput = {
+    positioning: run.value.positioning,
+    summary: run.value.summary,
+    summaryShort: run.value.summaryShort,
+    skills: reconcileSkills(content.skills, run.value.skills.filter((g) => g.label || g.items)),
+  };
 
-  return { ok: true, value, provider: "anthropic", providerLabel: run.providerLabel };
+  return { ok: true, value, provider: run.meta.provider, providerLabel: run.meta.providerLabel };
 }
 
 /** Applies only the fields the model is allowed to touch, and reports which moved. */

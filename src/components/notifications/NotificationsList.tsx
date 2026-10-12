@@ -4,19 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BellOff, CheckCheck, X } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
-import { NOTIFICATION_TYPES, type NotificationType } from "@/lib/notifications/types";
-
-const TYPE_LABELS: Record<NotificationType, string> = {
-  ghost: "Ghost listings",
-  duplicate: "Duplicates",
-  interview: "Interviews",
-  "follow-up": "Follow-ups",
-  todo: "To-dos",
-  "issue-update": "Issue updates",
-  "issue-new": "New reports",
-  account: "Account",
-  "ai-key": "AI key",
-};
+import { NOTIFICATION_TYPES, TYPE_LABELS, type NotificationType } from "@/lib/notifications/types";
 
 type Filter = "all" | "unread" | NotificationType;
 

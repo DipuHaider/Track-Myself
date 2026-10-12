@@ -214,7 +214,7 @@ export const FAQ: FaqItem[] = [
     id: "delete-data",
     category: "Privacy & data",
     q: "How do I delete my data?",
-    a: "Delete any individual application or document at any time from within the app. To remove the whole account, open your profile page and use Delete account under Account. You type DELETE to confirm, and enter your password if you have one. The account, its applications, interviews, reminders, CV profile and uploaded files are erased together, immediately and permanently — no support ticket, no waiting period.",
+    a: "Delete any individual application or document at any time from within the app. To remove the whole account, open your profile page and use Delete account under Account. You type DELETE to confirm, and enter your password if you have one. The account, its applications, interviews, to-dos, notifications, issue reports, CV profile and uploaded files are erased together, immediately and permanently — no support ticket, no waiting period.",
     links: [{ label: "My profile", href: "/me" }],
   },
   {

@@ -67,7 +67,7 @@ export default function PdfPage({
       style={{
         transform: rotation ? `rotate(${rotation}deg)` : undefined,
         opacity: deleted ? 0.25 : 1,
-        outline: deleted ? "2px dashed #b91c1c" : undefined,
+        outline: deleted ? "2px dashed var(--danger)" : undefined,
       }}
     >
       <canvas ref={canvasRef} className="block" />

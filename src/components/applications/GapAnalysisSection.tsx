@@ -89,7 +89,7 @@ export default function GapAnalysisSection({ applicationId }: { applicationId: s
       </div>
 
       {data.note && <p className="text-muted mb-3 text-[11px] leading-snug">{data.note}</p>}
-      {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="text-danger mb-2 text-xs">{error}</p>}
 
       {!items.length && (
         <p className="text-muted text-xs">

@@ -3,7 +3,7 @@ import User from "@/models/User";
 import { decryptSecret, secretBoxReady } from "@/lib/crypto/secretBox";
 import {
   PROVIDER_DEFAULT_MODEL, callProvider,
-  type AICredential, type AIProvider, type FailureKind, type TokenUsage,
+  type AICredential, type AIProvider,
 } from "@/lib/cv/ai/provider";
 
 export const AI_PROVIDERS: AIProvider[] = ["anthropic", "gemini", "openai-compatible"];
@@ -63,7 +63,7 @@ export async function getUserCredential(userId: string): Promise<AICredential | 
 /* A one-token probe so the form can reject a bad key immediately rather than
    letting it fail later inside a CV generation the user has already waited for. */
 export async function validateKey(cred: AICredential) {
-  const call = await callProvider(cred, "Reply with the single word: ok", 16);
+  const call = await callProvider(cred, "Reply with the single word: ok", 16, { timeoutMs: 10_000 });
   if (call.ok) return { ok: true as const };
   if (call.kind === "empty") return { ok: true as const };
   return { ok: false as const, kind: call.kind, error: call.error };

@@ -28,7 +28,6 @@ const AppSettingsSchema = new Schema(
       ceilingUsd: { type: Number, default: 9 },
       freeMonthlyAttempts: { type: Number, default: 10 },
       premiumMonthlyAttempts: { type: Number, default: 200 },
-      anonDailyAttempts: { type: Number, default: 0 },
       taskModels: { type: Schema.Types.Mixed, default: undefined },
     },
   },

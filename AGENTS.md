@@ -27,7 +27,7 @@ Do not use Tailwind `dark:` variants. Dark mode is handled via `[data-theme="dar
 Use semantic utility classes from globals.css before reaching for inline Tailwind: .surface, .surface-muted, .text-muted, .text-primary, .btn-primary, .role-badge, status/priority/ghost badge classes.
 
 ## Comments
-Do not add inline comments or JSDoc. The codebase is uncommented by convention.
+No JSDoc, no narrating comments, no commented-out code. A short rationale block comment (`/* … */`) is allowed in src/lib/**, API routes and config files when it explains a non-obvious constraint — money, security, concurrency or a platform quirk — that the code alone cannot convey.
 
 ## Route protection
 Guards live in layout.tsx files. Do not create src/middleware.ts — src/proxy.ts covers withAuth. If protecting a new route, use layout, not middleware, unless explicitly asked.

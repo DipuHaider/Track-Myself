@@ -40,8 +40,23 @@ export function isEditor(role?: string | null): boolean {
   return role === "superadmin" || role === "admin" || role === "editor";
 }
 
-export function isPaid(role?: string | null): boolean {
-  return role === "paid" || isAdmin(role);
+const ROLE_RANK: Record<Role, number> = { superadmin: 4, admin: 3, editor: 2, paid: 1, free: 1 };
+
+export function roleRank(role?: string | null): number {
+  return ROLE_RANK[role as Role] ?? 0;
+}
+
+/* A staff member may only act on accounts strictly below their own rank and
+   may only hand out roles strictly below it: an admin cannot edit, demote or
+   mint another admin. Superadmin is unrestricted. */
+export function canManageRole(actor?: string | null, target?: string | null): boolean {
+  if (isSuperAdmin(actor)) return true;
+  return roleRank(actor) > roleRank(target);
+}
+
+export function canAssignRole(actor?: string | null, next?: string | null): boolean {
+  if (isSuperAdmin(actor)) return true;
+  return roleRank(actor) > roleRank(next);
 }
 
 /* ── Dashboard action → minimum roles allowed ── */
@@ -57,7 +72,8 @@ export type DashboardAction =
   | "delete:users"
   | "view:issues"
   | "manage:issues"
-  | "assign:superadmin";
+  | "assign:superadmin"
+  | "view:audit";
 
 export const ACTION_ROLES: Record<DashboardAction, readonly Role[]> = {
   "view:analytics":    ["superadmin", "admin", "editor"],
@@ -72,6 +88,7 @@ export const ACTION_ROLES: Record<DashboardAction, readonly Role[]> = {
   "view:issues":       ["superadmin", "admin", "editor"],
   "manage:issues":     ["superadmin", "admin"],
   "assign:superadmin": ["superadmin"],
+  "view:audit": ["superadmin", "admin"],
 };
 
 export const ACTION_LABELS: Record<DashboardAction, string> = {
@@ -87,6 +104,7 @@ export const ACTION_LABELS: Record<DashboardAction, string> = {
   "view:issues":       "View issue reports",
   "manage:issues":     "Triage issue reports",
   "assign:superadmin": "Assign the superadmin role",
+  "view:audit": "View audit log",
 };
 
 export const ACTION_DESCRIPTIONS: Record<DashboardAction, string> = {
@@ -102,6 +120,7 @@ export const ACTION_DESCRIPTIONS: Record<DashboardAction, string> = {
   "view:issues":       "Open the issue reports queue and read what users have reported.",
   "manage:issues":     "Change an issue report's status or leave a triage note.",
   "assign:superadmin": "Grant or modify the superadmin role. Superadmin only.",
+  "view:audit": "Read the record of administrative changes: roles, plans, pauses, settings and maintenance runs.",
 };
 
 export const DASHBOARD_ACTIONS = Object.keys(ACTION_ROLES) as DashboardAction[];
@@ -113,9 +132,10 @@ export function canDo(role: string | null | undefined, action: DashboardAction):
   return (ACTION_ROLES[action] as readonly string[]).includes(role);
 }
 
-export function canUseLebenslauf(role?: string | null, email?: string | null): boolean {
-  if (isSuperAdmin(role)) return true;
-  return SUPERADMIN_EMAILS.includes(email as (typeof SUPERADMIN_EMAILS)[number]);
+/* Role only: the JWT role is already verified-gated (effectiveRole), so an
+   account merely registered under a superadmin address gets nothing here. */
+export function canUseLebenslauf(role?: string | null): boolean {
+  return isSuperAdmin(role);
 }
 
 /* ── CV entitlements ──────────────────────────────────────────────────────

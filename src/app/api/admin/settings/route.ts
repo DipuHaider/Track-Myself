@@ -1,9 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireAdminAuth } from "@/lib/serverAuth";
+import { requireActiveAdminAuth, requireAdminAuth } from "@/lib/serverAuth";
 import { getAppSettings, saveAppSettings } from "@/lib/appSettings";
 import { TOUR_SCOPES, type TourScope } from "@/lib/tour";
+import { recordAdminAction } from "@/lib/audit";
 
 export async function GET() {
   const auth = await requireAdminAuth();
@@ -13,7 +14,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const auth = await requireAdminAuth();
+  const auth = await requireActiveAdminAuth();
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json().catch(() => null);
@@ -28,5 +29,6 @@ export async function PUT(req: Request) {
   }
 
   const saved = await saveAppSettings(patch, auth.email ?? "");
+  await recordAdminAction({ actor: auth, action: "settings.update", targetType: "settings", targetId: "tours", after: patch, req });
   return NextResponse.json(saved);
 }

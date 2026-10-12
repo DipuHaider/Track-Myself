@@ -18,7 +18,8 @@ export type AiTaskId =
   | "tools.banner-brief"
   | "cv.gap-analysis"
   | "cover-letter.write"
-  | "salary.estimate";
+  | "salary.estimate"
+  | "applications.triage";
 
 export const AI_TASKS: AiTaskId[] = [
   "cv.adapt",
@@ -28,7 +29,12 @@ export const AI_TASKS: AiTaskId[] = [
   "cv.gap-analysis",
   "cover-letter.write",
   "salary.estimate",
+  "applications.triage",
 ];
+
+/* Owner's rule: the shared money ceiling never exceeds this, whatever the
+   settings document says. Only superadmin may change it at all. */
+export const MAX_CEILING_USD = 10;
 
 export type AiConfig = {
   enabled: boolean;
@@ -36,7 +42,6 @@ export type AiConfig = {
   ceilingNano: number;
   freeMonthlyAttempts: number;
   premiumMonthlyAttempts: number;
-  anonDailyAttempts: number;
   taskModels: Partial<Record<AiTaskId, ModelId>>;
 };
 
@@ -54,7 +59,6 @@ export const AI_CONFIG_DEFAULTS: AiConfig = {
   ceilingNano: usdToNano(9),
   freeMonthlyAttempts: 10,
   premiumMonthlyAttempts: 200,
-  anonDailyAttempts: 0,
   taskModels: {},
 };
 
@@ -68,10 +72,9 @@ export function invalidateAiConfig() {
 
 const patchSchema = z.object({
   enabled: z.boolean().optional(),
-  ceilingUsd: z.number().min(0).max(1000).optional(),
+  ceilingUsd: z.number().min(0).max(MAX_CEILING_USD).optional(),
   freeMonthlyAttempts: z.number().int().min(0).max(100000).optional(),
   premiumMonthlyAttempts: z.number().int().min(0).max(100000).optional(),
-  anonDailyAttempts: z.number().int().min(0).max(100000).optional(),
   sharedModels: z
     .array(
       z.object({
@@ -83,8 +86,6 @@ const patchSchema = z.object({
     .optional(),
   taskModels: z.record(z.string(), z.string()).optional(),
 });
-
-export type AiConfigPatch = z.infer<typeof patchSchema>;
 
 export async function getAiConfig(): Promise<AiConfig> {
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value;
@@ -103,11 +104,12 @@ export async function getAiConfig(): Promise<AiConfig> {
       sharedModels: (ai?.sharedModels?.length ? ai.sharedModels : AI_CONFIG_DEFAULTS.sharedModels)
         .filter((m) => known.has(m.modelId))
         .sort((a, b) => a.order - b.order),
-      ceilingNano:
+      ceilingNano: Math.min(
         typeof ai?.ceilingUsd === "number" ? usdToNano(ai.ceilingUsd) : AI_CONFIG_DEFAULTS.ceilingNano,
+        usdToNano(MAX_CEILING_USD),
+      ),
       freeMonthlyAttempts: ai?.freeMonthlyAttempts ?? AI_CONFIG_DEFAULTS.freeMonthlyAttempts,
       premiumMonthlyAttempts: ai?.premiumMonthlyAttempts ?? AI_CONFIG_DEFAULTS.premiumMonthlyAttempts,
-      anonDailyAttempts: ai?.anonDailyAttempts ?? AI_CONFIG_DEFAULTS.anonDailyAttempts,
       taskModels: (ai?.taskModels as Partial<Record<AiTaskId, ModelId>>) ?? {},
     };
 
@@ -126,8 +128,13 @@ export async function getAiConfig(): Promise<AiConfig> {
    same request. Nothing else should read a ceiling from config — the reservation
    guard compares against the document, so lowering the ceiling bites at once
    rather than after the cache expires. */
-export async function saveAiConfig(patch: unknown, updatedBy: string): Promise<AiConfig> {
+export async function saveAiConfig(
+  patch: unknown,
+  updatedBy: string,
+  opts: { allowCeiling?: boolean } = {},
+): Promise<AiConfig> {
   const parsed = patchSchema.parse(patch);
+  if (!opts.allowCeiling) delete parsed.ceilingUsd;
 
   await dbConnect();
 

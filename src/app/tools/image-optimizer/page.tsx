@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, ImageIcon, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, Download, ImageIcon, Upload, X } from "lucide-react";
+import DropZone from "@/components/shared/DropZone";
 
 type OutputFormat = "original" | "image/jpeg" | "image/png" | "image/webp";
 
@@ -62,8 +63,6 @@ export default function ImageOptimizerPage() {
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [quality, setQuality] = useState(80);
   const [format, setFormat] = useState<OutputFormat>("original");
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const accepted = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -81,15 +80,6 @@ export default function ImageOptimizerPage() {
       })),
     ]);
   }, []);
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragging(false);
-      addFiles(e.dataTransfer.files);
-    },
-    [addFiles],
-  );
 
   const processAll = async () => {
     setImages((prev) =>
@@ -237,42 +227,27 @@ export default function ImageOptimizerPage() {
 
       {/* Savings summary */}
       {processed.length > 0 && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-5 py-3 text-sm dark:border-green-900 dark:bg-green-950/30">
-          <span className="font-semibold text-green-700 dark:text-green-400">
-            {savings}% smaller
-          </span>
-          <span className="text-green-600 dark:text-green-500">
+        <div className="alert alert-success block rounded-xl px-5 py-3 text-sm">
+          <span className="font-semibold">{savings}% smaller</span>
+          <span>
             {" "}— {formatBytes(totalOriginal)} → {formatBytes(totalCompressed)} ({processed.length} image{processed.length !== 1 ? "s" : ""})
           </span>
         </div>
       )}
 
-      {/* Drop zone */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-12 text-center transition ${
-          dragging
-            ? "border-[var(--primary)] bg-[var(--primary)]/5"
-            : "border-[var(--border)] hover:border-[var(--primary)] hover:bg-[var(--surface-2)]"
-        }`}
+      <DropZone
+        accept="image/*"
+        multiple
+        label="Upload images to optimise"
+        className="flex flex-col items-center justify-center gap-3 p-12 text-center"
+        onFiles={addFiles}
       >
-        <Upload size={28} className="text-muted" />
+        <Upload size={28} className="text-muted" aria-hidden="true" />
         <div>
           <p className="font-medium">Drop images here or click to upload</p>
           <p className="text-muted mt-1 text-sm">JPEG, PNG, WebP — any size</p>
         </div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={(e) => e.target.files && addFiles(e.target.files)}
-        />
-      </div>
+      </DropZone>
 
       {/* Image list */}
       {images.length > 0 && (
@@ -291,7 +266,7 @@ export default function ImageOptimizerPage() {
               <button
                 type="button"
                 onClick={() => setImages([])}
-                className="rounded-md border px-3 py-1.5 text-sm transition hover:bg-red-50 hover:text-red-600"
+                className="rounded-md border px-3 py-1.5 text-sm transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
               >
                 Clear all
               </button>
@@ -315,8 +290,8 @@ export default function ImageOptimizerPage() {
                     className="h-full w-full object-cover"
                   />
                   {entry.processing && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)" }}>
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: "#fff", borderTopColor: "transparent" }} />
                     </div>
                   )}
                 </div>
@@ -331,7 +306,7 @@ export default function ImageOptimizerPage() {
                         <span>→ {formatBytes(entry.compressed.size)}</span>
                         <span
                           className={`font-semibold ${
-                            saving! > 0 ? "text-green-600" : "text-amber-600"
+                            saving! > 0 ? "text-success" : "text-warning"
                           }`}
                         >
                           {saving! > 0 ? `-${saving}%` : `+${Math.abs(saving!)}%`}
@@ -339,7 +314,7 @@ export default function ImageOptimizerPage() {
                       </>
                     )}
                     {entry.error && (
-                      <span className="text-red-500">{entry.error}</span>
+                      <span className="text-danger">{entry.error}</span>
                     )}
                   </div>
                 </div>
@@ -377,7 +352,7 @@ export default function ImageOptimizerPage() {
                     type="button"
                     onClick={() => remove(entry.id)}
                     title="Remove"
-                    className="rounded-md p-1.5 text-muted transition hover:bg-red-50 hover:text-red-500"
+                    className="rounded-md p-1.5 text-muted transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
                   >
                     <X size={16} />
                   </button>

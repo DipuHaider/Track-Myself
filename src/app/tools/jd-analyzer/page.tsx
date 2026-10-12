@@ -222,7 +222,7 @@ export default function JDAnalyzerPage() {
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium">Job Description</label>
           {text && (
-            <button onClick={handleClear} className="text-muted flex items-center gap-1 text-xs hover:text-red-500 transition">
+            <button onClick={handleClear} className="text-muted flex items-center gap-1 text-xs transition hover:text-[var(--danger)]">
               <X size={12} /> Clear
             </button>
           )}
@@ -271,7 +271,7 @@ export default function JDAnalyzerPage() {
                   onClick={handleCopySkills}
                   className="flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition hover:bg-[var(--surface-2)]"
                 >
-                  {copied ? <><Check size={11} style={{ color: "#10b981" }} /> Copied</> : <><ClipboardCopy size={11} /> Copy all skills</>}
+                  {copied ? <><Check size={11} className="text-success" /> Copied</> : <><ClipboardCopy size={11} /> Copy all skills</>}
                 </button>
               )}
             </div>

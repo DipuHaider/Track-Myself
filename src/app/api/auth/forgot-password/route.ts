@@ -37,14 +37,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
     }
 
-    const email = parsed.data.email.toLowerCase().trim();
-    const user = (await User.findOne({ email }, "name email password status").lean()) as
-      | { _id: unknown; name?: string; email?: string; password?: string; status?: string }
+    const email = parsed.data.email;
+    const user = (await User.findOne({ email }, "name email password status emailVerifiedAt").lean()) as
+      | { _id: unknown; name?: string; email?: string; password?: string; status?: string; emailVerifiedAt?: Date | null }
       | null;
 
-    /* No password means the account signs in with Google, so there is nothing to
-       reset — and no email, or the reply would reveal the account exists. */
-    if (!user || !user.password || user.status === "paused") {
+    /* A Google-only account may set its first password this way — the link
+       proves the inbox, which a stolen session cannot. An account that never
+       verified its address gets nothing, or a reset becomes a verification bypass. */
+    if (!user || user.status === "paused" || user.emailVerifiedAt === null) {
       return NextResponse.json(ACCEPTED);
     }
 

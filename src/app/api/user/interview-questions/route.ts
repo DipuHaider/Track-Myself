@@ -3,10 +3,10 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { Packer } from "docx";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { requireAuth } from "@/lib/serverAuth";
+import { requireActiveAuth } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
-import { canExportPdf, canUseAppDocs, isSuperAdmin } from "@/lib/permissions";
+import { canExportPdf, canUseAppDocs } from "@/lib/permissions";
 import { buildInterviewQuestions } from "@/lib/cv/docx/interviewQuestions";
 import { InterviewQuestionsDocument } from "@/lib/cv/pdf/interviewQuestions";
 import { aiQuestions } from "@/lib/interview/ai";
@@ -15,25 +15,31 @@ import type { Actor } from "@/lib/ai/gateway";
 import { buildQuestionSet, clampCount } from "@/lib/interview/select";
 import { SECTION_LABELS } from "@/lib/interview/bank";
 import { isoToday, slugPart } from "@/lib/cv/fileName";
+import { cacheKey, findInterviewDraft, saveInterviewDraft } from "@/lib/cv/draftCache";
+import type { QuestionSection } from "@/lib/interview/bank";
 import type { AppInfo } from "@/lib/cv/docx";
+import { parseObjectId } from "@/lib/objectId";
 
 export async function POST(req: Request) {
-  const auth = await requireAuth();
+  const auth = await requireActiveAuth();
   if (auth instanceof NextResponse) return auth;
-
-  if (!canUseAppDocs(auth.role, auth.plan)) {
-    return NextResponse.json(
-      { error: "Interview prep is a Premium feature.", upgrade: true },
-      { status: 403 },
-    );
-  }
 
   const body = await req.json().catch(() => null);
   const mode = body?.mode === "preview" ? "preview" : "download";
+
+  /* Reading questions on screen is open to every signed-in account (the AI
+     top-up draws on the free allowance or the user's own key). Taking them away
+     as a document is the Premium perk. */
+  if (mode === "download" && !canUseAppDocs(auth.role, auth.plan)) {
+    return NextResponse.json(
+      { error: "Downloading interview prep is a Premium feature.", upgrade: true },
+      { status: 403 },
+    );
+  }
   const output = body?.output === "pdf" ? "pdf" : "docx";
   const count = clampCount(body?.count);
   const fresh = body?.fresh === true;
-  const applicationId = typeof body?.applicationId === "string" ? body.applicationId : "";
+  const applicationId = typeof body?.applicationId === "string" && parseObjectId(body.applicationId) ? body.applicationId : "";
 
   if (mode === "download" && output === "pdf" && !canExportPdf(auth.role, auth.plan)) {
     return NextResponse.json(
@@ -66,13 +72,22 @@ export async function POST(req: Request) {
     seen = app?.interviewSeen ?? [];
   }
 
-  const extra = await aiQuestions({
-    jobTitle: info.jobTitle,
-    companyName: info.companyName,
-    jobDescription: info.jobDescription,
-    actor: { kind: "user", id: auth.id, role: auth.role, plan: auth.plan } as Actor,
-    userKey: await getUserCredential(auth.id),
-  });
+  /* The model's top-up is cached per job, so previewing and then downloading
+     the same paper costs one call, not two. */
+  const draftKey = cacheKey([info.jobTitle, info.companyName, (info.jobDescription ?? "").slice(0, 4000)]);
+  const cachedExtra = await findInterviewDraft(auth.id, draftKey);
+  const extra = cachedExtra
+    ? cachedExtra.map((r) => ({ text: r.text, section: r.section as QuestionSection }))
+    : await aiQuestions({
+        jobTitle: info.jobTitle,
+        companyName: info.companyName,
+        jobDescription: info.jobDescription,
+        actor: { kind: "user", id: auth.id, role: auth.role, plan: auth.plan, status: auth.status } as Actor,
+        userKey: await getUserCredential(auth.id),
+      });
+  if (!cachedExtra && extra.length) {
+    await saveInterviewDraft(auth.id, draftKey, `${info.companyName} – ${info.jobTitle}`, extra);
+  }
 
   const set = buildQuestionSet({
     jobTitle: info.jobTitle,

@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
 
         {sent ? (
           <div className="surface w-full rounded-xl border p-6 text-center">
-            <MailCheck size={30} className="mx-auto text-emerald-500" aria-hidden="true" />
+            <MailCheck size={30} className="text-success mx-auto" aria-hidden="true" />
             <h1 className="mt-3 text-xl font-semibold">Check your inbox</h1>
             <p className="text-muted mt-2 text-sm">
               If that address has an account, a reset link is on its way. It works once and
@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
               required
             />
 
-            {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+            {error ? <p className="text-danger mt-3 text-sm">{error}</p> : null}
 
             <button
               type="submit"

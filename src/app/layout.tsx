@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Josefin_Sans } from "next/font/google";
+import { Atkinson_Hyperlegible, Josefin_Sans } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/providers/SessionProvider";
+import AppProviders from "@/providers/AppProviders";
+import A11ySync from "@/components/shared/A11ySync";
 import QuickBubble from "@/components/shared/QuickBubble";
 import TourGuide from "@/components/tour/TourGuide";
 import NotificationToasts from "@/components/notifications/NotificationToasts";
 import AppToaster from "@/components/shared/AppToaster";
-import { ConfirmProvider } from "@/components/shared/ConfirmDialog";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/seo";
 import { A11Y_BOOT_SCRIPT } from "@/lib/a11y";
 
@@ -17,6 +18,16 @@ const josefin = Josefin_Sans({
   weight: ["300", "400"],
   variable: "--font-josefin",
   display: "swap",
+});
+
+/* Loaded only when the dyslexia-friendly preference is on: preload is off and
+   the CSS rule keys off data-dyslexia, so the default costs nothing. */
+const atkinson = Atkinson_Hyperlegible({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-dyslexia",
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -84,20 +95,21 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable} ${josefin.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${josefin.variable} ${atkinson.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: A11Y_BOOT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
         <SessionProvider>
-          <ConfirmProvider>
+          <AppProviders>
+            <A11ySync />
             {children}
             <QuickBubble />
             <TourGuide />
             <NotificationToasts />
             <AppToaster />
-          </ConfirmProvider>
+          </AppProviders>
         </SessionProvider>
       </body>
     </html>

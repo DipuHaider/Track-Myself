@@ -8,6 +8,7 @@ import CVProfile from "@/models/CVProfile";
 import { requireAction } from "@/lib/serverAuth";
 import { importFromLegacy, isContentEmpty, normaliseContent } from "@/lib/cv/content";
 import type { CVContent } from "@/types/cv";
+import { parsePage } from "@/lib/pagination";
 
 type UserRow = { _id: unknown; name: string; email: string; role: string; plan: string };
 
@@ -42,16 +43,31 @@ function resolveContent(profile: ProfileRow | undefined): { content: CVContent; 
   return { content: structured, source: "none" };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireAction("view:cv");
   if (auth instanceof NextResponse) return auth;
 
   await dbConnect();
 
-  const [users, profiles, fileAgg] = await Promise.all([
-    User.find({}, "name email role plan").sort({ createdAt: -1 }).lean() as unknown as Promise<UserRow[]>,
-    CVProfile.find({}, { uploadedFiles: 0 }).lean() as unknown as Promise<ProfileRow[]>,
+  const { searchParams } = new URL(req.url);
+  const page = parsePage(searchParams, { defaultLimit: 50, maxLimit: 200 });
+  const usersTotal = await User.countDocuments();
+  const users = (await User.find({}, "name email role plan")
+    .sort({ createdAt: -1 })
+    .skip(page.skip)
+    .limit(page.limit)
+    .lean()) as unknown as UserRow[];
+  const pageIds = users.map((u) => String(u._id));
+
+  /* Profiles are read without their photo data URI, legacy file blobs or JSON
+     imports: the overview needs completeness, not content. */
+  const [profiles, fileAgg] = await Promise.all([
+    CVProfile.find(
+      { userId: { $in: pageIds } },
+      { uploadedFiles: 0, photo: 0, jsonImports: 0, "content.photo": 0 },
+    ).lean() as unknown as Promise<ProfileRow[]>,
     CVFile.aggregate<FileAgg>([
+      { $match: { userId: { $in: pageIds } } },
       {
         $group: {
           _id: { userId: "$userId", category: "$category" },
@@ -118,5 +134,5 @@ export async function GET() {
     byCategory: categoryTotals,
   };
 
-  return NextResponse.json({ totals, rows });
+  return NextResponse.json({ totals: { ...totals, usersTotal }, rows, page: page.page, limit: page.limit, total: usersTotal });
 }

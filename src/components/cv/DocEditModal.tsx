@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AlertCircle, Loader2, RefreshCw, X } from "lucide-react";
 import { downloadCVDocx } from "@/hooks/useCVProfile";
 import { useDismissable } from "@/hooks/useDismissable";
+import { useEscapeToClose } from "@/hooks/useModalStack";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useScrollLock } from "@/hooks/useScrollLock";
 import type { CVContent, CVFileMeta, CVFormat, CVVariant } from "@/types/cv";
 
 type Spec = {
@@ -34,12 +37,12 @@ export default function DocEditModal({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const { closing, close } = useDismissable(onClose);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [close]);
+  useEscapeToClose(close, true);
+  useFocusTrap(panelRef, true);
+  useScrollLock(true);
 
   useEffect(() => {
     let alive = true;
@@ -99,14 +102,18 @@ export default function DocEditModal({
       className={`fixed inset-0 z-50 flex items-center justify-center p-4 text-left ${closing ? "anim-backdrop-out" : "anim-backdrop"}`}
       style={{ background: "rgba(0,0,0,0.55)" }}
       onClick={(e) => { if (e.target === e.currentTarget) close(); }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Edit this document"
     >
-      <div className={`surface flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border shadow-2xl ${closing ? "anim-panel-out" : "anim-panel"}`}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className={`surface flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border shadow-2xl outline-none ${closing ? "anim-panel-out" : "anim-panel"}`}
+      >
         <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold">Edit document text</h2>
+            <h2 id={titleId} className="text-base font-semibold">Edit document text</h2>
             <p className="text-muted mt-0.5 truncate text-xs">{file.name}</p>
           </div>
           <button
@@ -119,7 +126,7 @@ export default function DocEditModal({
           </button>
         </div>
 
-        {error && <p className="anim-in border-b px-5 py-2.5 text-xs text-red-600" data-error>{error}</p>}
+        {error && <p className="anim-in text-danger border-b px-5 py-2.5 text-xs" role="alert" data-error>{error}</p>}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {!content ? (
@@ -176,6 +183,7 @@ export default function DocEditModal({
                     <textarea
                       key={j}
                       data-bullet={`${i}-${j}`}
+                      aria-label={`${role.title || role.company || `Role ${i + 1}`} bullet ${j + 1}`}
                       rows={2}
                       className="surface w-full rounded-md border px-2.5 py-1.5 text-xs"
                       value={b}

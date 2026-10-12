@@ -14,7 +14,7 @@ export type LeaseRequest = {
   task: string;
   spec: ModelSpec;
   estNano: number;
-  attemptLimit: number;
+  attemptLimit: number | null;
   ceilingNano: number;
 };
 
@@ -25,6 +25,7 @@ export type Lease = {
   estNano: number;
   spec: ModelSpec;
   metered: boolean;
+  counted: boolean;
 };
 
 export type LeaseDenial =
@@ -144,20 +145,23 @@ export async function openLease(req: LeaseRequest): Promise<
 
   const key = periodKey();
   const metered = req.spec.funded;
+  const counted = req.attemptLimit !== null;
   const callId = randomUUID();
 
-  const attempt = await reserveAttempt(req.subject, key, req.attemptLimit);
-  if (!attempt.ok) {
-    return {
-      ok: false,
-      denial: { reason: "user-quota", used: req.attemptLimit, limit: req.attemptLimit, periodKey: key },
-    };
+  if (counted) {
+    const attempt = await reserveAttempt(req.subject, key, req.attemptLimit as number);
+    if (!attempt.ok) {
+      return {
+        ok: false,
+        denial: { reason: "user-quota", used: req.attemptLimit as number, limit: req.attemptLimit as number, periodKey: key },
+      };
+    }
   }
 
   if (metered && req.estNano > 0) {
     const funded = await reserveMoney(key, req.estNano, req.ceilingNano);
     if (!funded) {
-      await releaseAttempt(req.subject, key);
+      if (counted) await releaseAttempt(req.subject, key);
       return { ok: false, denial: { reason: "budget", periodKey: key } };
     }
   }
@@ -171,13 +175,14 @@ export async function openLease(req: LeaseRequest): Promise<
     funding: metered ? "shared" : req.spec.availability === "byok" ? "user" : "superadmin",
     periodKey: key,
     estNano: metered ? req.estNano : 0,
+    attemptCounted: counted,
     state: "reserved",
     expiresAt: new Date(Date.now() + LOG_RETENTION_DAYS * 86400000),
   });
 
   return {
     ok: true,
-    lease: { callId, subject: req.subject, periodKey: key, estNano: metered ? req.estNano : 0, spec: req.spec, metered },
+    lease: { callId, subject: req.subject, periodKey: key, estNano: metered ? req.estNano : 0, spec: req.spec, metered, counted },
   };
 }
 
@@ -217,7 +222,7 @@ export async function closeLease(
         { $inc: { reservedNano: -lease.estNano, holdCount: -1 } },
       );
     }
-    await releaseAttempt(lease.subject, lease.periodKey);
+    if (lease.counted) await releaseAttempt(lease.subject, lease.periodKey);
     return;
   }
 
@@ -246,10 +251,12 @@ export async function closeLease(
       { $inc: { reservedNano: spent - lease.estNano, settledNano: spent, holdCount: -1 } },
     );
   }
-  await AiUsageCounter.updateOne(
-    { _id: counterId(lease.subject, lease.periodKey) },
-    { $inc: { settled: 1 } },
-  ).catch(() => {});
+  if (lease.counted) {
+    await AiUsageCounter.updateOne(
+      { _id: counterId(lease.subject, lease.periodKey) },
+      { $inc: { settled: 1 } },
+    ).catch(() => {});
+  }
 }
 
 /* A call still marked dispatched long after the function could have lived was
@@ -277,10 +284,12 @@ export async function sweepOrphans(orphanMs: number, max = 5): Promise<number> {
         { $inc: { settledNano: orphan.estNano, holdCount: -1 } },
       );
     }
-    await AiUsageCounter.updateOne(
-      { _id: counterId(orphan.subject, orphan.periodKey) },
-      { $inc: { settled: 1 } },
-    ).catch(() => {});
+    if (orphan.attemptCounted !== false) {
+      await AiUsageCounter.updateOne(
+        { _id: counterId(orphan.subject, orphan.periodKey) },
+        { $inc: { settled: 1 } },
+      ).catch(() => {});
+    }
     handled++;
   }
 
@@ -298,7 +307,7 @@ export async function sweepOrphans(orphanMs: number, max = 5): Promise<number> {
         { $inc: { reservedNano: -stale.estNano, holdCount: -1 } },
       );
     }
-    await releaseAttempt(stale.subject, stale.periodKey);
+    if (stale.attemptCounted !== false) await releaseAttempt(stale.subject, stale.periodKey);
     handled++;
   }
 

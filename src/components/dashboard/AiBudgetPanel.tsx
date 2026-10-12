@@ -18,14 +18,15 @@ type AiAdminConfig = {
   ceilingUsd: number;
   freeMonthlyAttempts: number;
   premiumMonthlyAttempts: number;
-  anonDailyAttempts: number;
+  maxCeilingUsd: number;
+  canEditCeiling: boolean;
   models: ModelRow[];
   period: string;
   spend: { reservedUsd: number; settledUsd: number; inFlight: number };
 };
 
 const NUMBERS: { key: keyof AiAdminConfig; label: string; hint: string; step: number }[] = [
-  { key: "ceilingUsd", label: "Monthly ceiling (USD)", hint: "No shared-key call starts once this is committed.", step: 1 },
+  { key: "ceilingUsd", label: "Monthly ceiling (USD)", hint: "No shared-key call starts once this is committed. Superadmin only; hard-capped by the deployment.", step: 1 },
   { key: "freeMonthlyAttempts", label: "Free plan attempts / month", hint: "Then AI features fall back to their non-AI mode.", step: 1 },
   { key: "premiumMonthlyAttempts", label: "Premium attempts / month", hint: "Premium raises this cap but not the ceiling above.", step: 10 },
 ];
@@ -153,7 +154,7 @@ export default function AiBudgetPanel() {
               ${m.inputPerMTokUsd.toFixed(2)} in / ${m.outputPerMTokUsd.toFixed(2)} out per million tokens
             </p>
             {!m.keyPresent && (
-              <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
+              <p className="text-warning mt-1 flex items-center gap-1 text-[11px]">
                 <TriangleAlert size={11} aria-hidden="true" />
                 No API key set for this provider — enabling it will have no effect.
               </p>
@@ -175,12 +176,19 @@ export default function AiBudgetPanel() {
           <input
             type="number"
             min={0}
+            max={f.key === "ceilingUsd" ? cfg.maxCeilingUsd : undefined}
             step={f.step}
             defaultValue={cfg[f.key] as number}
-            disabled={busy}
+            disabled={busy || (f.key === "ceilingUsd" && !cfg.canEditCeiling)}
+            aria-label={f.key === "ceilingUsd" ? `${f.label}, maximum ${cfg.maxCeilingUsd}` : f.label}
             onBlur={(e) => {
               const value = Number(e.target.value);
               if (!Number.isFinite(value) || value === cfg[f.key]) return;
+              if (f.key === "ceilingUsd" && value > cfg.maxCeilingUsd) {
+                e.target.value = String(cfg.maxCeilingUsd);
+                save({ [f.key]: cfg.maxCeilingUsd });
+                return;
+              }
               save({ [f.key]: value });
             }}
             className="surface-muted w-24 shrink-0 rounded-md border px-2 py-1 text-right text-sm tabular-nums"
@@ -188,7 +196,7 @@ export default function AiBudgetPanel() {
         </div>
       ))}
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="text-danger mt-3 text-sm">{error}</p>}
     </div>
   );
 }

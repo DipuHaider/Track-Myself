@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireActiveAuth } from "@/lib/serverAuth";
-import { isPremiumUser, isSuperAdmin } from "@/lib/permissions";
 import { getUserCredential } from "@/lib/ai/userKey";
+import { aiEntitlement, type Actor } from "@/lib/ai/gateway";
 import { resolveGenerationContent } from "@/lib/cv/generatePipeline";
 import { normaliseContent } from "@/lib/cv/content";
 import { estimateSalary } from "@/lib/salaryEstimate";
@@ -14,8 +14,11 @@ export async function POST(req: Request) {
   const auth = await requireActiveAuth();
   if (auth instanceof NextResponse) return auth;
 
-  if (!isSuperAdmin(auth.role) && !isPremiumUser(auth.role, auth.plan)) {
-    return NextResponse.json({ error: "Market estimates are a Premium feature.", upgrade: true }, { status: 403 });
+  const userKey = await getUserCredential(auth.id);
+  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan, status: auth.status };
+  const ent = await aiEntitlement(actor, "salary.estimate", userKey);
+  if (!ent.allowed) {
+    return NextResponse.json({ error: ent.message, upgrade: ent.reason === "upgrade" }, { status: ent.reason === "upgrade" ? 403 : 503 });
   }
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
@@ -36,10 +39,10 @@ export async function POST(req: Request) {
       currency,
     },
     cv,
-    actor: { kind: "user", id: auth.id, role: auth.role, plan: auth.plan },
-    userKey: await getUserCredential(auth.id),
+    actor,
+    userKey,
   });
 
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 502 });
-  return NextResponse.json({ ...result.estimate, providerLabel: result.providerLabel, at: new Date().toISOString() });
+  return NextResponse.json({ ...result.estimate, providerLabel: result.providerLabel, note: ent.note, at: new Date().toISOString() });
 }

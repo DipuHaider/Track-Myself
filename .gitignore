@@ -44,3 +44,6 @@ next-env.d.ts
 # User-uploaded application attachments were served from here before they moved
 # into MongoDB. Nothing generated at runtime belongs in the repo.
 public/uploads/
+
+# machine-local Claude Code permissions
+.claude/settings.local.json

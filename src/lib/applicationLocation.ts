@@ -15,6 +15,11 @@ const US_STATES = new Set(
 
 const CA_PROVINCES = new Set("AB BC MB NB NL NS NT NU ON PE QC SK YT".split(" "));
 
+/* Two-letter codes that are both a US state and a country. Postings in this
+   app's markets write "Hamburg, DE" far more often than "Dover, DE", so these
+   resolve to the country; every other state code still wins. */
+const PREFER_COUNTRY = new Set(["DE"]);
+
 const COUNTRY_ALIASES: Record<string, string> = {
   usa: "United States",
   "u.s.": "United States",
@@ -119,6 +124,10 @@ export function splitLocation(raw: string): { city: string; country: string; lab
   }
 
   const city = parts[0];
+  if (PREFER_COUNTRY.has(last)) {
+    const country = countryName(last);
+    if (country) return { city, country, label: `${city}, ${country}` };
+  }
   if (US_STATES.has(last)) return { city, country: "United States", label };
   if (CA_PROVINCES.has(last)) return { city, country: "Canada", label };
 

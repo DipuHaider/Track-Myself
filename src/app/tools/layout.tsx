@@ -2,7 +2,7 @@ import SiteHeader from "@/components/site/SiteHeader";
 
 export const metadata = {
   title: { default: "Tools", template: "%s · TrackMyself" },
-  description: "Six free browser tools for job hunting: background remover, profile image generator, banner generator, JD analyser, image optimizer and PDF splitter. Your files never leave your device.",
+  description: "Eight free browser tools for job hunting: background remover, profile image generator, banner generator, JD analyser, image optimizer, PDF splitter, PDF editor and DOCX editor. Your files never leave your device.",
   alternates: { canonical: "/tools" },
 };
 

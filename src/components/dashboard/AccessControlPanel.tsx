@@ -87,6 +87,7 @@ export default function AccessControlPanel({ isSuperAdmin }: { isSuperAdmin: boo
       }
       apply(await res.json());
       setSavedFlash(true);
+      toast.success("Permissions saved");
       setTimeout(() => setSavedFlash(false), 3000);
     } catch {
       setError("Could not save changes.");
@@ -127,7 +128,7 @@ export default function AccessControlPanel({ isSuperAdmin }: { isSuperAdmin: boo
   }
 
   if (!data || !draft) {
-    return <p className="surface rounded-lg border p-4 text-sm text-red-600">{error || "No data."}</p>;
+    return <p role="alert" className="alert alert-danger">{error || "No data."}</p>;
   }
 
   const dirty = !sameMatrix(draft, data.matrix);
@@ -135,7 +136,7 @@ export default function AccessControlPanel({ isSuperAdmin }: { isSuperAdmin: boo
 
   return (
     <div className="space-y-5">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="alert alert-danger">{error}</p>}
 
       <div className="surface flex flex-wrap items-center justify-between gap-3 rounded-xl border px-5 py-4">
         <div className="flex items-start gap-3">

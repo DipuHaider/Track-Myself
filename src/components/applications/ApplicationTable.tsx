@@ -1,48 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lucide-react";
 import type { Application } from "@/types/application";
-import { APPLICATION_STATUSES, parseJobTypes } from "@/constants/applicationStatus";
+import { parseJobTypes } from "@/constants/applicationStatus";
 import { formatLocation } from "@/lib/applicationLocation";
 import { formatSalary } from "@/lib/salary";
-import { isPossibleGhost, postingAge, type DuplicateKind } from "@/lib/applicationFlags";
+import type { DuplicateKind } from "@/lib/applicationFlags";
 import AppDocButton from "@/components/applications/AppDocButton";
+import ApplicationCard, {
+  PrioritySelect, QuickActions, RowBadges, StatusSelect, docInfoFor, formatApplied,
+  type OwnerInfo, type QuickField, type RowHandlers,
+} from "@/components/applications/ApplicationCard";
+import ApplicationsEmptyState, { type EmptyStateMode } from "@/components/applications/ApplicationsEmptyState";
+import TableSkeleton from "@/components/applications/TableSkeleton";
 import { useSession } from "next-auth/react";
 import { canUseAppDocs } from "@/lib/permissions";
 
-
-function formatDateTime(d?: Date | string) {
-  if (!d) return "—";
-  return new Date(d).toLocaleString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
-
-const PRIORITY_CLS: Record<string, string> = {
-  High: "priority-high",
-  Medium: "priority-medium",
-  Low: "priority-low",
-};
-
-const STATUS_CLS: Record<string, string> = {
-  "Wishlist":              "status-wishlist",
-  "Not Completed":         "status-not-completed",
-  "Submitted":             "status-submitted",
-  "No Response":           "status-no-resp",
-  "Interview Scheduled":   "status-interview",
-  "Active - Written":      "status-active",
-  "Active - HR":           "status-active",
-  "Active - Technical":    "status-active",
-  "Active - Cultural Fit": "status-active",
-  "Offer Received":        "status-offer",
-  "Rejected":              "status-rejected",
-};
-
-export type QuickField = "priority" | "applicationStatus" | "favourite" | "isGhostJob";
-
-type OwnerInfo = { name?: string; email?: string; role?: string } | null;
+export type { QuickField } from "@/components/applications/ApplicationCard";
 
 export default function ApplicationTable({
   applications,
@@ -54,6 +28,10 @@ export default function ApplicationTable({
   duplicateIds,
   duplicateKinds,
   showOwner = false,
+  loading = false,
+  emptyState,
+  onAdd,
+  onClearFilters,
 }: {
   applications: Application[];
   startIndex?: number;
@@ -64,6 +42,10 @@ export default function ApplicationTable({
   onQuickUpdate?: (id: string, field: QuickField, value: string | boolean) => Promise<void>;
   duplicateIds?: Set<string>;
   duplicateKinds?: Map<string, DuplicateKind>;
+  loading?: boolean;
+  emptyState?: EmptyStateMode;
+  onAdd?: () => void;
+  onClearFilters?: () => void;
 }) {
   const { data: session } = useSession();
   const viewer = session?.user as { role?: string; plan?: string } | undefined;
@@ -75,272 +57,143 @@ export default function ApplicationTable({
   const handleChange = async (app: Application, field: QuickField, value: string | boolean) => {
     if (!onQuickUpdate) return;
     setSaving({ id: app._id, field });
-    await onQuickUpdate(app._id, field, value);
-    setSaving(null);
+    try {
+      await onQuickUpdate(app._id, field, value);
+    } finally {
+      setSaving(null);
+    }
   };
 
-  const isSaving = (id: string, field: QuickField) =>
-    saving?.id === id && saving?.field === field;
+  const handlersFor = (app: Application): RowHandlers => ({
+    isSaving: (field) => saving?.id === app._id && saving?.field === field,
+    onChange: onQuickUpdate ? (field, value) => void handleChange(app, field, value) : undefined,
+    onView: onView ? () => onView(app) : undefined,
+    onEdit: onEdit ? () => onEdit(app) : undefined,
+    onDelete: onDelete ? () => onDelete(app) : undefined,
+  });
+
+  const kindOf = (app: Application): DuplicateKind | null =>
+    duplicateKinds?.get(app._id) ?? (duplicateIds?.has(app._id) ? "same-role" : null);
+
+  if (loading) return <TableSkeleton rows={5} />;
+
+  if (applications.length === 0 && emptyState) {
+    return <ApplicationsEmptyState mode={emptyState} onAdd={onAdd} onClear={onClearFilters} />;
+  }
+
+  const columns = 11 + (showOwner ? 1 : 0) + (showDocs ? 1 : 0);
 
   return (
-    <div className="glass overflow-hidden rounded-lg">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1060px] text-left text-sm">
-          <thead className="surface-muted">
-            <tr>
-              <th className="px-3 py-3 font-medium text-center text-muted">#</th>
-              {showOwner && <th className="px-4 py-3 font-medium">Owner</th>}
-              <th className="px-4 py-3 font-medium">Company</th>
-              <th className="px-4 py-3 font-medium">Job Title</th>
-              <th className="px-4 py-3 font-medium">Job Type</th>
-              <th className="px-4 py-3 font-medium">Location</th>
-              <th className="px-4 py-3 font-medium">Salary</th>
-              <th className="px-4 py-3 font-medium">Applied</th>
-              <th className="px-4 py-3 font-medium">Contact</th>
-              <th className="px-4 py-3 font-medium">Priority</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              {showDocs && <th className="px-4 py-3 font-medium text-center">Docs</th>}
-              <th className="px-4 py-3 font-medium text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {applications.map((app, idx) => (
-              <tr key={app._id} className="border-t transition hover:bg-[var(--surface-2)]">
-                {/* # */}
-                <td className="px-3 py-3 text-center text-xs text-muted tabular-nums">
-                  {startIndex + idx + 1}
-                </td>
+    <>
+      <div className="glass hidden overflow-hidden rounded-lg md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1060px] text-left text-sm">
+            <thead className="surface-muted">
+              <tr>
+                <th scope="col" className="px-3 py-3 font-medium text-center text-muted">#</th>
+                {showOwner && <th scope="col" className="px-4 py-3 font-medium">Owner</th>}
+                <th scope="col" className="px-4 py-3 font-medium">Company</th>
+                <th scope="col" className="px-4 py-3 font-medium">Job Title</th>
+                <th scope="col" className="px-4 py-3 font-medium">Job Type</th>
+                <th scope="col" className="px-4 py-3 font-medium">Location</th>
+                <th scope="col" className="px-4 py-3 font-medium">Salary</th>
+                <th scope="col" className="px-4 py-3 font-medium">Applied</th>
+                <th scope="col" className="px-4 py-3 font-medium">Contact</th>
+                <th scope="col" className="px-4 py-3 font-medium">Priority</th>
+                <th scope="col" className="px-4 py-3 font-medium">Status</th>
+                {showDocs && <th scope="col" className="px-4 py-3 font-medium text-center">Docs</th>}
+                <th scope="col" className="px-4 py-3 font-medium text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {applications.map((app, idx) => {
+                const handlers = handlersFor(app);
+                const owner = (app as Application & { owner?: OwnerInfo }).owner;
+                const types = parseJobTypes(app.jobType, app.workplaceType);
+                return (
+                  <tr key={app._id} className="border-t transition hover:bg-[var(--surface-2)]">
+                    <td className="px-3 py-3 text-center text-xs text-muted tabular-nums">{startIndex + idx + 1}</td>
 
-                {showOwner && (() => {
-                  const owner = (app as Application & { owner?: OwnerInfo }).owner;
-                  return (
+                    {showOwner && (
+                      <td className="px-4 py-3">
+                        {owner ? (
+                          <>
+                            <p className="font-medium">{owner.name}</p>
+                            <p className="text-muted text-xs">{owner.email}</p>
+                          </>
+                        ) : (
+                          <span className="text-muted text-xs">Deleted user</span>
+                        )}
+                      </td>
+                    )}
+
+                    <td className="px-4 py-3 font-medium">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        {app.companyName}
+                        <RowBadges app={app} duplicateKind={kindOf(app)} />
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{app.jobTitle}</td>
                     <td className="px-4 py-3">
-                      {owner ? (
-                        <>
-                          <p className="font-medium">{owner.name}</p>
-                          <p className="text-muted text-xs">{owner.email}</p>
-                        </>
+                      {types.length ? (
+                        <span className="flex flex-wrap gap-1">
+                          {types.map((t) => (
+                            <span key={t} className="role-badge job-type whitespace-nowrap">{t}</span>
+                          ))}
+                        </span>
                       ) : (
-                        <span className="text-muted text-xs">Deleted user</span>
+                        <span className="text-muted">—</span>
                       )}
                     </td>
-                  );
-                })()}
-
-                <td className="px-4 py-3 font-medium">
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    {app.companyName}
-                    {duplicateIds?.has(app._id) && (
-                      <span
-                        className="role-badge badge-dup px-1.5 py-0.5 text-[10px]"
-                        title={
-                          duplicateKinds?.get(app._id) === "same-posting"
-                            ? "Another row points at this exact job posting"
-                            : "Another row has the same company and job title — check before removing either"
-                        }
-                      >
-                        {duplicateKinds?.get(app._id) === "same-posting" ? "Same post" : "Dup"}
-                      </span>
+                    <td className="text-muted px-4 py-3">{formatLocation(app) || "—"}</td>
+                    <td className="text-muted px-4 py-3 whitespace-nowrap">{formatSalary(app)}</td>
+                    <td className="text-muted px-4 py-3 whitespace-nowrap">{formatApplied(app.appliedDate)}</td>
+                    <td className="text-muted px-4 py-3">
+                      {[app.contacts?.[0]?.name, app.contacts?.[0]?.phone || app.contactNumber].filter(Boolean).join(" · ") || "—"}
+                    </td>
+                    <td className="px-4 py-3"><PrioritySelect app={app} handlers={handlers} /></td>
+                    <td className="px-4 py-3"><StatusSelect app={app} handlers={handlers} /></td>
+                    {showDocs && (
+                      <td className="px-4 py-3 text-center">
+                        <AppDocButton applicationId={app._id} info={docInfoFor(app)} />
+                      </td>
                     )}
-                    {(() => {
-                      /* Only shown once a posting has actually been observed as
-                         old. An unobserved posting says nothing, which is not the
-                         same as saying it is fine. */
-                      const age = postingAge(app);
-                      if (!age.known || age.tone !== "caution") return null;
-                      return (
-                        <span
-                          className="role-badge status-no-resp px-1.5 py-0.5 text-[10px]"
-                          title={age.label}
-                        >
-                          Old listing
-                        </span>
-                      );
-                    })()}
-                  </span>
-                </td>
-                <td className="px-4 py-3">{app.jobTitle}</td>
-                <td className="px-4 py-3">
-                  {parseJobTypes(app.jobType, app.workplaceType).length ? (
-                    <span className="flex flex-wrap gap-1">
-                      {parseJobTypes(app.jobType, app.workplaceType).map((t) => (
-                        <span key={t} className="role-badge job-type whitespace-nowrap">{t}</span>
-                      ))}
-                    </span>
-                  ) : (
-                    <span className="text-muted">—</span>
-                  )}
-                </td>
-                <td className="text-muted px-4 py-3">{formatLocation(app) || "—"}</td>
-                <td className="text-muted px-4 py-3 whitespace-nowrap">{formatSalary(app)}</td>
-                <td className="text-muted px-4 py-3 whitespace-nowrap">{formatDateTime(app.appliedDate)}</td>
-                <td className="text-muted px-4 py-3">
-                  {[app.contacts?.[0]?.name, app.contacts?.[0]?.phone || app.contactNumber]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
-                </td>
-
-                {/* Priority */}
-                <td className="px-4 py-3">
-                  {onQuickUpdate ? (
-                    <div className="relative inline-flex items-center">
-                      <select
-                        value={app.priority ?? ""}
-                        disabled={isSaving(app._id, "priority")}
-                        onChange={(e) => handleChange(app, "priority", e.target.value)}
-                        className={`role-badge cursor-pointer appearance-none pr-5 transition-opacity ${
-                          app.priority
-                            ? (PRIORITY_CLS[app.priority] ?? "status-wishlist")
-                            : "status-wishlist opacity-50"
-                        } ${isSaving(app._id, "priority") ? "opacity-40" : ""}`}
-                      >
-                        <option value="">— None —</option>
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                      </select>
-                      <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50" />
-                    </div>
-                  ) : app.priority ? (
-                    <span className={`role-badge ${PRIORITY_CLS[app.priority] ?? "status-wishlist"}`}>
-                      {app.priority}
-                    </span>
-                  ) : (
-                    <span className="text-muted">—</span>
-                  )}
-                </td>
-
-                {/* Status */}
-                <td className="px-4 py-3">
-                  {onQuickUpdate ? (
-                    <div className="relative inline-flex items-center">
-                      <select
-                        value={app.applicationStatus}
-                        disabled={isSaving(app._id, "applicationStatus")}
-                        onChange={(e) => handleChange(app, "applicationStatus", e.target.value)}
-                        className={`role-badge cursor-pointer appearance-none whitespace-nowrap pr-5 transition-opacity ${
-                          STATUS_CLS[app.applicationStatus] ?? "status-wishlist"
-                        } ${isSaving(app._id, "applicationStatus") ? "opacity-40" : ""}`}
-                      >
-                        {APPLICATION_STATUSES.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50" />
-                    </div>
-                  ) : (
-                    <span className={`role-badge ${STATUS_CLS[app.applicationStatus] ?? "status-wishlist"} whitespace-nowrap`}>
-                      {app.applicationStatus}
-                    </span>
-                  )}
-                </td>
-
-                {/* Docs */}
-                {showDocs && (
-                  <td className="px-4 py-3 text-center">
-                    <AppDocButton
-                      applicationId={app._id}
-                      info={{
-                        companyName: app.companyName,
-                        jobTitle: app.jobTitle,
-                        location: formatLocation(app) || undefined,
-                        notes: app.notes ?? undefined,
-                        jobPostUrl: app.jobPostUrl ?? undefined,
-                        platform: app.platform ?? undefined,
-                        jobDescription: app.jobDescription ?? undefined,
-                        contactName: app.contacts?.find(
-                          (c) => c.name && ["Recruiter", "Hiring Manager", "HR"].includes(c.role ?? ""),
-                        )?.name,
-                      }}
-                    />
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center">
+                        <QuickActions app={app} handlers={handlers} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {applications.length === 0 && (
+                <tr>
+                  <td className="text-muted px-4 py-10 text-center" colSpan={columns}>
+                    No applications found.
                   </td>
-                )}
-
-                {/* Actions */}
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-center gap-1">
-                    {/* Auto-detected ghost — amber warning, click to confirm */}
-                    {onQuickUpdate && isPossibleGhost(app) && !app.isGhostJob && (
-                      <button
-                        type="button"
-                        title="Possible ghost job (45+ days, no progress) — click to confirm"
-                        onClick={() => handleChange(app, "isGhostJob", true)}
-                        disabled={isSaving(app._id, "isGhostJob")}
-                        className="rounded-md p-1.5 text-amber-500 transition hover:bg-[var(--surface-2)] disabled:opacity-40"
-                      >
-                        <AlertTriangle size={15} />
-                      </button>
-                    )}
-                    {/* Manually confirmed ghost — rose, click to unmark */}
-                    {onQuickUpdate && app.isGhostJob && (
-                      <button
-                        type="button"
-                        title="Confirmed ghost job — click to unmark"
-                        onClick={() => handleChange(app, "isGhostJob", false)}
-                        disabled={isSaving(app._id, "isGhostJob")}
-                        className="rounded-md p-1.5 text-rose-700 transition hover:bg-[var(--surface-2)] disabled:opacity-40"
-                      >
-                        <Ghost size={15} />
-                      </button>
-                    )}
-                    {/* Favourite star */}
-                    {onQuickUpdate && (
-                      <button
-                        type="button"
-                        onClick={() => handleChange(app, "favourite", !app.favourite)}
-                        disabled={isSaving(app._id, "favourite")}
-                        title={app.favourite ? "Remove from favourites" : "Add to favourites"}
-                        className={`rounded-md p-1.5 transition hover:bg-[var(--surface-2)] disabled:opacity-40 ${
-                          app.favourite ? "text-amber-400" : "text-muted"
-                        }`}
-                      >
-                        <Star size={15} fill={app.favourite ? "currentColor" : "none"} />
-                      </button>
-                    )}
-                    {onView && (
-                      <button
-                        type="button"
-                        onClick={() => onView(app)}
-                        title="View"
-                        className="rounded-md p-1.5 text-muted transition hover:bg-[var(--surface-2)] hover:text-primary"
-                      >
-                        <Eye size={15} />
-                      </button>
-                    )}
-                    {onEdit && (
-                      <button
-                        type="button"
-                        onClick={() => onEdit(app)}
-                        title="Edit"
-                        className="rounded-md p-1.5 text-muted transition hover:bg-[var(--surface-2)] hover:text-primary"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        type="button"
-                        onClick={() => onDelete(app)}
-                        title="Delete"
-                        className="rounded-md p-1.5 text-muted transition hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {applications.length === 0 && (
-              <tr>
-                <td className="text-muted px-4 py-10 text-center" colSpan={11 + (showOwner ? 1 : 0) + (showDocs ? 1 : 0)}>
-                  No applications found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      <ul className="space-y-3 md:hidden" aria-label="Applications">
+        {applications.map((app, idx) => (
+          <ApplicationCard
+            key={app._id}
+            app={app}
+            index={startIndex + idx + 1}
+            duplicateKind={kindOf(app)}
+            owner={showOwner ? (app as Application & { owner?: OwnerInfo }).owner ?? null : undefined}
+            showDocs={showDocs}
+            handlers={handlersFor(app)}
+          />
+        ))}
+        {applications.length === 0 && (
+          <li className="surface text-muted rounded-lg border px-4 py-10 text-center text-sm">No applications found.</li>
+        )}
+      </ul>
+    </>
   );
 }

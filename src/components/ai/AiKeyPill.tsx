@@ -1,13 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { AlertTriangle, Sparkles } from "lucide-react";
-import { AI_KEY_EVENT, PROVIDER_OPTIONS, type AiKeyState } from "@/lib/ai/shared";
-
-const POLL_MS = 60000;
-const CHANNEL = "tm-ai-key";
+import { PROVIDER_OPTIONS } from "@/lib/ai/shared";
+import { useAiKeyState } from "@/hooks/useAiKeyState";
 
 function compact(value: number) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -16,47 +13,9 @@ function compact(value: number) {
 }
 
 export default function AiKeyPill() {
-  const { status } = useSession();
-  const signedIn = status === "authenticated";
-
-  const [state, setState] = useState<AiKeyState | null>(null);
+  const { state, signedIn } = useAiKeyState();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-
-  const load = useCallback(() => {
-    if (!signedIn) {
-      setState(null);
-      return;
-    }
-    fetch("/api/user/ai-key")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: AiKeyState | null) => setState(d))
-      .catch(() => {});
-  }, [signedIn]);
-
-  useEffect(() => {
-    queueMicrotask(load);
-
-    let channel: BroadcastChannel | null = null;
-    try {
-      channel = new BroadcastChannel(CHANNEL);
-      channel.onmessage = () => load();
-    } catch {}
-
-    const tick = () => {
-      if (document.visibilityState === "visible") load();
-    };
-    const id = window.setInterval(tick, POLL_MS);
-    document.addEventListener("visibilitychange", tick);
-    window.addEventListener(AI_KEY_EVENT, load);
-
-    return () => {
-      channel?.close();
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", tick);
-      window.removeEventListener(AI_KEY_EVENT, load);
-    };
-  }, [load]);
 
   useEffect(() => {
     if (!open) return;
@@ -121,7 +80,7 @@ export default function AiKeyPill() {
             </div>
 
             {unhealthy && (
-              <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700">
+              <p className="alert alert-warning px-2 py-1.5 text-[11px]">
                 {state.lastError || "The last call with this key failed."}
               </p>
             )}

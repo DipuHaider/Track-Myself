@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR, { mutate } from "swr";
 
 export type AdminAnalytics = {
   totals: {
@@ -18,6 +18,16 @@ export type AdminAnalytics = {
   trend: { month: string; label: string; count: number }[];
   topCompanies: { name: string; count: number }[];
   topPlatforms: { name: string; count: number }[];
+  usersByRole: Record<string, number>;
+  recentUsers: {
+    _id: string;
+    name: string;
+    email: string;
+    role: string;
+    plan: string;
+    createdAt: string;
+    lastLoginAt: string | null;
+  }[];
   recent: {
     _id: string;
     companyName: string;
@@ -27,46 +37,13 @@ export type AdminAnalytics = {
   }[];
 };
 
-let cache: AdminAnalytics | null = null;
-let inflight: Promise<AdminAnalytics | null> | null = null;
+export const ADMIN_ANALYTICS_KEY = "/api/admin/analytics";
 
 export function invalidateAdminAnalytics() {
-  cache = null;
-  inflight = null;
-}
-
-async function load(): Promise<AdminAnalytics | null> {
-  if (cache) return cache;
-  if (inflight) return inflight;
-
-  inflight = fetch("/api/admin/analytics")
-    .then((r) => (r.ok ? r.json() : null))
-    .then((data: AdminAnalytics | null) => {
-      cache = data;
-      return data;
-    })
-    .catch(() => null)
-    .finally(() => { inflight = null; });
-
-  return inflight;
+  return mutate(ADMIN_ANALYTICS_KEY);
 }
 
 export function useAdminAnalytics() {
-  const [data, setData] = useState<AdminAnalytics | null>(cache);
-  const [loading, setLoading] = useState(!cache);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    load()
-      .then((d) => {
-        if (!alive) return;
-        setData(d);
-        setFailed(!d);
-      })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, []);
-
-  return { data, loading, failed };
+  const { data, error, isLoading } = useSWR<AdminAnalytics>(ADMIN_ANALYTICS_KEY, { dedupingInterval: 30_000 });
+  return { data: data ?? null, loading: isLoading, failed: Boolean(error) };
 }

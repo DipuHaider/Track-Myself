@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { ChevronDown, LayoutDashboard, LogOut, UserCircle } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogOut, Settings, UserCircle } from "lucide-react";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import RoleAvatar, { RoleIcon } from "@/components/shared/RoleAvatar";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
@@ -110,6 +110,16 @@ export default function UserMenu({
               My Profile
             </Link>
 
+            <Link
+              href="/me/settings"
+              role="menuitem"
+              onClick={close}
+              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition hover:bg-[var(--surface-2)]"
+            >
+              <Settings size={15} aria-hidden="true" />
+              Settings
+            </Link>
+
             <ThemeToggle variant="menu" />
           </div>
 
@@ -126,7 +136,7 @@ export default function UserMenu({
               type="button"
               role="menuitem"
               onClick={() => { close(); signOut({ callbackUrl: "/" }); }}
-              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-red-500 transition hover:bg-red-50"
+              className="text-danger flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition hover:bg-[var(--surface-2)]"
             >
               <LogOut size={15} aria-hidden="true" />
               Sign out

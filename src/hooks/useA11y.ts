@@ -1,39 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   A11Y_DEFAULTS, A11Y_EVENT, applyA11y, normaliseA11y, readStoredA11y,
   type A11yPrefs,
 } from "@/lib/a11y";
+import { apiFetch } from "@/lib/api/client";
 
+const SAVE_DEBOUNCE_MS = 600;
+
+/* Local storage is the source of truth on this device; the account copy is
+   merged in once per sign-in by A11ySync. Saves are debounced so a run of
+   toggles becomes one PUT, and nothing is sent while signed out. */
 export function useA11y() {
+  const { status } = useSession();
+  const signedIn = status === "authenticated";
   const [prefs, setPrefs] = useState<A11yPrefs>(A11Y_DEFAULTS);
   const [ready, setReady] = useState(false);
+  const timer = useRef<number | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-
     queueMicrotask(() => {
-      if (cancelled) return;
       const local = readStoredA11y();
       setPrefs(local);
       applyA11y(local);
       setReady(true);
     });
-
-    fetch("/api/user/preferences")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((remote) => {
-        if (cancelled || !remote) return;
-        const merged = normaliseA11y(remote);
-        setPrefs(merged);
-        applyA11y(merged);
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -54,20 +47,30 @@ export function useA11y() {
     return () => media.removeEventListener("change", onChange);
   }, [prefs.scheme]);
 
-  const update = useCallback((patch: Partial<A11yPrefs>) => {
-    setPrefs((current) => {
-      const next = normaliseA11y({ ...current, ...patch });
-      applyA11y(next);
-      fetch("/api/user/preferences", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(next),
-      }).catch(() => {});
-      return next;
-    });
-  }, []);
+  const persist = useCallback(
+    (next: A11yPrefs) => {
+      if (!signedIn) return;
+      if (timer.current) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => {
+        apiFetch("/api/user/preferences", { method: "PUT", json: next }).catch(() => {});
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [signedIn],
+  );
+
+  const update = useCallback(
+    (patch: Partial<A11yPrefs>) => {
+      setPrefs((current) => {
+        const next = normaliseA11y({ ...current, ...patch });
+        applyA11y(next);
+        persist(next);
+        return next;
+      });
+    },
+    [persist],
+  );
 
   const reset = useCallback(() => update(A11Y_DEFAULTS), [update]);
 
-  return { prefs, update, reset, ready };
+  return { prefs, update, reset, ready, signedIn };
 }

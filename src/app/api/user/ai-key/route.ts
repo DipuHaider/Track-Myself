@@ -1,7 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/serverAuth";
+import { requireActiveAuth, requireAuth } from "@/lib/serverAuth";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
+import { tooMany } from "@/lib/api/respond";
+import { assertSafeBaseUrl } from "@/lib/net/safeUrl";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { encryptSecret, last4, secretBoxReady } from "@/lib/crypto/secretBox";
@@ -48,8 +51,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireAuth();
+  const auth = await requireActiveAuth();
   if (auth instanceof NextResponse) return auth;
+
+  const gate = await checkRateLimitDb({ key: `ai-key:user:${auth.id}`, limit: 5, windowMs: 10 * 60 * 1000 });
+  if (!gate.ok) return tooMany(gate, "Too many key checks. Try again in a few minutes.");
 
   if (!secretBoxReady()) {
     return NextResponse.json(
@@ -69,9 +75,14 @@ export async function POST(req: Request) {
     ? body.model.trim().slice(0, 120)
     : PROVIDER_DEFAULT_MODEL[provider];
 
-  const baseUrl = provider === "openai-compatible" && typeof body?.baseUrl === "string"
+  let baseUrl = provider === "openai-compatible" && typeof body?.baseUrl === "string"
     ? body.baseUrl.trim().slice(0, 300)
     : "";
+  if (baseUrl) {
+    const safe = await assertSafeBaseUrl(baseUrl);
+    if (!safe.ok) return NextResponse.json({ error: safe.error }, { status: 400 });
+    baseUrl = safe.url;
+  }
 
   /* Probe before storing, so a bad key is rejected here rather than failing later
      inside a CV generation the user has already waited on. */
@@ -110,7 +121,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE() {
-  const auth = await requireAuth();
+  const auth = await requireActiveAuth();
   if (auth instanceof NextResponse) return auth;
   await dbConnect();
 

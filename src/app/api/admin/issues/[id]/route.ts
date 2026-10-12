@@ -6,6 +6,8 @@ import dbConnect from "@/lib/db";
 import IssueReport from "@/models/IssueReport";
 import { ISSUE_STATUSES, ISSUE_STATUS_LABELS, type IssueStatus } from "@/constants/issues";
 import { notify } from "@/lib/notifications/create";
+import { parseObjectId } from "@/lib/objectId";
+import { recordAdminAction } from "@/lib/audit";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAction("manage:issues");
@@ -13,6 +15,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   await dbConnect();
 
   const { id } = await params;
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const body = await req.json().catch(() => null);
   const update: Record<string, unknown> = {};
 
@@ -42,6 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
 
+  await recordAdminAction({ actor: auth, action: "issue.update", targetType: "issue", targetId: id, after: update, req });
   return NextResponse.json(report);
 }
 
@@ -51,8 +55,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   await dbConnect();
 
   const { id } = await params;
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const removed = await IssueReport.findByIdAndDelete(id);
   if (!removed) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await recordAdminAction({ actor: auth, action: "issue.delete", targetType: "issue", targetId: id, req });
 
   return NextResponse.json({ ok: true });
 }

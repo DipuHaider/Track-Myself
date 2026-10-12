@@ -4,8 +4,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
 import CVFile from "@/models/CVFile";
 import { getUserCredential } from "@/lib/ai/userKey";
-import { aiAvailableFor, sharedProviderStatus, type Actor } from "@/lib/ai/gateway";
-import { isPremiumUser, isSuperAdmin } from "@/lib/permissions";
+import { aiEntitlement, type Actor } from "@/lib/ai/gateway";
 import {
   checkGenerationGates, isTooThinToPrint, resolveGenerationContent,
 } from "@/lib/cv/generatePipeline";
@@ -78,10 +77,8 @@ export async function POST(req: Request) {
   let changedFields: string[] = [];
   let reused = false;
 
-  const superadmin = isSuperAdmin(auth.role);
   const userKey = await getUserCredential(auth.id);
-  const premium = superadmin || isPremiumUser(auth.role, auth.plan);
-  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan };
+  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan, status: auth.status };
   const jobDescription = appInfo ? jobDescriptionFrom(appInfo) : "";
 
   if (docType === "cover-letter" && appInfo) {
@@ -91,7 +88,8 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const useAi = premium && (await aiAvailableFor(actor, userKey));
+    const ent = await aiEntitlement(actor, "cover-letter.write", userKey);
+    const useAi = ent.allowed;
     const hash = draftHash({
       userId: auth.id, docType, format: "letter", variant: "letter",
       jobDescription: `${jobDescription}\n${appInfo.contactName ?? ""}`, correction, baseline,
@@ -111,29 +109,24 @@ export async function POST(req: Request) {
       filename: appDocFileName(baseline, appInfo, docType).replace(/\.(docx|pdf)$/, output === "pdf" ? ".pdf" : ".docx"),
       isoDate: new Date().toISOString().slice(0, 10),
       tailorMode: written.mode,
-      tailorNote: premium
-        ? written.note
-        : "Free plan: drafted from your CV and the posting's keywords. Upgrade to Premium for an AI-written letter.",
+      tailorNote: ent.allowed
+        ? [ent.note, written.note].filter(Boolean).join(" ")
+        : `${ent.message} Drafted from your CV and the posting's keywords instead.`,
       providerLabel: written.providerLabel,
-      upgrade: !premium,
+      upgrade: !ent.allowed && ent.reason === "upgrade",
       reused: Boolean(cached),
     });
   }
 
+  const ent = appInfo && jobDescription.trim() ? await aiEntitlement(actor, "cv.preview", userKey) : null;
+
   if (!appInfo || !jobDescription.trim()) {
     tailorNote = "Nothing to tailor against — this is your CV as it stands.";
-  } else if (!premium) {
+  } else if (!ent?.allowed) {
     tailored = tailorToApplication(baseline, { ...appInfo });
     tailorMode = "heuristic";
-    upgrade = true;
-    tailorNote =
-      "Free plan: your CV is reordered to match this job, not rewritten. Upgrade to Premium for AI tailoring.";
-  } else if (!(await aiAvailableFor(actor, userKey))) {
-    tailored = tailorToApplication(baseline, { ...appInfo });
-    tailorMode = "heuristic";
-    tailorNote = (sharedProviderStatus().anthropic || Boolean(userKey))
-      ? "No AI provider is available for your account — showing the reorder-only version."
-      : "AI tailoring is not configured on this deployment — showing the reorder-only version.";
+    upgrade = ent?.reason === "upgrade";
+    tailorNote = `${ent?.message ?? "AI is unavailable."} Your CV is reordered to match this job, not rewritten.`;
   } else {
     {
       const hash = draftHash({
@@ -169,9 +162,12 @@ export async function POST(req: Request) {
         changedFields = applied.changedFields;
         tailorMode = "ai";
         providerLabel = result.providerLabel;
-        tailorNote = changedFields.length
-          ? `${result.providerLabel} rewrote: ${changedFields.join(", ")}.`
-          : `${result.providerLabel} returned no changes for this role.`;
+        tailorNote = [
+          ent.note,
+          changedFields.length
+            ? `${result.providerLabel} rewrote: ${changedFields.join(", ")}.`
+            : `${result.providerLabel} returned no changes for this role.`,
+        ].filter(Boolean).join(" ");
         await saveDraft(auth.id, hash, `${docType}-${format}-${variant}`, tailored);
       } else if (result) {
         tailored = tailorToApplication(baseline, { ...appInfo });

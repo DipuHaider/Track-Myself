@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Spinner } from "@/components/shared/Spinner";
 import { Logo } from "@/components/shared/Logo";
+import CheckInbox from "@/components/auth/CheckInbox";
+import { safeReturnTo } from "@/lib/safeReturnTo";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const next = safeReturnTo(params.get("next"));
   const [formData, setFormData] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
 
   const onChange = (field: "name" | "email" | "password", value: string) => {
     setFormData((current) => ({ ...current, [field]: value }));
@@ -30,16 +35,21 @@ export default function RegisterPage() {
     });
 
     setIsSubmitting(false);
-    if (response.ok) {
-      router.push("/login");
-      return;
-    }
 
-    let payload: { error?: string | object } = {};
+    let payload: { error?: string | object; requiresVerification?: boolean; email?: string } = {};
     try {
       payload = await response.json();
     } catch {
       // empty or non-JSON body
+    }
+
+    if (response.ok) {
+      if (payload.requiresVerification) {
+        setPendingEmail(payload.email || formData.email.trim());
+        return;
+      }
+      router.push(next === "/me" ? "/login" : `/login?from=${encodeURIComponent(next)}`);
+      return;
     }
 
     const msg = typeof payload.error === "string" ? payload.error : "Registration failed. Please try again.";
@@ -48,7 +58,7 @@ export default function RegisterPage() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    await signIn("google", { callbackUrl: "/me" });
+    await signIn("google", { callbackUrl: next });
   };
 
   return (
@@ -58,6 +68,9 @@ export default function RegisterPage() {
           <Logo size={36} textSize="text-lg" lit />
         </div>
 
+        {pendingEmail ? (
+          <CheckInbox email={pendingEmail} />
+        ) : (
         <form onSubmit={onSubmit} className="surface w-full rounded-xl border p-6">
         <h1 className="text-2xl font-semibold">Register</h1>
         <p className="text-muted mt-1 text-sm">Create an account to start tracking jobs.</p>
@@ -89,6 +102,8 @@ export default function RegisterPage() {
           <input
             className="w-full rounded-md border px-3 py-2"
             placeholder="Name"
+            aria-label="Name"
+            autoComplete="name"
             value={formData.name}
             onChange={(e) => onChange("name", e.target.value)}
             required
@@ -96,6 +111,8 @@ export default function RegisterPage() {
           <input
             className="w-full rounded-md border px-3 py-2"
             placeholder="Email"
+            aria-label="Email"
+            autoComplete="email"
             type="email"
             value={formData.email}
             onChange={(e) => onChange("email", e.target.value)}
@@ -104,6 +121,8 @@ export default function RegisterPage() {
           <input
             className="w-full rounded-md border px-3 py-2"
             placeholder="Password"
+            aria-label="Password"
+            autoComplete="new-password"
             type="password"
             value={formData.password}
             onChange={(e) => onChange("password", e.target.value)}
@@ -111,7 +130,7 @@ export default function RegisterPage() {
           />
         </div>
 
-        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+        {error ? <p role="alert" className="text-danger mt-3 text-sm">{error}</p> : null}
 
         <button
           type="submit"
@@ -132,8 +151,17 @@ export default function RegisterPage() {
           </Link>
         </p>
         </form>
+        )}
       </div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center p-6"><Spinner size={22} label="Loading" /></main>}>
+      <RegisterForm />
+    </Suspense>
   );
 }
 

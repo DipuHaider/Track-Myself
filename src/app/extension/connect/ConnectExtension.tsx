@@ -65,7 +65,7 @@ export default function ConnectExtension({ extensionId, email }: { extensionId: 
                 Sign the TrackMyself browser extension in as{" "}
                 <span className="text-primary font-medium">{email}</span>? It will be able to save jobs to your tracker for 7 days.
               </p>
-              {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+              {error && <p className="text-danger mt-3 text-sm">{error}</p>}
               <button
                 type="button"
                 onClick={connect}

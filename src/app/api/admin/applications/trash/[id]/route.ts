@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
+import { parseObjectId } from "@/lib/objectId";
+import { recordAdminAction } from "@/lib/audit";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { requireAction } from "@/lib/serverAuth";
@@ -14,7 +15,7 @@ export async function POST(_: Request, { params }: Params) {
   if (auth instanceof NextResponse) return auth;
   await dbConnect();
   const { id } = await params;
-  if (!mongoose.isValidObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const restored = await restoreApplication({ _id: id });
   if (!restored) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -39,9 +40,10 @@ export async function DELETE(_: Request, { params }: Params) {
   if (auth instanceof NextResponse) return auth;
   await dbConnect();
   const { id } = await params;
-  if (!mongoose.isValidObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const removed = await deleteApplicationsForever({ _id: id });
   if (!removed) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await recordAdminAction({ actor: auth, action: "application.purge", targetType: "application", targetId: id });
   return NextResponse.json({ success: true });
 }

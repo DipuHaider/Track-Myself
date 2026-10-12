@@ -119,8 +119,8 @@ export default function ImportPanel({
         typed wins — reading a file only fills the gaps.
       </p>
 
-      {error && <p className="anim-in mb-3 flex items-start gap-1.5 text-sm text-red-600"><AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />{error}</p>}
-      {message && <p className="anim-in mb-3 flex items-start gap-1.5 text-sm" style={{ color: "#047857" }}><Check size={13} className="mt-0.5 shrink-0" aria-hidden="true" />{message}</p>}
+      {error && <p className="anim-in text-danger mb-3 flex items-start gap-1.5 text-sm" role="alert"><AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />{error}</p>}
+      {message && <p className="anim-in text-success mb-3 flex items-start gap-1.5 text-sm" role="status"><Check size={13} className="mt-0.5 shrink-0" aria-hidden="true" />{message}</p>}
 
       {cvFiles.length === 0 ? (
         <p className="text-muted rounded-lg border border-dashed px-4 py-6 text-center text-sm">
@@ -166,7 +166,7 @@ export default function ImportPanel({
               <li key={i} className="flex items-start gap-2 text-xs">
                 <span
                   className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
-                  style={{ background: s.ok ? "#10b981" : "#f59e0b" }}
+                  style={{ background: s.ok ? "var(--success)" : "var(--warning)" }}
                   aria-hidden="true"
                 />
                 <span>
@@ -207,6 +207,7 @@ export default function ImportPanel({
               <textarea
                 value={jsonText}
                 onChange={(e) => setJsonText(e.target.value)}
+                aria-label="CV JSON"
                 rows={7}
                 placeholder='{ "name": "…", "summary": "…", "experience": [ … ] }'
                 className="w-full rounded-md border px-3 py-2 font-mono text-xs"

@@ -6,6 +6,9 @@ import Application from "@/models/Application";
 import CVFile from "@/models/CVFile";
 import User from "@/models/User";
 import { getSessionUser } from "@/lib/serverAuth";
+import { clientIp } from "@/lib/rateLimit";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
+import { tooMany } from "@/lib/api/respond";
 import { getAllowedActions } from "@/lib/rbac";
 import { isAdmin } from "@/lib/permissions";
 import {
@@ -39,6 +42,8 @@ function visible(page: SearchPage, signedIn: boolean, actions: string[], admin: 
 }
 
 export async function GET(req: Request) {
+  const gate = await checkRateLimitDb({ key: `search:${clientIp(req)}`, limit: 60, windowMs: 60 * 1000 });
+  if (!gate.ok) return tooMany(gate);
   const q = (new URL(req.url).searchParams.get("q") ?? "").trim();
   if (!q) return NextResponse.json({ hits: [], scope: "empty" });
 

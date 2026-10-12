@@ -6,6 +6,7 @@ import { PLAN_LABELS, ROLE_LABELS, type Plan, type Role } from "@/lib/permission
 import { TOUR_DESCRIPTIONS, TOUR_LABELS, TOUR_SCOPES, type TourScope } from "@/lib/tour";
 import AiBudgetPanel from "@/components/dashboard/AiBudgetPanel";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { apiFetch } from "@/lib/api/client";
 import { toast } from "sonner";
 
 type SystemInfo = {
@@ -28,15 +29,9 @@ type SystemInfo = {
   };
 };
 
-type TaskKey = "roles" | "cvFiles" | "purgeTrash";
+type TaskKey = "cvFiles" | "purgeTrash";
 
 const TASKS: { key: TaskKey; label: string; description: string; endpoint: string }[] = [
-  {
-    key: "roles",
-    label: "Migrate legacy roles",
-    description: "Renames the old general/premium roles to free/paid and promotes the configured superadmin emails.",
-    endpoint: "/api/migrate-roles",
-  },
   {
     key: "cvFiles",
     label: "Move CV files to their own collection",
@@ -46,7 +41,7 @@ const TASKS: { key: TaskKey; label: string; description: string; endpoint: strin
   {
     key: "purgeTrash",
     label: "Purge expired deleted applications",
-    description: "Permanently removes applications that have been in Recently deleted for more than 30 days, with their interviews and reminders.",
+    description: "Permanently removes applications that have been in Recently deleted for more than 30 days, with their interviews.",
     endpoint: "/api/admin/applications/trash/purge",
   },
 ];
@@ -55,8 +50,8 @@ function Flag({ ok, label, hint }: { ok: boolean; label: string; hint?: string }
   return (
     <li className="flex items-start gap-2.5 py-1.5">
       {ok
-        ? <CheckCircle2 size={15} className="mt-0.5 shrink-0" style={{ color: "#0ca30c" }} aria-hidden="true" />
-        : <XCircle size={15} className="mt-0.5 shrink-0" style={{ color: "#d03b3b" }} aria-hidden="true" />}
+        ? <CheckCircle2 size={15} className="text-success mt-0.5 shrink-0" aria-hidden="true" />
+        : <XCircle size={15} className="text-danger mt-0.5 shrink-0" aria-hidden="true" />}
       <span className="text-sm">
         {label}
         <span className="text-muted"> — {ok ? "configured" : "not configured"}</span>
@@ -82,15 +77,15 @@ function FeatureToggles() {
     const next = !tours[scope];
     setSaving(scope);
     setTours({ ...tours, [scope]: next });
-
-    const res = await fetch("/api/admin/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tours: { [scope]: next } }),
-    }).catch(() => null);
-
-    setSaving(null);
-    if (!res || !res.ok) setTours({ ...tours, [scope]: !next });
+    try {
+      await apiFetch("/api/admin/settings", { method: "PUT", json: { tours: { [scope]: next } } });
+      toast.success(`${TOUR_LABELS[scope]} tour ${next ? "enabled" : "disabled"}`);
+    } catch (err) {
+      setTours({ ...tours, [scope]: !next });
+      toast.error(err instanceof Error ? err.message : "Could not save that setting.");
+    } finally {
+      setSaving(null);
+    }
   };
 
   return (
@@ -207,7 +202,7 @@ export default function SettingsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
 
   if (failed || !info) {
     return (
-      <p className="surface rounded-lg border p-4 text-sm text-red-600">
+      <p role="alert" className="alert alert-danger">
         Could not load system information.
       </p>
     );
@@ -271,10 +266,9 @@ export default function SettingsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
       </section>
 
       {counts.legacyEmbeddedProfiles > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border p-4"
-          style={{ borderColor: "#f59e0b66", background: "#fffbeb" }}>
-          <AlertTriangle size={18} className="mt-0.5 shrink-0" style={{ color: "#d97706" }} aria-hidden="true" />
-          <p className="text-sm" style={{ color: "#92400e" }}>
+        <div role="status" className="alert alert-warning">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <p>
             {counts.legacyEmbeddedProfiles} CV profile{counts.legacyEmbeddedProfiles === 1 ? " still stores" : "s still store"} file
             data inline. Run <strong>Move CV files to their own collection</strong> below to migrate them.
           </p>

@@ -13,6 +13,7 @@ import Loading, { InlineSpinner } from "@/components/shared/Spinner";
 import Pagination, { PAGE_SIZE, usePagination } from "@/components/shared/Pagination";
 import { useAllApplications, type AdminApplication } from "@/hooks/useAllApplications";
 import { usePermissions } from "@/hooks/usePermissions";
+import { apiFetch } from "@/lib/api/client";
 import { computeDuplicateGroups } from "@/lib/applicationFlags";
 import type { Application } from "@/types/application";
 
@@ -23,6 +24,17 @@ function ApplicationsContent() {
     applications, loading, failed,
     updateApplication, patchApplication, removeApplication, addApplication,
   } = useAllApplications();
+
+  /* List rows omit the job description and status history; the modals want
+     the whole record, so it is fetched on open and the row is the fallback. */
+  const openFull = async (row: AdminApplication, set: (app: AdminApplication) => void) => {
+    try {
+      const full = await apiFetch<AdminApplication>(`/api/admin/applications/${row._id}`);
+      set({ ...row, ...full, owner: full.owner ?? row.owner });
+    } catch {
+      set(row);
+    }
+  };
   const [trashOpen, setTrashOpen] = useState(false);
   const { can } = usePermissions();
 
@@ -82,23 +94,22 @@ function ApplicationsContent() {
     const previous = applications.find((a) => a._id === id);
     patchApplication(id, { [field]: value } as Partial<Application>);
 
-    const res = await fetch(`/api/admin/applications/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
-    });
-
-    if (!res.ok) {
+    try {
+      await apiFetch(`/api/admin/applications/${id}`, { method: "PATCH", json: { [field]: value } });
+    } catch (err) {
       if (previous) patchApplication(id, { [field]: previous[field] } as Partial<Application>);
-      setError("Could not update that application.");
+      setError(err instanceof Error ? err.message : "Could not update that application.");
     }
   }
 
   async function undoDelete(app: Application) {
-    const res = await fetch(`/api/admin/applications/trash/${app._id}`, { method: "POST" });
-    if (!res.ok) { toast.error("Could not restore that application."); return; }
-    addApplication(await res.json());
-    toast.success(`"${app.jobTitle}" restored`);
+    try {
+      const restored = await apiFetch<AdminApplication>(`/api/admin/applications/trash/${app._id}`, { method: "POST" });
+      addApplication({ ...restored, owner: restored.owner ?? (app as AdminApplication).owner ?? null });
+      toast.success(`"${app.jobTitle}" restored`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not restore that application.");
+    }
   }
 
   async function handleDelete(app: Application) {
@@ -106,10 +117,14 @@ function ApplicationsContent() {
 
     setDeletingId(app._id);
     setError("");
-    const res = await fetch(`/api/admin/applications/${app._id}`, { method: "DELETE" });
+    try {
+      await apiFetch(`/api/admin/applications/${app._id}`, { method: "DELETE" });
+    } catch (err) {
+      setDeletingId(null);
+      toast.error(err instanceof Error ? err.message : "Could not delete that application.");
+      return;
+    }
     setDeletingId(null);
-
-    if (!res.ok) { toast.error("Could not delete that application."); return; }
     removeApplication(app._id);
     toast(`"${app.jobTitle}" moved to Recently deleted`, {
       description: `${app.companyName}${owner ? ` · ${owner.name}` : ""} · restorable for 30 days`,
@@ -145,11 +160,11 @@ function ApplicationsContent() {
       </div>
 
       {failed && (
-        <p className="surface rounded-lg border p-4 text-sm text-red-600">
+        <p role="alert" className="alert alert-danger">
           Could not load applications. Please refresh and try again.
         </p>
       )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="alert alert-danger">{error}</p>}
 
       <div className="flex flex-wrap items-center gap-3">
         <input
@@ -195,8 +210,8 @@ function ApplicationsContent() {
         showOwner
         duplicateIds={duplicateIds}
         duplicateKinds={duplicateKinds}
-        onView={(app) => setViewTarget(app as AdminApplication)}
-        onEdit={canEdit ? (app) => setEditTarget(app as AdminApplication) : undefined}
+        onView={(app) => void openFull(app as AdminApplication, setViewTarget)}
+        onEdit={canEdit ? (app) => void openFull(app as AdminApplication, setEditTarget) : undefined}
         onDelete={canDelete ? handleDelete : undefined}
         onQuickUpdate={canEdit ? handleQuickUpdate : undefined}
       />

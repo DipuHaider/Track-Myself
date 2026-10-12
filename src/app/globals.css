@@ -37,6 +37,25 @@
   --glass-nav-bg: rgba(255, 255, 255, 0.86);
   --glass-nav-border: rgba(15, 23, 41, 0.12);
   --glass-nav-shadow: 0 1px 0 rgba(15, 23, 41, 0.04), 0 10px 28px rgba(15, 23, 41, 0.07);
+
+  /* Status colours: one trio each, so alerts, text and chips agree */
+  --danger: #b91c1c;
+  --danger-bg: #fee2e2;
+  --danger-border: #fca5a5;
+  --success: #166534;
+  --success-bg: #dcfce7;
+  --success-border: #86efac;
+  --warning: #92400e;
+  --warning-bg: #fef3c7;
+  --warning-border: #fcd34d;
+  --info: #1d4ed8;
+  --info-bg: #dbeafe;
+  --info-border: #93c5fd;
+
+  /* The primary button needs its own pair: --primary is tuned for text and
+     links, and on dark it is too light to carry white text. */
+  --btn-primary-from: var(--primary);
+  --btn-primary-to: var(--accent);
 }
 
 :root[data-theme="dark"] {
@@ -66,6 +85,22 @@
   --glass-nav-bg: rgba(14, 19, 32, 0.86);
   --glass-nav-border: rgba(255, 255, 255, 0.12);
   --glass-nav-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 28px rgba(0, 0, 0, 0.55);
+
+  --danger: #fca5a5;
+  --danger-bg: #3b0d0d;
+  --danger-border: #7f1d1d;
+  --success: #86efac;
+  --success-bg: #052e16;
+  --success-border: #166534;
+  --warning: #fcd34d;
+  --warning-bg: #2d1a00;
+  --warning-border: #92400e;
+  --info: #93c5fd;
+  --info-bg: #0d1f3b;
+  --info-border: #1d4ed8;
+
+  --btn-primary-from: #3f63e0;
+  --btn-primary-to: #7352e6;
 }
 
 @theme inline {
@@ -167,12 +202,102 @@ select optgroup {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: linear-gradient(135deg, var(--btn-primary-from), var(--btn-primary-to));
   color: #fff;
 }
 
 .btn-primary:hover {
   filter: brightness(1.05);
+}
+
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  transition: background-color var(--dur, 160ms) var(--ease-out, ease);
+}
+
+.btn-secondary:hover {
+  background: var(--surface-2);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+:root[data-theme="dark"] .btn-danger {
+  background: #dc2626;
+}
+
+.btn-danger:hover {
+  filter: brightness(1.08);
+}
+
+/* ── Status surfaces ── */
+.text-danger  { color: var(--danger); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.text-info    { color: var(--info); }
+
+.alert {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+  border-radius: 0.625rem;
+  border: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.alert-danger  { background: var(--danger-bg);  border-color: var(--danger-border);  color: var(--danger); }
+.alert-success { background: var(--success-bg); border-color: var(--success-border); color: var(--success); }
+.alert-warning { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning); }
+.alert-info    { background: var(--info-bg);    border-color: var(--info-border);    color: var(--info); }
+
+/* A 2rem rounded square for an icon, coloured by any badge class */
+.icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+}
+
+/* Keyboard focus is visible everywhere, not only in high-contrast mode */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Upload drop zones share one look; the data-dragging state is set by the
+   DropZone component while a file is over it. */
+.dropzone {
+  border: 1.5px dashed var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color var(--dur, 160ms) var(--ease-out, ease), background-color var(--dur, 160ms) var(--ease-out, ease);
+}
+
+.dropzone:hover,
+.dropzone[data-dragging="true"] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-2));
+}
+
+.dropzone[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .role-badge {
@@ -539,7 +664,7 @@ select optgroup {
 }
 
 :root[data-dyslexia] body {
-  font-family: "Atkinson Hyperlegible", "Comic Sans MS", Verdana, Tahoma, sans-serif;
+  font-family: var(--font-dyslexia), "Atkinson Hyperlegible", Verdana, Tahoma, sans-serif;
 }
 
 :root[data-reading-spacing] body {

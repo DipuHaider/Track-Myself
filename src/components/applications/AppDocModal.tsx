@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
@@ -17,6 +17,9 @@ import {
 } from "@/hooks/useCVProfile";
 import { canExportPdf, canUseCVFormat } from "@/lib/permissions";
 import { useDismissable } from "@/hooks/useDismissable";
+import { useEscapeToClose } from "@/hooks/useModalStack";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useScrollLock } from "@/hooks/useScrollLock";
 import DocDiffPanel, { type DocDiff, type LeftSource } from "./DocDiffPanel";
 import CoverLetterReview from "./CoverLetterReview";
 import type { CoverLetterText } from "@/lib/cv/coverLetter";
@@ -110,12 +113,12 @@ export default function AppDocModal({
   const [letter, setLetter] = useState<CoverLetterText | null>(null);
 
   const { closing, close } = useDismissable(onClose);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [close]);
+  useEscapeToClose(close, true);
+  useFocusTrap(panelRef, true);
+  useScrollLock(true);
 
   useEffect(() => {
     if (getCachedCVProfile()) return;
@@ -324,12 +327,14 @@ export default function AppDocModal({
       className={`fixed inset-0 z-50 flex items-center justify-center p-4 text-left ${closing ? "anim-backdrop-out" : "anim-backdrop"}`}
       style={{ background: "rgba(0,0,0,0.55)" }}
       onClick={(e) => { if (e.target === e.currentTarget) close(); }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Generate documents for this application"
     >
       <div
-        className={`surface flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-xl border shadow-2xl ${
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className={`surface flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-xl border shadow-2xl outline-none ${
           reviewing ? "max-w-4xl" : "max-w-lg"
         } ${closing ? "anim-panel-out" : "anim-panel"}`}
       >
@@ -346,7 +351,7 @@ export default function AppDocModal({
               </button>
             )}
             <div className="min-w-0">
-              <h2 className="flex items-center gap-2 text-base font-semibold">
+              <h2 id={titleId} className="flex items-center gap-2 text-base font-semibold">
                 <Sparkles size={15} style={{ color: "var(--primary)" }} aria-hidden="true" />
                 {reviewing ? "Review before saving" : "Generate documents"}
               </h2>
@@ -365,7 +370,7 @@ export default function AppDocModal({
           </button>
         </div>
 
-        {error && <p className="anim-in border-b px-5 py-2.5 text-xs text-red-600">{error}</p>}
+        {error && <p className="anim-in text-danger border-b px-5 py-2.5 text-xs" role="alert">{error}</p>}
 
         {reviewing ? (
           <>
@@ -454,7 +459,7 @@ export default function AppDocModal({
                 <>
                   {cvEmpty && (
                     <div className="flex items-start gap-2 border-b px-5 py-3">
-                      <AlertCircle size={14} className="mt-0.5 shrink-0" style={{ color: "#d97706" }} aria-hidden="true" />
+                      <AlertCircle size={14} className="text-warning mt-0.5 shrink-0" aria-hidden="true" />
                       <p className="text-muted text-xs leading-snug">
                         Your CV is empty, so nothing can be generated yet.{" "}
                         <Link href="/me/cv" className="font-semibold underline" style={{ color: "var(--primary)" }}>
@@ -466,7 +471,7 @@ export default function AppDocModal({
                   )}
 
                   {done && (
-                    <p className="anim-in border-b px-5 py-2.5 text-xs" style={{ color: "#047857" }}>{done}</p>
+                    <p className="anim-in text-success border-b px-5 py-2.5 text-xs" role="status">{done}</p>
                   )}
 
                   {!info.jobDescription?.trim() && (

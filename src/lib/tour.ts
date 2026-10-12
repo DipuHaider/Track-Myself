@@ -15,17 +15,21 @@ export const TOUR_LABELS: Record<TourScope, string> = {
 
 export const TOUR_DESCRIPTIONS: Record<TourScope, string> = {
   home: "Runs on the public homepage for a free account that has not seen it.",
-  portal: "Runs on /me for a premium account that has not seen it.",
+  portal: "Runs on /me the first time a free or premium account arrives.",
   dashboard: "Runs on the dashboard the first time an editor or admin signs in.",
 };
 
-/* Which audience each tour opens itself for. Anyone can still replay any of
+/* Which audiences each tour opens itself for. Anyone can still replay any of
    them from the quick bubble — this only governs the automatic first run. */
-export const TOUR_AUTO_AUDIENCE: Record<TourScope, TourAudience> = {
-  home: "free",
-  portal: "premium",
-  dashboard: "admin",
+export const TOUR_AUTO_AUDIENCE: Record<TourScope, readonly TourAudience[]> = {
+  home: ["free"],
+  portal: ["free", "premium"],
+  dashboard: ["admin"],
 };
+
+export function autoRunsFor(scope: TourScope, audience: TourAudience): boolean {
+  return TOUR_AUTO_AUDIENCE[scope].includes(audience);
+}
 
 const DASHBOARD_PREFIXES = ["/dashboard", "/applications", "/analytics", "/users", "/settings"];
 

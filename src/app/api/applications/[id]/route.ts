@@ -1,12 +1,12 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { historyActor, isValidationError, updateApplication, validationMessage } from "@/lib/applicationHistory";
 import { softDeleteApplication } from "@/lib/applicationTrash";
 import { requireActiveAuth } from "@/lib/serverAuth";
+import { parseObjectId } from "@/lib/objectId";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -15,8 +15,9 @@ export async function GET(_: Request, { params }: Params) {
   if (auth instanceof NextResponse) return auth;
   const userId = auth.id;
 
-  await dbConnect();
   const { id } = await params;
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await dbConnect();
   const application = await Application.findOne({ _id: id, userId });
   if (!application) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -32,7 +33,7 @@ export async function PUT(req: Request, { params }: Params) {
   await dbConnect();
   const { id } = await params;
   const body = await req.json();
-  if (!mongoose.isValidObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   let updated;
   try {
@@ -53,7 +54,7 @@ export async function DELETE(_: Request, { params }: Params) {
 
   await dbConnect();
   const { id } = await params;
-  if (!mongoose.isValidObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const deleted = await softDeleteApplication({ _id: id, userId }, await historyActor(userId));
   if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });

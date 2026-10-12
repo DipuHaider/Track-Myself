@@ -44,15 +44,24 @@ export const CATEGORY_MIME: Record<CVFileCategory, string[]> = {
   "other":         [...DOC_MIME_TYPES, ...IMAGE_MIME_TYPES, ...DATA_MIME_TYPES],
 };
 
+/* Files travel as base64 inside a JSON body, which Vercel caps at about
+   4.5 MB, so the raw caps sit at three quarters of that. */
 export const CATEGORY_MAX_BYTES: Record<CVFileCategory, number> = {
-  "cv":            5 * 1024 * 1024,
-  "resume":        5 * 1024 * 1024,
-  "cover-letter":  5 * 1024 * 1024,
-  "certificate":   5 * 1024 * 1024,
-  "profile-photo": 3 * 1024 * 1024,
-  "cover-image":   6 * 1024 * 1024,
-  "other":         5 * 1024 * 1024,
+  "cv":            3 * 1024 * 1024,
+  "resume":        3 * 1024 * 1024,
+  "cover-letter":  3 * 1024 * 1024,
+  "certificate":   3 * 1024 * 1024,
+  "profile-photo": 2 * 1024 * 1024,
+  "cover-image":   3 * 1024 * 1024,
+  "other":         3 * 1024 * 1024,
 };
+
+export function base64Bytes(data: string): number {
+  const len = data.length;
+  if (!len) return 0;
+  const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
+  return Math.floor((len * 3) / 4) - padding;
+}
 
 export const PRIMARY_FOR_CATEGORY: Partial<Record<CVFileCategory, string>> = {
   "cv":            "cv",

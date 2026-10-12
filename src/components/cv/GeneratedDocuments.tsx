@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { Download, FileText, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { apiFetch } from "@/lib/api/client";
 import type { CVFileMeta } from "@/types/cv";
 
 const FORMAT_NAME: Record<string, string> = {
@@ -36,14 +39,22 @@ export default function GeneratedDocuments({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const ask = useConfirm();
 
-  async function remove(id: string) {
-    setBusy(id);
+  async function remove(file: CVFileMeta) {
+    const ok = await ask({
+      title: `Delete "${file.name}"?`,
+      message: "This document will be removed.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
+    setBusy(file._id);
     setError("");
     try {
-      const res = await fetch(`/api/user/cv/files/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Could not delete that document.");
-      onDeleted(id);
+      await apiFetch(`/api/user/cv/files/${file._id}`, { method: "DELETE" });
+      onDeleted(file._id);
+      toast.success(`"${file.name}" deleted`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not delete that document.");
     } finally {
@@ -60,7 +71,7 @@ export default function GeneratedDocuments({
         CV Builder.
       </p>
 
-      {error && <p className="anim-in mb-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="anim-in text-danger mb-3 text-sm" role="alert">{error}</p>}
 
       {files.length === 0 ? (
         <div className="rounded-lg border border-dashed px-4 py-8 text-center">
@@ -94,10 +105,10 @@ export default function GeneratedDocuments({
 
               <button
                 type="button"
-                onClick={() => remove(file._id)}
+                onClick={() => remove(file)}
                 disabled={busy === file._id}
                 aria-label={`Delete ${file.name}`}
-                className="shrink-0 rounded-md p-1.5 text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                className="text-danger shrink-0 rounded-md p-1.5 transition hover:bg-[var(--danger-bg)] disabled:opacity-50"
               >
                 <Trash2 size={13} aria-hidden="true" />
               </button>

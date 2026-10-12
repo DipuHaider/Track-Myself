@@ -1,13 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+import Image from "next/image";
 import {
   Check, Download, Eye, FileText, ImageIcon, Loader2,
   Pencil, Star, Trash2, Upload, X,
 } from "lucide-react";
 import type { CVFileCategory, CVFileMeta } from "@/types/cv";
-import { fileTypeLabel, resolveFileMime } from "@/lib/cvFileTypes";
+import { CATEGORY_MAX_BYTES, fileTypeLabel, resolveFileMime } from "@/lib/cvFileTypes";
 import Pagination, { usePagination } from "@/components/shared/Pagination";
+import DropZone from "@/components/shared/DropZone";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { toast } from "sonner";
 
@@ -16,7 +18,7 @@ export type SectionSpec = {
   title: string;
   description: string;
   accept: string;
-  maxMB: number;
+  maxMB?: number;
   kind: "document" | "image";
   primaryLabel?: string;
   singleSlot?: boolean;
@@ -49,19 +51,19 @@ export default function DocumentSection({
   const [uploading, setUploading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const ask = useConfirm();
-  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const isImage = spec.kind === "image";
+  const maxBytes = CATEGORY_MAX_BYTES[spec.category];
+  const maxMB = maxBytes / (1024 * 1024);
   const { page, setPage, totalPages, pageItems, total } = usePagination(files);
 
   async function upload(file: File) {
     setError("");
-    if (file.size > spec.maxMB * 1024 * 1024) {
-      setError(`File must be under ${spec.maxMB} MB`);
+    if (file.size > maxBytes) {
+      setError(`File must be under ${maxMB} MB`);
       return;
     }
     setUploading(true);
@@ -163,33 +165,14 @@ export default function DocumentSection({
       </div>
 
       <div className="space-y-3 p-4">
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            const file = e.dataTransfer.files[0];
-            if (file) upload(file);
-          }}
-          onClick={() => !uploading && inputRef.current?.click()}
-          className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 py-6 transition hover:bg-[var(--surface-2)]"
-          style={{
-            borderColor: dragging ? "var(--primary)" : "var(--border)",
-            background: dragging ? "var(--surface-2)" : undefined,
-          }}
+        <DropZone
+          accept={spec.accept}
+          busy={uploading}
+          label={`Upload to ${spec.title}`}
+          hint={`${spec.accept.replace(/\./g, "").toUpperCase().replace(/,/g, ", ")} · max ${maxMB} MB`}
+          className="flex flex-col items-center justify-center gap-1.5 px-4 py-6 text-center"
+          onFiles={([file]) => upload(file)}
         >
-          <input
-            ref={inputRef}
-            type="file"
-            accept={spec.accept}
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) upload(f);
-              e.target.value = "";
-            }}
-          />
           {uploading ? (
             <>
               <Loader2 size={20} className="animate-spin" style={{ color: "var(--primary)" }} />
@@ -201,14 +184,11 @@ export default function DocumentSection({
               <p className="text-sm font-medium">
                 Drop a file or <span style={{ color: "var(--primary)" }}>browse</span>
               </p>
-              <p className="text-muted text-[11px]">
-                {spec.accept.replace(/\./g, "").toUpperCase().replace(/,/g, ", ")} · max {spec.maxMB} MB
-              </p>
             </>
           )}
-        </div>
+        </DropZone>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-danger text-sm">{error}</p>}
 
         {files.length === 0 ? (
           <p className="text-muted py-1 text-center text-xs">Nothing uploaded yet.</p>
@@ -224,10 +204,12 @@ export default function DocumentSection({
                   style={isPrimary ? { borderColor: "var(--primary)", boxShadow: "0 0 0 1px var(--primary)" } : {}}
                 >
                   {isImage ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
+                    <Image
                       src={`/api/user/cv/files/${file._id}/raw`}
                       alt={file.name}
+                      width={44}
+                      height={44}
+                      unoptimized
                       className="h-11 w-11 shrink-0 rounded object-cover"
                       style={{ background: "var(--surface-2)" }}
                     />
@@ -256,7 +238,7 @@ export default function DocumentSection({
                         <button
                           type="button"
                           onClick={() => saveRename(file._id)}
-                          className="rounded p-1 text-green-600 hover:bg-[var(--surface-2)]"
+                          className="text-success rounded p-1 hover:bg-[var(--surface-2)]"
                           title="Save name"
                         >
                           <Check size={14} />
@@ -322,7 +304,7 @@ export default function DocumentSection({
                         disabled={busy}
                         title={isPrimary ? `Unset as ${spec.primaryLabel}` : `Set as ${spec.primaryLabel}`}
                         className={`rounded-md p-1.5 transition disabled:opacity-40 hover:bg-[var(--surface-2)] ${
-                          isPrimary ? "text-amber-500" : "text-muted hover:text-amber-500"
+                          isPrimary ? "text-warning" : "text-muted hover:text-[var(--warning)]"
                         }`}
                       >
                         {busy
@@ -335,7 +317,7 @@ export default function DocumentSection({
                       onClick={() => remove(file._id, file.name)}
                       disabled={busy}
                       title="Delete"
-                      className="text-muted rounded-md p-1.5 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                      className="text-muted rounded-md p-1.5 transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-40"
                     >
                       <Trash2 size={14} />
                     </button>

@@ -154,7 +154,7 @@ export default function AppSidebar({
             type="button"
             onClick={() => signOut({ callbackUrl: signOutTo })}
             aria-label={collapsed ? "Sign out" : undefined}
-            className={`flex w-full items-center rounded-md px-2 py-2 text-sm text-red-500 transition hover:bg-red-50 ${
+            className={`text-danger flex w-full items-center rounded-md px-2 py-2 text-sm transition hover:bg-[var(--surface-2)] ${
               collapsed ? "justify-center" : "gap-3"
             }`}
           >

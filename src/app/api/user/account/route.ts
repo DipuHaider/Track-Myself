@@ -8,7 +8,7 @@ import { purgeUserData } from "@/lib/accountDeletion";
 import { requireAuth } from "@/lib/serverAuth";
 import { invalidateClaims } from "@/lib/auth";
 import { isSuperAdmin } from "@/lib/permissions";
-import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
+import { checkRateLimitDb, clearRateLimitDb } from "@/lib/rateLimitStore";
 
 type UserDoc = { _id: unknown; password?: string; role?: string; status?: string; pausedAt?: Date };
 
@@ -75,7 +75,7 @@ export async function DELETE(req: Request) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const gate = checkRateLimit({
+  const gate = await checkRateLimitDb({
     key: `account-delete:${auth.id}`,
     limit: 10,
     windowMs: 60 * 60 * 1000,
@@ -120,9 +120,14 @@ export async function DELETE(req: Request) {
     }
   }
 
-  clearRateLimit(`account-delete:${auth.id}`);
+  await clearRateLimitDb(`account-delete:${auth.id}`);
 
   const removed = await purgeUserData(auth.id, auth.email);
 
-  return expireSession(NextResponse.json({ deleted: true, removed }));
+  return expireSession(
+    NextResponse.json(
+      { deleted: removed.userDeleted, retrying: !removed.userDeleted, removed },
+      { status: removed.userDeleted ? 200 : 202 },
+    ),
+  );
 }

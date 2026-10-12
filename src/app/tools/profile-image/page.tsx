@@ -6,6 +6,7 @@ import {
   ArrowLeft, Circle, Loader2, RotateCcw, Shield, Sparkles,
   Square, SquareRoundCorner, Upload, Wand2, X,
 } from "lucide-react";
+import DropZone from "@/components/shared/DropZone";
 import ExportPanel from "@/components/tools/ExportPanel";
 import { usePremium } from "@/hooks/usePremium";
 import { MODEL_LICENCE, removeBackground, type RemovalProgress } from "@/lib/tools/backgroundRemoval";
@@ -50,7 +51,6 @@ export default function ProfileImagePage() {
   const [removedBg, setRemovedBg] = useState(true);
   const [progress, setProgress] = useState<RemovalProgress | null>(null);
   const [error, setError] = useState("");
-  const [dragging, setDragging] = useState(false);
 
   const [preset, setPreset] = useState<Preset>(PRESETS[0]);
   const [shape, setShape] = useState<ProfileShape>("circle");
@@ -62,7 +62,6 @@ export default function ProfileImagePage() {
   const [adjustments, setAdjustments] = useState<Adjustments>(NEUTRAL_ADJUSTMENTS);
   const [autoApplied, setAutoApplied] = useState(false);
 
-  const inputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const presetHeight = preset.key === "cv" ? 531 : preset.size;
@@ -121,8 +120,7 @@ export default function ProfileImagePage() {
     host.appendChild(view);
   }, [subject, preset.size, presetHeight, zoom, offsetX, offsetY, background, shape, adjustments]);
 
-  function onPick(files: FileList | null) {
-    const next = files?.[0];
+  function onPick([next]: File[]) {
     if (!next) return;
     if (!next.type.startsWith("image/")) {
       setError("Please choose an image file.");
@@ -161,33 +159,21 @@ export default function ProfileImagePage() {
       </div>
 
       {!file && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => { e.preventDefault(); setDragging(false); onPick(e.dataTransfer.files); }}
-          onClick={() => inputRef.current?.click()}
-          className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-16 transition hover:bg-[var(--surface-2)]"
-          style={{
-            borderColor: dragging ? "var(--primary)" : "var(--border)",
-            background: dragging ? "var(--surface-2)" : undefined,
-          }}
+        <DropZone
+          accept="image/*"
+          label="Upload a headshot"
+          hint="A front-facing photo with your shoulders in frame works best"
+          className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center"
+          onFiles={onPick}
         >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => { onPick(e.target.files); e.target.value = ""; }}
-          />
           <Upload size={30} className="text-muted" aria-hidden="true" />
           <p className="text-sm font-medium">
             Drop a headshot here or <span style={{ color: "var(--primary)" }}>browse</span>
           </p>
-          <p className="text-muted text-xs">A front-facing photo with your shoulders in frame works best</p>
-        </div>
+        </DropZone>
       )}
 
-      {error && <p className="surface rounded-lg border p-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="alert alert-danger rounded-lg p-4 text-sm">{error}</p>}
 
       {file && (
         <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">

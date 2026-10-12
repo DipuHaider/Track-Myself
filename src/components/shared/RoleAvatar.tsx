@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Crown, PenLine, ShieldCheck, Star, User } from "lucide-react";
 import { TIER_LABELS, roleTier, type RoleTier } from "@/lib/permissions";
 
@@ -14,10 +15,10 @@ export const TIER_ICON: Record<RoleTier, React.ComponentType<IconProps>> = {
 };
 
 export const TIER_COLOR: Record<RoleTier, { fg: string; bg: string }> = {
-  superadmin: { fg: "#c2410c", bg: "#fff7ed" },
-  admin:      { fg: "#b91c1c", bg: "#fee2e2" },
-  editor:     { fg: "#1d4ed8", bg: "#dbeafe" },
-  premium:    { fg: "#b45309", bg: "#fef3c7" },
+  superadmin: { fg: "var(--warning)", bg: "var(--warning-bg)" },
+  admin:      { fg: "var(--danger)", bg: "var(--danger-bg)" },
+  editor:     { fg: "var(--info)", bg: "var(--info-bg)" },
+  premium:    { fg: "var(--accent)", bg: "color-mix(in srgb, var(--accent) 16%, var(--surface))" },
   free:       { fg: "var(--muted-foreground)", bg: "var(--surface-2)" },
 };
 
@@ -57,10 +58,11 @@ export default function RoleAvatar({
       title={label}
     >
       {image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={image}
           alt=""
+          width={size}
+          height={size}
           referrerPolicy="no-referrer"
           className="h-full w-full rounded-full object-cover"
           style={{ background: colors.bg }}

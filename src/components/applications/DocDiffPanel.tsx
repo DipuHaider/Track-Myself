@@ -83,7 +83,7 @@ export default function DocDiffPanel({
           </span>
           <p className="text-muted min-w-0 flex-1 text-[11px] leading-snug">{tailorNote}</p>
           {upgrade && (
-            <a href="/me" className="text-[11px] font-semibold underline" style={{ color: "var(--primary)" }}>
+            <a href="/pricing" className="text-[11px] font-semibold underline" style={{ color: "var(--primary)" }}>
               Upgrade
             </a>
           )}
@@ -99,8 +99,8 @@ export default function DocDiffPanel({
         {!diff.empty && (
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-muted text-[11px]">
-              <strong style={{ color: "#047857" }}>+{diff.stats.added}</strong>{" "}
-              <strong style={{ color: "#b91c1c" }}>−{diff.stats.removed}</strong> words across{" "}
+              <strong className="text-success">+{diff.stats.added}</strong>{" "}
+              <strong className="text-danger">−{diff.stats.removed}</strong> words across{" "}
               {diff.stats.changedSections} section{diff.stats.changedSections === 1 ? "" : "s"}
             </p>
             <label className="text-muted flex cursor-pointer items-center gap-1.5 text-[11px]">
@@ -146,12 +146,12 @@ export default function DocDiffPanel({
                     <FileText size={12} className="text-muted shrink-0" aria-hidden="true" />
                     <span className="flex-1 text-xs font-semibold">{s.label}</span>
                     {s.onlyIn === "right" && (
-                      <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold" style={{ background: "#dcfce7", color: "#14532d" }}>
+                      <span className="diff-ins rounded-full px-1.5 py-0.5 text-[9px] font-bold">
                         NEW
                       </span>
                     )}
                     {s.onlyIn === "left" && (
-                      <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold" style={{ background: "#fee2e2", color: "#7f1d1d" }}>
+                      <span className="diff-del rounded-full px-1.5 py-0.5 text-[9px] font-bold" style={{ textDecoration: "none" }}>
                         DROPPED
                       </span>
                     )}

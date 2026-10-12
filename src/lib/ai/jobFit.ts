@@ -1,4 +1,6 @@
-import { runAiTask, type Actor } from "@/lib/ai/gateway";
+import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
+import { fence } from "@/lib/ai/prompt";
+import { gapItemsSchema } from "@/lib/ai/schemas";
 import type { AICredential } from "@/lib/cv/ai/provider";
 import type { CVContent } from "@/types/cv";
 
@@ -76,27 +78,15 @@ RULES
 - Repetition in the posting does not establish importance.
 - At most 12 items, most important first.
 
-JOB DESCRIPTION
-${jobDescription.slice(0, JD_LIMIT)}
+${fence("job_description", jobDescription.slice(0, JD_LIMIT))}
 
-CV SECTIONS
-${cvSections(cv)}
+${fence("cv_sections", cvSections(cv))}
 
 Return ONLY a JSON array:
 [{"requirement":"","excerpt":"","level":"required","verdict":"match","evidence":[],"suggestion":"","question":""}]`;
 }
 
-function parse(raw: string, cv: CVContent): GapItem[] {
-  const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) return [];
-
-  let rows: unknown[];
-  try {
-    rows = JSON.parse(match[0]) as unknown[];
-  } catch {
-    return [];
-  }
-
+function parse(rows: unknown[], cv: CVContent): GapItem[] {
   const known = new Set(cvSections(cv).split("\n").map((l) => l.match(/^\[([^\]]+)\]/)?.[1] ?? ""));
 
   return rows
@@ -208,12 +198,15 @@ export async function analyseJobFit(opts: {
   actor: Actor;
   userKey?: AICredential | null;
 }): Promise<GapAnalysis> {
-  const run = await runAiTask({
+  const run = await runAiJsonTask({
     task: "cv.gap-analysis",
     actor: opts.actor,
     prompt: buildPrompt(opts.cv, opts.jobDescription),
     maxOutputTokens: 3000,
     userKey: opts.userKey,
+    schema: gapItemsSchema,
+    kind: "array",
+    schemaHint: '[{"requirement": string, "excerpt": string, "level": "required"|"preferred"|"unclear", "verdict": "match"|"partial"|"not-evidenced"|"unclear", "evidence": string[], "suggestion": string, "question": string}]',
   });
 
   if (!run.ok) {
@@ -221,10 +214,10 @@ export async function analyseJobFit(opts: {
     return { ...fallback, note: `${run.message} ${fallback.note}` };
   }
 
-  const items = parse(run.text, opts.cv);
+  const items = parse(run.value, opts.cv);
   if (!items.length) {
     const fallback = keywordGaps(opts.cv, opts.jobDescription);
-    return { ...fallback, note: `${run.providerLabel} returned nothing usable. ${fallback.note}` };
+    return { ...fallback, note: `${run.meta.providerLabel} returned nothing usable. ${fallback.note}` };
   }
 
   return {

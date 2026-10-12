@@ -5,6 +5,7 @@ export function attachmentUrl(id: string, name: string) {
   return `/api/attachments/${id}/${encodeURIComponent(name)}`;
 }
 
-export function isLegacyUploadPath(path: string) {
-  return path.startsWith("/uploads/");
+export function attachmentIdFromUrl(path: string | null | undefined): string | null {
+  const m = (path ?? "").match(/^\/api\/attachments\/([a-f0-9]{24})(?:\/|$)/i);
+  return m ? m[1] : null;
 }

@@ -5,24 +5,24 @@ import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { invalidateClaims } from "@/lib/auth";
-import { requireActiveAuth } from "@/lib/serverAuth";
+import { requireAuth } from "@/lib/serverAuth";
+import { USER_PROFILE_SELECT, profileView } from "@/lib/serialisers/user";
 import { profileUpdateSchema } from "@/schemas/profileSchema";
-import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
+import { checkRateLimitDb, clearRateLimitDb } from "@/lib/rateLimitStore";
 
 export async function GET() {
-  const auth = await requireActiveAuth();
+  const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
   await dbConnect();
-  const user = (await User.findById(auth.id).lean()) as Record<string, unknown> | null;
+  const user = (await User.findById(auth.id, USER_PROFILE_SELECT).lean()) as Record<string, unknown> | null;
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { password, ...safe } = user;
-  return NextResponse.json({ ...safe, hasPassword: Boolean(password) });
+  return NextResponse.json(profileView(user));
 }
 
 export async function PATCH(req: Request) {
-  const auth = await requireActiveAuth();
+  const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
   const parsed = profileUpdateSchema.safeParse(await req.json().catch(() => null));
@@ -31,7 +31,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: issue }, { status: 400 });
   }
 
-  const { name, bio, currentPassword, newPassword } = parsed.data;
+  const { name, bio, image, notifPrefs, currentPassword, newPassword } = parsed.data;
 
   await dbConnect();
 
@@ -39,14 +39,16 @@ export async function PATCH(req: Request) {
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const hadPassword = Boolean(existing.password);
-  const update: Record<string, string | Date> = {};
+  const update: Record<string, string | Date | Record<string, boolean>> = {};
   if (name) update.name = name;
   if (typeof bio === "string") update.bio = bio;
+  if (typeof image === "string") update.image = image;
+  if (notifPrefs) update.notifPrefs = notifPrefs;
 
   if (newPassword) {
     /* The current-password check is a guess against a secret, so it needs the
        same throttle the sign-in paths get. */
-    const gate = checkRateLimit({
+    const gate = await checkRateLimitDb({
       key: `profile-password:${auth.id}`,
       limit: 5,
       windowMs: 15 * 60 * 1000,
@@ -60,7 +62,16 @@ export async function PATCH(req: Request) {
 
     /* A Google account has no hash to prove against, so adding its first
        password only needs the signed-in session. Replacing one still does. */
-    if (hadPassword) {
+    if (!hadPassword) {
+      return NextResponse.json(
+        {
+          error: "This account signs in with Google. Use “Forgot password” to set one — the emailed link proves it is really you.",
+          code: "use-reset",
+        },
+        { status: 400 },
+      );
+    }
+    {
       if (!currentPassword) {
         return NextResponse.json({ error: "Current password is required." }, { status: 400 });
       }
@@ -74,7 +85,7 @@ export async function PATCH(req: Request) {
       update.sessionsValidFrom = new Date();
     }
 
-    clearRateLimit(`profile-password:${auth.id}`);
+    await clearRateLimitDb(`profile-password:${auth.id}`);
     update.password = await bcrypt.hash(newPassword, 10);
   }
 
@@ -82,12 +93,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
-  const updated = await User.findByIdAndUpdate(auth.id, update, { new: true, select: "-password" });
-  if (update.sessionsValidFrom) invalidateClaims(updated?.email);
+  const updated = await User.findByIdAndUpdate(auth.id, update, { new: true, select: USER_PROFILE_SELECT });
+  if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (update.sessionsValidFrom) invalidateClaims(updated.email);
 
-  return NextResponse.json({
-    ...(updated?.toObject ? updated.toObject() : updated),
-    hasPassword: hadPassword || Boolean(newPassword),
-    passwordAdded: !hadPassword && Boolean(newPassword),
-  });
+  return NextResponse.json(profileView(updated.toObject()));
 }

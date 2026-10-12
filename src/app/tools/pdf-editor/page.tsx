@@ -11,6 +11,7 @@ import {
   applyPageOps, exportEdited, startEditing, type EditorMode, type EditorSession, type PageOp,
 } from "@/lib/tools/pdfEditor";
 import { downloadBlob } from "@/lib/tools/imageOps";
+import DropZone from "@/components/shared/DropZone";
 import PdfPage from "@/components/tools/PdfPage";
 
 const TOOLS: { key: EditorMode; label: string; Icon: typeof Type }[] = [
@@ -36,7 +37,6 @@ function PdfEditor() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
-  const inputRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async (bytes: Uint8Array, label: string) => {
@@ -144,27 +144,14 @@ function PdfEditor() {
       </div>
 
       {!doc && (
-        <div
-          onClick={() => !busy && inputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const f = e.dataTransfer.files[0];
-            if (f) f.arrayBuffer().then((b) => load(new Uint8Array(b), f.name));
-          }}
-          className="glass flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-14 transition hover:bg-[var(--surface-2)]"
+        <DropZone
+          accept=".pdf,application/pdf"
+          busy={busy}
+          label="Open a PDF"
+          hint="Runs entirely on your device"
+          className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center"
+          onFiles={([f]) => f.arrayBuffer().then((b) => load(new Uint8Array(b), f.name))}
         >
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".pdf,application/pdf"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) f.arrayBuffer().then((b) => load(new Uint8Array(b), f.name));
-              e.target.value = "";
-            }}
-          />
           {busy ? (
             <>
               <Loader2 size={22} className="animate-spin" style={{ color: "var(--primary)" }} />
@@ -176,14 +163,13 @@ function PdfEditor() {
               <p className="text-sm font-medium">
                 Drop a PDF or <span style={{ color: "var(--primary)" }}>browse</span>
               </p>
-              <p className="text-muted text-[11px]">Runs entirely on your device</p>
             </>
           )}
-        </div>
+        </DropZone>
       )}
 
-      {error && <p className="text-sm text-red-600" data-error>{error}</p>}
-      {status && <p className="text-xs" style={{ color: "#047857" }} data-status>{status}</p>}
+      {error && <p className="text-danger text-sm" data-error>{error}</p>}
+      {status && <p className="text-success text-xs" data-status>{status}</p>}
 
       {doc && (
         <div className="glass sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl px-3 py-2">
@@ -258,7 +244,7 @@ function PdfEditor() {
                 onClick={() => pageOp({ type: "delete", page: n })}
                 title="Remove page on export"
                 data-delete={n}
-                className="text-muted rounded-md border px-1.5 py-0.5 hover:text-red-600"
+                className="text-muted rounded-md border px-1.5 py-0.5 hover:text-[var(--danger)]"
               >
                 <Trash2 size={11} />
               </button>

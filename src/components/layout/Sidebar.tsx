@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import {
-  BarChart2, FolderOpen, Home, LayoutDashboard, LifeBuoy,
+  BarChart2, FolderOpen, History, Home, LayoutDashboard, LifeBuoy,
   ScrollText, Settings, ShieldCheck, UserCircle, Users,
 } from "lucide-react";
 import AppSidebar, { type AppNavItem } from "@/components/layout/AppSidebar";
@@ -19,6 +19,7 @@ const NAV_ITEMS: DashboardNavItem[] = [
   { href: "/dashboard/users", icon: Users,           label: "Users",            mobileLabel: "Users",  action: "view:users" },
   { href: "/dashboard/issues", icon: LifeBuoy,       label: "Issue Reports",    mobileLabel: "Issues", action: "view:issues" },
   { href: "/dashboard/rbac",  icon: ShieldCheck,     label: "Access Control",   mobileLabel: "Access", adminOnly: true, hideMobile: true },
+  { href: "/dashboard/audit", icon: History,         label: "Audit log",        mobileLabel: "Audit",  action: "view:audit", hideMobile: true },
   { href: "/settings",        icon: Settings,        label: "Settings",         mobileLabel: "Setup",  action: "view:settings", hideMobile: true },
   { href: "/me",              icon: UserCircle,      label: "My Profile",       mobileLabel: "Me",     exact: true, hideMobile: true },
   { href: "/",                icon: Home,            label: "Home",             mobileLabel: "Home",   exact: true, hideMobile: true },

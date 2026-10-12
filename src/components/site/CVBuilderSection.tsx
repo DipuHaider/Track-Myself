@@ -95,7 +95,7 @@ function DesignerSidebarMockup({ sidebar, accent }: { sidebar: string; accent: s
   );
 }
 
-function DesignerBoldMockup({ sidebar, accent }: { sidebar: string; accent: string }) {
+export function DesignerBoldMockup({ sidebar, accent }: { sidebar: string; accent: string }) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded bg-white">
       <div className="px-2 py-2" style={{ background: sidebar }}>
@@ -116,7 +116,7 @@ function DesignerBoldMockup({ sidebar, accent }: { sidebar: string; accent: stri
   );
 }
 
-function DesignerMinimalMockup({ accent }: { accent: string }) {
+export function DesignerMinimalMockup({ accent }: { accent: string }) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded bg-white p-2">
       <div className="mb-1.5 border-l-[3px] pl-1.5" style={{ borderColor: accent }}>

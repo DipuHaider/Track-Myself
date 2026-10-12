@@ -6,11 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Spinner } from "@/components/shared/Spinner";
 import { Logo } from "@/components/shared/Logo";
-
-function safeReturnTo(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/me";
-  return value;
-}
+import { safeReturnTo } from "@/lib/safeReturnTo";
+import { useResendVerification } from "@/components/auth/CheckInbox";
 
 function LoginForm() {
   const router = useRouter();
@@ -20,12 +17,15 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [unverified, setUnverified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const resend = useResendVerification();
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+    setUnverified(false);
     setIsSubmitting(true);
 
     const result = await signIn("credentials", {
@@ -38,6 +38,11 @@ function LoginForm() {
 
     if (result?.ok) {
       router.push(returnTo);
+      return;
+    }
+    if (result?.error === "unverified") {
+      setUnverified(true);
+      setError("Verify your email address first — check your inbox for the link, or request a new one below.");
       return;
     }
     setError("Invalid email or password");
@@ -60,7 +65,7 @@ function LoginForm() {
         <p className="text-muted mt-1 text-sm">Continue tracking your applications.</p>
 
         {expired && (
-          <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="alert alert-warning mt-4">
             Your session expired. Please sign in again.
           </p>
         )}
@@ -113,7 +118,27 @@ function LoginForm() {
           </Link>
         </div>
 
-        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+        {error ? <p role="alert" className="text-danger mt-3 text-sm">{error}</p> : null}
+
+        {unverified && (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => resend.resend(email.trim())}
+              disabled={!resend.canSend || !email.trim()}
+              className="btn-secondary rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-60"
+            >
+              {resend.busy
+                ? "Sending…"
+                : resend.left > 0
+                  ? `Resend available in ${resend.left}s`
+                  : "Resend verification email"}
+            </button>
+            <p aria-live="polite" className={`mt-1 min-h-[1rem] text-xs ${resend.note?.tone === "error" ? "text-danger" : "text-success"}`}>
+              {resend.note?.text ?? ""}
+            </p>
+          </div>
+        )}
 
         <button
           type="submit"

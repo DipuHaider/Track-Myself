@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireSuperAdminAuth, requireActiveSuperAdminAuth } from "@/lib/serverAuth";
+import { requireActiveSuperAdminAuth } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import CVFile from "@/models/CVFile";
 import CVProfile from "@/models/CVProfile";
@@ -50,12 +50,6 @@ async function runMigration() {
   }
 
   return { profilesProcessed: profiles.length, movedFiles, skippedExisting };
-}
-
-export async function GET() {
-  const auth = await requireSuperAdminAuth();
-  if (auth instanceof NextResponse) return auth;
-  return NextResponse.json(await runMigration());
 }
 
 export async function POST() {

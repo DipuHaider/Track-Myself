@@ -117,7 +117,8 @@ export default function SalaryExpectationModal({
           <label className="text-xs font-medium">
             Current salary
             <input
-              className={`${field} mt-1 ${isValidAmount(current) ? "" : "border-red-500"}`}
+              className={`${field} mt-1 ${isValidAmount(current) ? "" : "border-[var(--danger)]"}`}
+              aria-invalid={!isValidAmount(current)}
               placeholder={period === "year" ? "e.g. 45K" : "e.g. 3,8K"}
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
@@ -126,7 +127,8 @@ export default function SalaryExpectationModal({
           <label className="text-xs font-medium">
             Minimum you&apos;d accept
             <input
-              className={`${field} mt-1 ${isValidAmount(minimum) ? "" : "border-red-500"}`}
+              className={`${field} mt-1 ${isValidAmount(minimum) ? "" : "border-[var(--danger)]"}`}
+              aria-invalid={!isValidAmount(minimum)}
               placeholder={period === "year" ? "e.g. 50K" : "e.g. 4,2K"}
               value={minimum}
               onChange={(e) => setMinimum(e.target.value)}
@@ -141,6 +143,7 @@ export default function SalaryExpectationModal({
                 key={p}
                 type="button"
                 onClick={() => setPeriod(p)}
+                aria-pressed={period === p}
                 className={`px-3 py-1.5 transition ${i ? "border-l" : ""} ${period === p ? "bg-[var(--primary)] text-white" : "hover:bg-[var(--surface-2)]"}`}
               >
                 {p === "year" ? "Per year" : "Per month"}
@@ -180,7 +183,7 @@ export default function SalaryExpectationModal({
               disabled={estimating || !role.jobTitle}
               className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 transition hover:bg-[var(--surface-2)] disabled:opacity-50"
             >
-              {estimating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+              {estimating ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <Sparkles size={12} aria-hidden="true" />}
               Get market estimate
             </button>
           ) : (
@@ -200,8 +203,8 @@ export default function SalaryExpectationModal({
         ) : null}
 
         {result.warnings.map((w) => (
-          <p key={w} className="flex items-start gap-1.5 text-xs text-amber-600">
-            <AlertTriangle size={13} className="mt-0.5 shrink-0" /> {w}
+          <p key={w} className="text-warning flex items-start gap-1.5 text-xs">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" /> {w}
           </p>
         ))}
 
@@ -218,7 +221,7 @@ export default function SalaryExpectationModal({
                 aria-label={`Copy ${a.label}`}
                 className="rounded-md border p-1.5 transition hover:bg-[var(--surface-2)]"
               >
-                {copied === a.key ? <Check size={13} /> : <Copy size={13} />}
+                {copied === a.key ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
               </button>
               <button
                 type="button"

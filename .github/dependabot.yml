@@ -16,6 +16,9 @@ updates:
       # upstream fix, and it is browser-only. Upgrade it as a considered decision.
       - dependency-name: "@huggingface/transformers"
         update-types: [version-update:semver-major]
+      # Tracks the Node major pinned in .nvmrc; bump both together, by hand.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /browser-extension

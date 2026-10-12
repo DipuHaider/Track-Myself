@@ -50,6 +50,50 @@ export function issueEmail(issue: IssueMail): Composed {
 }
 
 export type PasswordReset = { name: string; resetUrl: string; expiresMinutes: number };
+export type Verification = { name: string; verifyUrl: string; expiresHours: number };
+export type Welcome = { name: string; portalUrl: string };
+
+export function verificationEmail({ name, verifyUrl, expiresHours }: Verification): Composed {
+  const safeUrl = escapeHtml(verifyUrl);
+  return {
+    subject: "Confirm your TrackMyself email",
+    text:
+      `Hi ${name},\n\n` +
+      `Confirm this address to finish creating your TrackMyself account:\n${verifyUrl}\n\n` +
+      `The link works once and expires in ${expiresHours} hours.\n\n` +
+      `If you didn't sign up, ignore this email and nothing will happen.\n`,
+    html: shell(
+      `<h2 style="margin:0 0 12px;font-size:18px">Confirm your email</h2>
+<p style="margin:0 0 18px;font-size:14px;line-height:1.55">Hi ${escapeHtml(name)}, one click and your TrackMyself account is ready.</p>
+<p style="margin:0 0 20px">
+  <a href="${safeUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:8px">Confirm email</a>
+</p>
+<p style="margin:0 0 6px;color:#64748b;font-size:12px">Or paste this into your browser:</p>
+<p style="margin:0 0 20px;font-size:12px;word-break:break-all"><a href="${safeUrl}" style="color:#4f46e5">${safeUrl}</a></p>
+<p style="margin:0 0 6px;color:#64748b;font-size:12px">The link works once and expires in ${expiresHours} hours.</p>
+<p style="margin:0;color:#64748b;font-size:12px">If you didn't sign up, ignore this email and nothing will happen.</p>`,
+    ),
+  };
+}
+
+export function welcomeEmail({ name, portalUrl }: Welcome): Composed {
+  const safeUrl = escapeHtml(portalUrl);
+  return {
+    subject: "Welcome to TrackMyself",
+    text:
+      `Hi ${name},\n\n` +
+      `Your email is confirmed. Add your first application, upload a CV, and let the tracker do the remembering:\n${portalUrl}\n\n` +
+      `Tip: the browser extension saves LinkedIn and Indeed jobs in one click.\n`,
+    html: shell(
+      `<h2 style="margin:0 0 12px;font-size:18px">You're in</h2>
+<p style="margin:0 0 18px;font-size:14px;line-height:1.55">Hi ${escapeHtml(name)}, your email is confirmed. Add your first application, upload a CV, and let the tracker do the remembering.</p>
+<p style="margin:0 0 20px">
+  <a href="${safeUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:8px">Open TrackMyself</a>
+</p>
+<p style="margin:0;color:#64748b;font-size:12px">Tip: the browser extension saves LinkedIn and Indeed jobs in one click.</p>`,
+    ),
+  };
+}
 
 export function passwordResetEmail({ name, resetUrl, expiresMinutes }: PasswordReset): Composed {
   const safeUrl = escapeHtml(resetUrl);

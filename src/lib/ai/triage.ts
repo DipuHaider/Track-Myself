@@ -1,5 +1,7 @@
 import { DEFAULT_APPLICATION_STATUS, NOT_APPLIED_STATUSES } from "@/constants/applicationStatus";
-import { runAiTask, type Actor } from "@/lib/ai/gateway";
+import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
+import { fence } from "@/lib/ai/prompt";
+import { triageSuggestionsSchema } from "@/lib/ai/schemas";
 import type { AICredential } from "@/lib/cv/ai/provider";
 import { postingAge } from "@/lib/applicationFlags";
 import type { Application } from "@/types/application";
@@ -127,8 +129,7 @@ RULES
 - If an interview is upcoming, preparation beats chasing.
 - Do not invent dates, names or outcomes.
 
-ITEMS
-${lines.join("\n")}
+${fence("items", lines.join("\n"))}
 
 Return ONLY a JSON array of ${rows.length} strings, in the same order.`;
 }
@@ -158,12 +159,18 @@ export async function triageWithAi(opts: {
 }): Promise<TriageResult> {
   if (!opts.rows.length) return { mode: "rules", rows: [], note: "Nothing needs attention right now." };
 
-  const run = await runAiTask({
-    task: "cv.gap-analysis",
+  /* A reply of the wrong length means the model dropped or invented rows, and
+     pairing suggestions with the wrong applications would be worse than having
+     none, so the schema pins the length. The deterministic set stands either way. */
+  const run = await runAiJsonTask({
+    task: "applications.triage",
     actor: opts.actor,
     prompt: buildPrompt(opts.rows),
     maxOutputTokens: 1200,
     userKey: opts.userKey,
+    schema: triageSuggestionsSchema(opts.rows.length),
+    kind: "array",
+    schemaHint: `a JSON array of exactly ${opts.rows.length} strings`,
   });
 
   if (!run.ok) {
@@ -171,25 +178,9 @@ export async function triageWithAi(opts: {
     return { ...fallback, note: `${run.message} ${fallback.note}` };
   }
 
-  const match = run.text.match(/\[[\s\S]*\]/);
-  let parsed: unknown[] = [];
-  try {
-    parsed = match ? (JSON.parse(match[0]) as unknown[]) : [];
-  } catch {
-    parsed = [];
-  }
-
-  /* A reply of the wrong length means the model dropped or invented rows, and
-     pairing suggestions with the wrong applications would be worse than having
-     none. The deterministic set stands either way. */
-  if (parsed.length !== opts.rows.length) return ruleSuggestions(opts.rows);
-
   return {
     mode: "ai",
     note: "Suggestions only — nothing has been sent, and no status has been changed.",
-    rows: opts.rows.map((r, i) => ({
-      ...r,
-      suggestion: typeof parsed[i] === "string" ? String(parsed[i]).slice(0, 200) : "",
-    })),
+    rows: opts.rows.map((r, i) => ({ ...r, suggestion: run.value[i] ?? "" })),
   };
 }

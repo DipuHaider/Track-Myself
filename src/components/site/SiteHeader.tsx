@@ -15,6 +15,7 @@ const SITE_NAV = [
   { label: "Job Sites",   href: "/#job-sites"  },
   { label: "CV Builder",  href: "/#cv-builder" },
   { label: "Tools",       href: "/tools"       },
+  { label: "Pricing",     href: "/pricing"     },
 ];
 
 export default function SiteHeader() {

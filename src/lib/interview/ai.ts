@@ -1,4 +1,6 @@
-import { runAiTask, type Actor } from "@/lib/ai/gateway";
+import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
+import { fence } from "@/lib/ai/prompt";
+import { interviewQuestionsSchema } from "@/lib/ai/schemas";
 import type { AICredential } from "@/lib/cv/ai/provider";
 import { QUESTION_SECTIONS, type QuestionSection } from "@/lib/interview/bank";
 
@@ -21,7 +23,7 @@ export async function aiQuestions(opts: {
 
 Role: ${opts.jobTitle}
 Company: ${opts.companyName}
-${description ? `Job description:\n${description}` : "No job description was supplied."}
+${description ? fence("job_description", description) : "No job description was supplied."}
 
 Write ${AI_TARGET} interview questions an interviewer would realistically ask for THIS role.
 Favour specifics from the description over generic questions. No numbering, no preamble.
@@ -29,33 +31,23 @@ Favour specifics from the description over generic questions. No numbering, no p
 Return ONLY a JSON array, each element {"q":"...","s":"..."} where s is one of:
 ${QUESTION_SECTIONS.join(", ")}`;
 
-  const run = await runAiTask({
+  const run = await runAiJsonTask({
     task: "interview.questions",
     actor: opts.actor,
     prompt,
     maxOutputTokens: 2000,
     userKey: opts.userKey,
+    schema: interviewQuestionsSchema,
+    kind: "array",
+    schemaHint: '[{"q": string, "s": string}]',
   });
 
-  if (run.ok) {
-    const match = run.text.match(/\[[\s\S]*\]/);
-    if (match) {
-      try {
-        const parsed = JSON.parse(match[0]) as { q?: unknown; s?: unknown }[];
-        const rows = parsed
-          .filter((r) => typeof r?.q === "string" && (r.q as string).trim().length > 10)
-          .map((r) => ({
-            text: (r.q as string).trim().slice(0, 300),
-            section: (QUESTION_SECTIONS.includes(r.s as QuestionSection)
-              ? r.s
-              : "role") as QuestionSection,
-          }));
-        if (rows.length) return rows.slice(0, AI_TARGET);
-      } catch {
-        /* Fall through to the static bank. */
-      }
-    }
-  }
+  if (!run.ok) return [];
 
-  return [];
+  return run.value
+    .map((r) => ({
+      text: r.q,
+      section: (QUESTION_SECTIONS.includes(r.s as QuestionSection) ? r.s : "role") as QuestionSection,
+    }))
+    .slice(0, AI_TARGET);
 }

@@ -1,20 +1,10 @@
 import CVFile from "@/models/CVFile";
 import CVProfile from "@/models/CVProfile";
-import type { CVFileCategory } from "@/types/cv";
 
 export {
   DOC_MIME_TYPES, IMAGE_MIME_TYPES, DATA_MIME_TYPES, resolveFileMime,
   CATEGORY_MIME, CATEGORY_MAX_BYTES, PRIMARY_FOR_CATEGORY, fileTypeLabel,
 } from "@/lib/cvFileTypes";
-
-export type CVFileMetaRow = {
-  _id: string;
-  name: string;
-  size: number;
-  mimeType: string;
-  category: CVFileCategory;
-  uploadedAt?: string;
-};
 
 type LegacyFile = {
   _id: unknown;
@@ -54,7 +44,7 @@ export async function migrateLegacyCVFiles(userId: string) {
 
 export async function listCVFiles(userId: string) {
   await migrateLegacyCVFiles(userId);
-  return CVFile.find({ userId }, { data: 0, genContent: 0 }).sort({ uploadedAt: 1 }).lean();
+  return CVFile.find({ userId, genOutput: { $ne: "preview" } }, { data: 0, genContent: 0 }).sort({ uploadedAt: 1 }).lean();
 }
 
 export async function readCVFile(userId: string, id: string) {

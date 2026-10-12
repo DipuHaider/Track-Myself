@@ -1,3 +1,23 @@
+> **Status as of 12 October 2026** (see docs/AUDIT-2026-10.md)
+>
+> | Plan item | Status |
+> |---|---|
+> | P0 — anonymous banner local-only + rate limit | DONE |
+> | Phase 0 — status history, posting observation fields, extension payload | DONE |
+> | Phase 1A — gateway with task contract, rate limit, reservation, metering | DONE (`src/lib/ai/gateway.ts`); schema validation + repair added |
+> | Phase 1B — atomic per-user allowance + global USD ceiling, ledger | DONE; BYOK now unmetered; ceiling hard-capped at USD 10, superadmin-only |
+> | Phase 1C — preview reuse | DONE for CV preview, cover letter and interview questions (`AiDraft`, 24 h TTL) |
+> | Phase 1D — gap analysis | DONE (`/api/user/applications/[id]/gap-analysis`); not persisted |
+> | Phase 1E — zero-inference fallbacks | DONE |
+> | Phase 2A/B — A/B/C pack workflow + hybrid evaluation | NOT STARTED (roadmap) |
+> | Phase 2C — triage | DONE: API + "Review my applications" panel on /me |
+> | Phase 2D — duplicate normalisation / stale-listing indicators | Normalisation + posting ids DONE; fuzzy matching NOT STARTED |
+> | Phase 2E — durable run state | NOT STARTED |
+> | Phase 3 — MCP | NOT STARTED |
+> | Per-feature flags | Only the global AI switch and per-task model pinning |
+>
+> The body below is the original 24 September plan, unchanged.
+
 # TrackMyself AI Work Plan — Confirmed Findings and Funding Policy
 
 Updated 24 September 2026. This revision incorporates the user's source-verified banner vulnerability, actual Application fields, and metered free-user funding choice. It supersedes the earlier plan. It is a work proposal, not a deployed change or an independent source-code audit. Allowance numbers below are proposed starting defaults.

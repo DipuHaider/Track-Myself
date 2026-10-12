@@ -15,6 +15,7 @@ const AiCallLogSchema = new Schema(
     funding: { type: String, enum: ["user", "shared", "superadmin"], required: true },
     periodKey: { type: String, required: true },
     estNano: { type: Number, default: 0 },
+    attemptCounted: { type: Boolean, default: true },
     actualNano: { type: Number, default: 0 },
     inputTokens: { type: Number, default: 0 },
     outputTokens: { type: Number, default: 0 },

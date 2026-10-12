@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { DEFAULT_CV_CONTENT, importFromLegacy, isContentEmpty, normaliseContent } from "@/lib/cv/content";
 import type { CVContent, CVFileMeta, CVFormat, CVPrimaryFiles, CVVariant } from "@/types/cv";
 
@@ -22,7 +23,30 @@ export const DEFAULT_CV_PROFILE: CVProfile = {
   uploadedFiles: [],
 };
 
-const DRAFT_KEY = "trackmyself-cv";
+const LEGACY_DRAFT_KEY = "trackmyself-cv";
+const AUTOSAVE_MS = 1000;
+
+function autosaveKey(userId: string) {
+  return `trackmyself-cv-draft:${userId}`;
+}
+
+export type Autosave = { content: CVContent; at: string };
+
+export function readAutosave(userId: string): Autosave | null {
+  try {
+    const raw = localStorage.getItem(autosaveKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Autosave;
+    const content = normaliseContent(parsed.content);
+    return isContentEmpty(content) ? null : { content, at: parsed.at };
+  } catch {
+    return null;
+  }
+}
+
+export function clearAutosave(userId: string) {
+  try { localStorage.removeItem(autosaveKey(userId)); } catch {}
+}
 
 let cache: CVProfile | null = null;
 let inflight: Promise<CVProfile> | null = null;
@@ -77,7 +101,7 @@ export async function refreshCVFiles(): Promise<CVFileMeta[]> {
 
 function readLocalDraft(): CVContent | null {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = localStorage.getItem(LEGACY_DRAFT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Record<string, string>;
     const content = importFromLegacy(parsed);
@@ -88,7 +112,7 @@ function readLocalDraft(): CVContent | null {
 }
 
 function clearLocalDraft() {
-  try { localStorage.removeItem(DRAFT_KEY); } catch {}
+  try { localStorage.removeItem(LEGACY_DRAFT_KEY); } catch {}
 }
 
 export async function fetchCVProfile(force = false): Promise<CVProfile> {
@@ -177,11 +201,29 @@ export async function downloadCVDocx(payload: {
 }
 
 export function useCVProfile() {
+  const { data: session } = useSession();
+  const userId = (session?.user as { id?: string } | undefined)?.id ?? "";
   const [profile, setProfile] = useState<CVProfile>(cache ?? DEFAULT_CV_PROFILE);
   const [loading, setLoading] = useState(!cache);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
+  const autosaveTimer = useRef<number | null>(null);
+
+  /* While the builder is dirty, a copy of the content lands in localStorage
+     under the user's own key once a second, so a crash or an accidental
+     reload loses at most that much. Cleared on save. */
+  useEffect(() => {
+    if (!dirty || !userId) return;
+    if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = window.setTimeout(() => {
+      try {
+        localStorage.setItem(autosaveKey(userId), JSON.stringify({ content: profile.content, at: new Date().toISOString() }));
+      } catch {}
+    }, AUTOSAVE_MS);
+    return () => { if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current); };
+  }, [dirty, profile.content, userId]);
 
   useEffect(() => {
     let alive = true;
@@ -219,7 +261,21 @@ export function useCVProfile() {
   const setContent = useCallback((updater: (prev: CVContent) => CVContent) => {
     setProfile((prev) => ({ ...prev, content: updater(prev.content) }));
     setSaved(false);
+    setDirty(true);
   }, []);
+
+  const restoreAutosave = useCallback(() => {
+    if (!userId) return false;
+    const draft = readAutosave(userId);
+    if (!draft) return false;
+    setProfile((prev) => ({ ...prev, content: draft.content }));
+    setDirty(true);
+    return true;
+  }, [userId]);
+
+  const discardAutosave = useCallback(() => {
+    if (userId) clearAutosave(userId);
+  }, [userId]);
 
   const applyPatch = useCallback((patch: Partial<CVProfile>) => {
     setProfile((prev) => ({ ...prev, ...patch }));
@@ -236,6 +292,8 @@ export function useCVProfile() {
       });
       setProfile(next);
       setSaved(true);
+      setDirty(false);
+      if (userId) clearAutosave(userId);
       setTimeout(() => setSaved(false), 3000);
       return next;
     } catch (e) {
@@ -244,7 +302,7 @@ export function useCVProfile() {
     } finally {
       setSaving(false);
     }
-  }, [profile.content]);
+  }, [profile.content, userId]);
 
   const reload = useCallback(async () => {
     const next = await fetchCVProfile(true);
@@ -255,5 +313,7 @@ export function useCVProfile() {
   return {
     profile, setProfile, setContent, applyPatch,
     save, reload, loading, saving, saved, error,
+    dirty, userId, restoreAutosave, discardAutosave,
+    pendingAutosave: userId ? readAutosave(userId) : null,
   };
 }

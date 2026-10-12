@@ -3,6 +3,7 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
 const DocumentSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    applicationId: { type: Schema.Types.ObjectId, ref: "Application", default: null, index: true },
     type: { type: String, required: true, default: "attachment" },
     name: { type: String, required: true },
     size: { type: Number, default: 0 },

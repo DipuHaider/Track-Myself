@@ -124,7 +124,7 @@ export default function PrivacyPage() {
           <strong>Deletion.</strong> You can erase your account yourself, at any time, from your
           profile page — no request to us, no waiting period. You confirm by typing DELETE and, if
           your account has a password, by entering it. This removes the account record together with
-          every application, interview record, reminder, CV profile and uploaded document attached to
+          every application, interview record, to-do, notification, issue report, CV profile and uploaded document attached to
           it, in a single operation. It is immediate and cannot be undone, so export anything you
           want to keep first. Superadministrator accounts are the one exception and must be removed
           by another superadministrator, because self-deletion would lock the platform. An

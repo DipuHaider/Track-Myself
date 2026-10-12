@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import Todo from "@/models/Todo";
+import { parseObjectId } from "@/lib/objectId";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth();
@@ -11,6 +12,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   await dbConnect();
 
   const { id } = await params;
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const body = await req.json().catch(() => null);
   const update: Record<string, unknown> = {};
 
@@ -38,6 +40,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   await dbConnect();
 
   const { id } = await params;
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const removed = await Todo.findOneAndDelete({ _id: id, userId: auth.id });
   if (!removed) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

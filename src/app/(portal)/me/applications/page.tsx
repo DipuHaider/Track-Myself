@@ -1,103 +1,121 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
+import { Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import ApplicationFormModal from "@/components/applications/ApplicationFormModal";
 import ViewApplicationModal from "@/components/applications/ViewApplicationModal";
 import RecentlyDeletedModal from "@/components/applications/RecentlyDeletedModal";
-import { Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import ApplicationTable from "@/components/applications/ApplicationTable";
-import { useApplications } from "@/hooks/useApplications";
-import type { Application } from "@/types/application";
-import { APPLICATION_STATUSES, JOB_TYPES, parseJobTypes } from "@/constants/applicationStatus";
-import type { QuickField } from "@/components/applications/ApplicationTable";
-import { computeDuplicateGroups, isPossibleGhost, isWarmLead } from "@/lib/applicationFlags";
+import ApplicationTable, { type QuickField } from "@/components/applications/ApplicationTable";
 import Loading, { InlineSpinner } from "@/components/shared/Spinner";
-import Pagination, { PAGE_SIZE, usePagination } from "@/components/shared/Pagination";
+import Pagination from "@/components/shared/Pagination";
+import { useApplicationFilters } from "@/hooks/useApplicationFilters";
+import { useApplicationsPage } from "@/hooks/useApplicationsPage";
+import { useApplicationStats } from "@/hooks/useApplicationStats";
+import { apiFetch, type ApiError } from "@/lib/api/client";
+import {
+  APPLICATION_FLAGS, APPLICATION_SORTS, FLAG_LABELS, PRIORITIES, SORT_LABELS, type ApplicationFlag, type ApplicationSort,
+} from "@/lib/applicationQuery";
+import type { DuplicateKind } from "@/lib/applicationFlags";
+import { APPLICATION_STATUSES, JOB_TYPES } from "@/constants/applicationStatus";
+import type { Application } from "@/types/application";
 
+const SELECT = "surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]";
+const SEARCH_DEBOUNCE_MS = 300;
 
 function PortalApplicationsContent() {
-  const initialQuery = useSearchParams().get("q") ?? "";
-  const { applications, loading, addApplication, updateApplication, removeApplication } =
-    useApplications();
+  const { filters, set, clear, activeCount, isFiltered } = useApplicationFilters();
+  const page = useApplicationsPage(filters);
+  const { stats, paused } = useApplicationStats();
+  const { items, total, limit, loading, validating, error, addApplication, updateApplication, removeApplication, patchApplication } = page;
 
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Application | null>(null);
-  const [viewTarget, setViewTarget] = useState<Application | null>(null);
+  const [editLoading, setEditLoading] = useState<string | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
-  const [trashCount, setTrashCount] = useState(0);
-
-  useEffect(() => {
-    if (trashOpen) return;
-    let alive = true;
-    fetch("/api/applications/trash")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { items?: unknown[] } | null) => { if (alive && data?.items) setTrashCount(data.items.length); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [trashOpen, applications.length]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [search, setSearch] = useState(initialQuery);
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterPriority, setFilterPriority] = useState("");
-  const [filterJobType, setFilterJobType] = useState("");
-  const [filterGhost, setFilterGhost] = useState<"" | "auto" | "manual">("");
-  const [filterDuplicates, setFilterDuplicates] = useState(false);
-  const [filterWarm, setFilterWarm] = useState(false);
 
-  const duplicateKinds = useMemo(() => computeDuplicateGroups(applications), [applications]);
+  const [search, setSearch] = useState(filters.q);
+  const [syncedQ, setSyncedQ] = useState(filters.q);
+  const [pushedQ, setPushedQ] = useState(filters.q);
+  const searchTimer = useRef<number | null>(null);
+  /* The URL is the source of truth for q, but it must not overwrite what the
+     user is still typing: only an external change (Clear, back button, a
+     stats-card link) resets the box. */
+  if (filters.q !== syncedQ) {
+    setSyncedQ(filters.q);
+    if (filters.q !== pushedQ) setSearch(filters.q);
+  }
+  const onSearch = (value: string) => {
+    setSearch(value);
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    searchTimer.current = window.setTimeout(() => {
+      setPushedQ(value.trim());
+      set({ q: value.trim() });
+    }, SEARCH_DEBOUNCE_MS);
+  };
+  useEffect(() => () => { if (searchTimer.current) window.clearTimeout(searchTimer.current); }, []);
+
+  const rowOnPage = useMemo(
+    () => (filters.open ? page.rawItems.find((a) => a._id === filters.open) ?? null : null),
+    [filters.open, page.rawItems],
+  );
+  const { data: openRecord, error: openError } = useSWR<Application, ApiError>(
+    filters.open ? `/api/applications/${filters.open}` : null,
+    { revalidateOnFocus: false },
+  );
+  useEffect(() => {
+    if (openError && !rowOnPage) {
+      toast.error(openError.status === 404 ? "That application is no longer here." : openError.message);
+      set({ open: "", tab: "" });
+    }
+  }, [openError, rowOnPage, set]);
+  const viewTarget = filters.open ? openRecord ?? rowOnPage : null;
+
+  const duplicateKinds = useMemo(() => {
+    const map = new Map<string, DuplicateKind>();
+    for (const row of page.rawItems) if (row.duplicateKind) map.set(row._id, row.duplicateKind);
+    return map;
+  }, [page.rawItems]);
   const duplicateIds = useMemo(() => new Set(duplicateKinds.keys()), [duplicateKinds]);
 
-  const filtered = useMemo(() => {
-    let result = applications;
-    if (filterStatus)           result = result.filter((a) => a.applicationStatus === filterStatus);
-    if (filterPriority)         result = result.filter((a) => a.priority === filterPriority);
-    if (filterJobType)          result = result.filter((a) => parseJobTypes(a.jobType, a.workplaceType).includes(filterJobType));
-    if (filterGhost === "auto") result = result.filter(isPossibleGhost);
-    if (filterGhost === "manual") result = result.filter((a) => !!a.isGhostJob);
-    if (filterDuplicates)       result = result.filter((a) => duplicateIds.has(a._id));
-    if (filterWarm)             result = result.filter(isWarmLead);
-    const q = search.toLowerCase().trim();
-    if (q) {
-      result = result.filter((app) =>
-        [app.companyName, app.jobTitle, app.platform, app.jobType, app.location, app.city, app.country,
-          app.applicationStatus, app.notes, app.salary, app.contactNumber, app.submissionMethod,
-          ...(app.contacts ?? []).flatMap((c) => [c.name, c.email])]
-          .filter(Boolean)
-          .some((f) => f!.toLowerCase().includes(q)),
-      );
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const startIndex = (filters.page - 1) * limit;
+  const trashCount = stats?.trashCount ?? 0;
+
+  const openEdit = async (app: Application) => {
+    setEditLoading(app._id);
+    try {
+      setEditTarget(await apiFetch<Application>(`/api/applications/${app._id}`));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not load that application.");
+    } finally {
+      setEditLoading(null);
     }
-    return result;
-  }, [applications, search, filterStatus, filterPriority, filterJobType, filterGhost, filterDuplicates, filterWarm, duplicateIds]);
-
-  const { page: safePage, setPage: goToPage, totalPages, pageItems, startIndex } =
-    usePagination(filtered, PAGE_SIZE);
-
-  const resetPage = () => goToPage(1);
-  const onSearch = (v: string) => { setSearch(v); resetPage(); };
-  const onFilterStatus = (v: string) => { setFilterStatus(v); resetPage(); };
-  const onFilterPriority = (v: string) => { setFilterPriority(v); resetPage(); };
-  const onFilterJobType = (v: string) => { setFilterJobType(v); resetPage(); };
-
-  const clearAll = () => {
-    onSearch(""); onFilterStatus(""); onFilterPriority(""); onFilterJobType("");
-    setFilterGhost(""); setFilterDuplicates(false); setFilterWarm(false);
   };
 
   const undoDelete = async (app: Application) => {
-    const res = await fetch(`/api/applications/trash/${app._id}`, { method: "POST" });
-    if (!res.ok) { toast.error("Could not restore that application."); return; }
-    addApplication(await res.json());
-    toast.success(`"${app.jobTitle}" restored`);
+    try {
+      addApplication(await apiFetch<Application>(`/api/applications/trash/${app._id}`, { method: "POST" }));
+      toast.success(`"${app.jobTitle}" restored`);
+    } catch {
+      toast.error("Could not restore that application.");
+    }
   };
 
   const handleDelete = async (app: Application) => {
     setDeletingId(app._id);
-    const res = await fetch(`/api/applications/${app._id}`, { method: "DELETE" });
+    try {
+      await apiFetch(`/api/applications/${app._id}`, { method: "DELETE" });
+    } catch (err) {
+      setDeletingId(null);
+      toast.error(err instanceof Error ? err.message : "Could not delete that application.");
+      return;
+    }
     setDeletingId(null);
-    if (!res.ok) { toast.error("Could not delete that application."); return; }
     removeApplication(app._id);
+    if (filters.open === app._id) set({ open: "", tab: "" });
     toast(`"${app.jobTitle}" moved to Recently deleted`, {
       description: `${app.companyName} · restorable for 30 days`,
       duration: 8000,
@@ -106,198 +124,185 @@ function PortalApplicationsContent() {
   };
 
   const handleQuickUpdate = async (id: string, field: QuickField, value: string | boolean) => {
-    const body =
+    const patch: Partial<Application> =
       field === "favourite" || field === "isGhostJob"
-        ? { [field]: value }
+        ? { [field]: Boolean(value) }
         : { [field]: (value as string) || null };
-    const res = await fetch(`/api/applications/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) {
-      const updated: Application = await res.json();
-      updateApplication(updated);
+    try {
+      await patchApplication(id, patch);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save that change.");
     }
   };
 
-  const activeFilters =
-    (filterStatus ? 1 : 0) +
-    (filterPriority ? 1 : 0) +
-    (filterJobType ? 1 : 0) +
-    (filterGhost ? 1 : 0) +
-    (filterDuplicates ? 1 : 0) +
-    (filterWarm ? 1 : 0);
+  const visibleItems = deletingId ? items.filter((a) => a._id !== deletingId) : items;
+  const emptyState = !loading && visibleItems.length === 0
+    ? (isFiltered || (stats?.total ?? total) > 0 ? "no-matches" : "first-run")
+    : undefined;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">My Applications</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">My Applications</h1>
         <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setTrashOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition hover:bg-[var(--surface-2)]"
-        >
-          <Trash2 size={14} /> Recently deleted
-          {trashCount > 0 && (
-            <span className="rounded-full bg-[var(--surface-2)] px-1.5 text-xs font-medium">{trashCount}</span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className="btn-primary rounded-md px-4 py-2 text-sm"
-        >
-          + New Application
-        </button>
+          <button
+            type="button"
+            onClick={() => setTrashOpen(true)}
+            className="btn-secondary inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm"
+          >
+            <Trash2 size={14} aria-hidden="true" /> Recently deleted
+            {trashCount > 0 && (
+              <span className="rounded-full bg-[var(--surface-2)] px-1.5 text-xs font-medium">{trashCount}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            disabled={paused}
+            className="btn-primary rounded-md px-4 py-2 text-sm"
+          >
+            + New Application
+          </button>
         </div>
       </div>
 
-      {/* Search + Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          className="surface w-full max-w-sm rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-          placeholder="Search company, role, location, status…"
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-        />
+      <form role="search" onSubmit={(e) => e.preventDefault()} className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-sm">
+          <label htmlFor="applications-search" className="sr-only">Search applications</label>
+          <Search size={14} className="text-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+          <input
+            id="applications-search"
+            type="search"
+            className={`${SELECT} w-full pl-8`}
+            placeholder="Search company, role, notes…"
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+          />
+        </div>
 
-        {/* Status filter */}
         <select
-          value={filterStatus}
-          onChange={(e) => onFilterStatus(e.target.value)}
-          className={`surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] ${
-            filterStatus ? "border-[var(--primary)]" : ""
-          }`}
+          aria-label="Filter by status"
+          value={filters.status}
+          onChange={(e) => set({ status: e.target.value })}
+          className={`${SELECT} ${filters.status ? "border-[var(--primary)]" : ""}`}
         >
           <option value="">All Statuses</option>
-          {APPLICATION_STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
+          {APPLICATION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
 
-        {/* Priority filter */}
         <select
-          value={filterPriority}
-          onChange={(e) => onFilterPriority(e.target.value)}
-          className={`surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] ${
-            filterPriority ? "border-[var(--primary)]" : ""
-          }`}
+          aria-label="Filter by priority"
+          value={filters.priority}
+          onChange={(e) => set({ priority: e.target.value })}
+          className={`${SELECT} ${filters.priority ? "border-[var(--primary)]" : ""}`}
         >
           <option value="">All Priorities</option>
-          <option value="High">High</option>
-          <option value="Medium">Medium</option>
-          <option value="Low">Low</option>
+          {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
 
-        {/* Job type filter */}
         <select
-          value={filterJobType}
-          onChange={(e) => onFilterJobType(e.target.value)}
-          className={`surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] ${
-            filterJobType ? "border-[var(--primary)]" : ""
-          }`}
+          aria-label="Filter by job type"
+          value={filters.type}
+          onChange={(e) => set({ type: e.target.value })}
+          className={`${SELECT} ${filters.type ? "border-[var(--primary)]" : ""}`}
         >
           <option value="">All Job Types</option>
-          {JOB_TYPES.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
+          {JOB_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
 
-        {/* Ghost filter */}
         <select
-          value={filterGhost}
-          onChange={(e) => { setFilterGhost(e.target.value as "" | "auto" | "manual"); resetPage(); }}
-          className={`surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] ${
-            filterGhost ? "border-[var(--primary)]" : ""
-          }`}
+          aria-label="Filter by flag"
+          value={filters.flag}
+          onChange={(e) => set({ flag: e.target.value as ApplicationFlag | "" })}
+          className={`${SELECT} ${filters.flag ? "border-[var(--primary)]" : ""}`}
         >
-          <option value="">All Ghost States</option>
-          <option value="auto">Possible Ghost (45+ days)</option>
-          <option value="manual">Confirmed Ghost</option>
+          <option value="">All Flags</option>
+          {APPLICATION_FLAGS.map((f) => <option key={f} value={f}>{FLAG_LABELS[f]}</option>)}
         </select>
 
-        {/* Duplicates filter */}
-        <label className="flex cursor-pointer items-center gap-1.5 text-sm">
-          <input
-            type="checkbox"
-            checked={filterDuplicates}
-            onChange={(e) => { setFilterDuplicates(e.target.checked); resetPage(); }}
-            className="rounded accent-[var(--primary)]"
-          />
-          Duplicates only
-        </label>
+        <select
+          aria-label="Sort applications"
+          value={filters.sort}
+          onChange={(e) => set({ sort: e.target.value as ApplicationSort })}
+          className={SELECT}
+        >
+          {APPLICATION_SORTS.map((s) => <option key={s} value={s}>{SORT_LABELS[s]}</option>)}
+        </select>
 
-        <label className="flex cursor-pointer items-center gap-1.5 text-sm">
-          <input
-            type="checkbox"
-            checked={filterWarm}
-            onChange={(e) => { setFilterWarm(e.target.checked); resetPage(); }}
-            className="rounded accent-[var(--primary)]"
-          />
-          Warm leads only
-        </label>
-
-        {(search || activeFilters > 0) && (
-          <button
-            type="button"
-            onClick={clearAll}
-            className="text-muted text-sm hover:underline"
-          >
-            Clear{activeFilters > 0 ? ` (${activeFilters} filter${activeFilters > 1 ? "s" : ""})` : ""}
+        {isFiltered && (
+          <button type="button" onClick={clear} className="text-muted text-sm hover:underline">
+            Clear{activeCount > 0 ? ` (${activeCount} filter${activeCount > 1 ? "s" : ""})` : ""}
           </button>
         )}
 
-        <p className="text-muted ml-auto text-sm">
-          {loading
-            ? <InlineSpinner />
-            : `${filtered.length} result${filtered.length !== 1 ? "s" : ""}${
-                search || activeFilters > 0 ? " (filtered)" : ""
-              }`}
+        <p className="text-muted ml-auto text-sm" aria-live="polite">
+          {loading ? (
+            <InlineSpinner />
+          ) : (
+            <>
+              {total} result{total !== 1 ? "s" : ""}{isFiltered ? " (filtered)" : ""}
+              {validating && <span className="ml-2 inline-flex align-middle"><InlineSpinner label="Refreshing" /></span>}
+            </>
+          )}
         </p>
-      </div>
+      </form>
 
-      {/* Table */}
+
+      {error && !loading && (
+        <div className="alert alert-danger" role="alert">
+          {error.status === 423 || error.status === 403
+            ? "Tracking is paused, so the list cannot be loaded. Resume it from your account settings."
+            : error.message}
+        </div>
+      )}
+
       <ApplicationTable
-        applications={deletingId ? pageItems.filter((a) => a._id !== deletingId) : pageItems}
+        applications={visibleItems}
         startIndex={startIndex}
-        onView={(app) => setViewTarget(app)}
-        onEdit={(app) => setEditTarget(app)}
-        onDelete={handleDelete}
-        onQuickUpdate={handleQuickUpdate}
+        loading={loading}
+        emptyState={emptyState}
+        onAdd={paused ? undefined : () => setAddOpen(true)}
+        onClearFilters={clear}
+        onView={(app) => set({ open: app._id })}
+        onEdit={paused ? undefined : (app) => void openEdit(app)}
+        onDelete={paused ? undefined : handleDelete}
+        onQuickUpdate={paused ? undefined : handleQuickUpdate}
         duplicateIds={duplicateIds}
         duplicateKinds={duplicateKinds}
       />
 
-      {/* Pagination */}
+      {editLoading && (
+        <p className="text-muted text-xs" role="status" aria-live="polite">
+          <InlineSpinner /> <span className="ml-1 align-middle">Opening editor…</span>
+        </p>
+      )}
+
       {!loading && (
         <Pagination
-          page={safePage}
+          page={Math.min(filters.page, totalPages)}
           totalPages={totalPages}
-          onChange={goToPage}
-          total={filtered.length}
-          shown={pageItems.length}
+          onChange={(p) => set({ page: p })}
+          total={total}
+          shown={visibleItems.length}
           noun="applications"
         />
       )}
 
-      {/* Modals */}
       <ApplicationFormModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onSaved={(app) => { addApplication(app); setAddOpen(false); }}
-        applications={applications}
+        applications={page.rawItems}
       />
-      <ApplicationFormModal
-        open={!!editTarget}
-        onClose={() => setEditTarget(null)}
-        onSaved={(app) => { updateApplication(app); setEditTarget(null); }}
-        application={editTarget ?? undefined}
-        applications={applications}
-      />
+      {editTarget && (
+        <ApplicationFormModal
+          open
+          onClose={() => setEditTarget(null)}
+          onSaved={(app) => { updateApplication(app); setEditTarget(null); }}
+          application={editTarget}
+          applications={page.rawItems}
+        />
+      )}
       {trashOpen && (
         <RecentlyDeletedModal<Application>
           open
@@ -309,8 +314,9 @@ function PortalApplicationsContent() {
 
       <ViewApplicationModal
         open={!!viewTarget}
-        onClose={() => setViewTarget(null)}
+        onClose={() => set({ open: "", tab: "" })}
         application={viewTarget}
+        interviewsOpen={filters.tab === "interviews"}
       />
     </div>
   );

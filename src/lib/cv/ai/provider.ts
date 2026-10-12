@@ -1,11 +1,7 @@
-/**
- * Which model answers an AI request, and how it is called.
- *
- * A credential is always passed in — nothing here reads a key from the environment
- * mid-call. resolveCredentials() decides the order: the user's own key first, then
- * the deployment's shared Anthropic key, then the superadmin's personal Gemini
- * fallback, which is never offered to anyone else.
- */
+/* Which model answers an AI request, and how it is called. A credential is
+   always passed in by the gateway (src/lib/ai/gateway.ts), which decides whose
+   key runs: the user's own first, then the shared model, then the superadmin's
+   personal Gemini fallback. Nothing here reads a key from the environment. */
 
 export type AIProvider = "anthropic" | "gemini" | "openai-compatible";
 
@@ -61,49 +57,6 @@ function classifyFailure(status: number, body: string): FailureKind {
   return "upstream";
 }
 
-/** Ordered: the first that can run, runs. A later entry is tried only on failure. */
-/* sharedAllowed is deliberately required and has no default. The shared key used
-   to be appended whenever the env var existed, which meant an anonymous caller on
-   a public route spent the operator's Anthropic credit. Every caller must now
-   state who is asking; a signed-in session alone is not the answer to that. */
-export function resolveCredentials(opts: {
-  superadmin: boolean;
-  sharedAllowed: boolean;
-  userKey?: AICredential | null;
-}): AICredential[] {
-  const chain: AICredential[] = [];
-
-  if (opts.userKey?.apiKey) chain.push(opts.userKey);
-
-  if (opts.sharedAllowed && process.env.ANTHROPIC_API_KEY) {
-    chain.push({
-      provider: "anthropic",
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      model: ANTHROPIC_MODEL,
-      source: "shared",
-    });
-  }
-
-  if (opts.sharedAllowed && process.env.GEMINI_API_KEY && opts.superadmin) {
-    chain.push({
-      provider: "gemini",
-      apiKey: process.env.GEMINI_API_KEY,
-      model: geminiModel(),
-      source: "shared",
-    });
-  }
-
-  return chain;
-}
-
-export function aiConfigured(opts: {
-  superadmin: boolean;
-  sharedAllowed: boolean;
-  userKey?: AICredential | null;
-}) {
-  return resolveCredentials(opts).length > 0;
-}
-
 /** True when a key exists for anyone, regardless of who is asking. */
 export function anyProviderConfigured() {
   return Boolean(process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY);
@@ -111,10 +64,28 @@ export function anyProviderConfigured() {
 
 const NO_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
+import { assertSafeBaseUrl } from "@/lib/net/safeUrl";
+
+export type CallOptions = { system?: string; timeoutMs?: number };
+
+const DEFAULT_TIMEOUT_MS = 60_000;
+
+function requestInit(opts: CallOptions): Pick<RequestInit, "signal" | "redirect"> {
+  return { signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS), redirect: "manual" };
+}
+
+/* A user's own key talks to a host the user chose, so the response body is not
+   echoed back to them — it could be anything. Shared providers are ours and the
+   first few hundred characters are the most useful diagnostic there is. */
+function errorDetail(cred: AICredential, body: string): string {
+  return cred.source === "user" ? "" : `: ${body.slice(0, 300)}`;
+}
+
 async function callAnthropic(
   cred: AICredential,
   prompt: string,
   maxTokens: number,
+  opts: CallOptions,
 ): Promise<ProviderCall> {
   const model = cred.model || ANTHROPIC_MODEL;
 
@@ -128,8 +99,10 @@ async function callAnthropic(
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
+      ...(opts.system ? { system: opts.system } : {}),
       messages: [{ role: "user", content: prompt }],
     }),
+    ...requestInit(opts),
   });
 
   if (!res.ok) {
@@ -137,7 +110,7 @@ async function callAnthropic(
     return {
       ok: false,
       kind: classifyFailure(res.status, body),
-      error: `Anthropic ${res.status}: ${body.slice(0, 300)}`,
+      error: `Anthropic ${res.status}${errorDetail(cred, body)}`,
     };
   }
 
@@ -162,6 +135,7 @@ async function callGemini(
   cred: AICredential,
   prompt: string,
   maxTokens: number,
+  opts: CallOptions,
 ): Promise<ProviderCall> {
   const model = cred.model || geminiModel();
 
@@ -171,7 +145,9 @@ async function callGemini(
       method: "POST",
       /* Header rather than ?key= so the secret stays out of URLs and access logs. */
       headers: { "Content-Type": "application/json", "x-goog-api-key": cred.apiKey },
+      ...requestInit(opts),
       body: JSON.stringify({
+        ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
           /* The 2.5 models spend part of this budget on thinking before any text
@@ -189,7 +165,7 @@ async function callGemini(
     return {
       ok: false,
       kind: classifyFailure(res.status, body),
-      error: `Gemini ${res.status} (model ${model}): ${body.slice(0, 300)}`,
+      error: `Gemini ${res.status} (model ${model})${errorDetail(cred, body)}`,
     };
   }
 
@@ -221,9 +197,15 @@ async function callOpenAICompatible(
   cred: AICredential,
   prompt: string,
   maxTokens: number,
+  opts: CallOptions,
 ): Promise<ProviderCall> {
   const base = (cred.baseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/+$/, "");
   const model = cred.model || DEFAULT_OPENAI_MODEL;
+
+  if (cred.source === "user" && cred.baseUrl) {
+    const safe = await assertSafeBaseUrl(cred.baseUrl);
+    if (!safe.ok) return { ok: false, kind: "invalid", error: safe.error, usage: NO_USAGE };
+  }
 
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
@@ -235,8 +217,12 @@ async function callOpenAICompatible(
       model,
       max_tokens: maxTokens,
       temperature: 0.4,
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        ...(opts.system ? [{ role: "system", content: opts.system }] : []),
+        { role: "user", content: prompt },
+      ],
     }),
+    ...requestInit(opts),
   });
 
   if (!res.ok) {
@@ -244,7 +230,7 @@ async function callOpenAICompatible(
     return {
       ok: false,
       kind: classifyFailure(res.status, body),
-      error: `${model} ${res.status}: ${body.slice(0, 300)}`,
+      error: `${model} ${res.status}${errorDetail(cred, body)}`,
     };
   }
 
@@ -269,15 +255,16 @@ export async function callProvider(
   cred: AICredential,
   prompt: string,
   maxTokens = 2000,
+  opts: CallOptions = {},
 ): Promise<ProviderCall> {
   if (!cred.apiKey) {
     return { ok: false, kind: "no-key", error: `No ${PROVIDER_LABELS[cred.provider]} key.`, usage: NO_USAGE };
   }
 
   try {
-    if (cred.provider === "anthropic") return await callAnthropic(cred, prompt, maxTokens);
-    if (cred.provider === "gemini") return await callGemini(cred, prompt, maxTokens);
-    return await callOpenAICompatible(cred, prompt, maxTokens);
+    if (cred.provider === "anthropic") return await callAnthropic(cred, prompt, maxTokens, opts);
+    if (cred.provider === "gemini") return await callGemini(cred, prompt, maxTokens, opts);
+    return await callOpenAICompatible(cred, prompt, maxTokens, opts);
   } catch (err) {
     return {
       ok: false,

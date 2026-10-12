@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Check, Download, Eye, FileText, FolderOpen, Loader2, Lock, Save,
   Sparkles, Star, X,
@@ -11,7 +12,10 @@ import {
   AddButton, Field, RepeatCard, Section, StringListEditor,
   inputCls, inputStyle, moveItem,
 } from "@/components/cv/fields";
+import Modal from "@/components/shared/Modal";
 import { downloadCVDocx, useCVProfile } from "@/hooks/useCVProfile";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { apiFetch } from "@/lib/api/client";
 import ImportPanel from "@/components/cv/ImportPanel";
 import SavedCVModal from "@/components/cv/SavedCVModal";
 import { canExportPdf, canUseCVFormat, canUseLebenslauf, isPremiumUser } from "@/lib/permissions";
@@ -60,24 +64,53 @@ const FORMATS: FormatCard[] = [
 
 function PremiumBadge() {
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
-      style={{ background: "#f59e0b22", color: "#d97706" }}
-    >
+    <span className="plan-premium inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold">
       <Star size={9} fill="currentColor" aria-hidden="true" /> Premium
     </span>
   );
+}
+
+function draftAge(iso: string) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 export default function CVBuilderPage() {
   const { data: session } = useSession();
   const sessionUser = session?.user as { role?: string; plan?: string; email?: string } | undefined;
   const isPremium = isPremiumUser(sessionUser?.role, sessionUser?.plan);
-  const showLebenslauf = canUseLebenslauf(sessionUser?.role, sessionUser?.email);
+  const showLebenslauf = canUseLebenslauf(sessionUser?.role);
   const canPdf = canExportPdf(sessionUser?.role, sessionUser?.plan);
 
-  const { profile, setContent, save, loading, saving, saved, error } = useCVProfile();
+  const {
+    profile, setContent, save, loading, saving, saved, error,
+    dirty, userId, pendingAutosave, restoreAutosave, discardAutosave,
+  } = useCVProfile();
   const c = profile.content;
+  useUnsavedChanges(dirty);
+
+  /* Offered once per visit, after both the profile and the session are in:
+     the draft key is per user, so before the session arrives there is nothing
+     to compare against and the prompt would be skipped for good. */
+  const draftPromptedRef = useRef(false);
+  useEffect(() => {
+    if (loading || !userId || draftPromptedRef.current) return;
+    draftPromptedRef.current = true;
+    if (!pendingAutosave) return;
+    if (JSON.stringify(pendingAutosave.content) === JSON.stringify(profile.content)) {
+      discardAutosave();
+      return;
+    }
+    const at = draftAge(pendingAutosave.at);
+    toast(at ? `You have an unsaved CV draft from ${at}.` : "You have an unsaved CV draft.", {
+      description: "Restore it to keep editing, or discard it to stay with the saved version.",
+      action: { label: "Restore draft", onClick: () => { restoreAutosave(); } },
+      cancel: { label: "Discard", onClick: () => { discardAutosave(); } },
+      duration: 15000,
+    });
+  }, [loading, userId, pendingAutosave, profile.content, restoreAutosave, discardAutosave]);
 
   /* The preview button stays hidden until there is something to preview. */
   const savedCVs = profile.uploadedFiles
@@ -107,6 +140,12 @@ export default function CVBuilderPage() {
     });
   }, [adaptResult]);
   const [adaptErr, setAdaptErr] = useState("");
+
+  function closeAdapt() {
+    setShowAdapt(false);
+    setJobDesc("");
+    setAdaptErr("");
+  }
 
   function patch(update: Partial<CVContent>) {
     setContent((prev) => ({ ...prev, ...update }));
@@ -140,13 +179,10 @@ export default function CVBuilderPage() {
     setAdaptErr("");
     setAdaptResult(null);
     try {
-      const res = await fetch("/api/cv/adapt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: c, jobDescription: jobDesc }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? "Request failed");
+      const body = await apiFetch<{
+        positioning?: string; summary?: string; summaryShort?: string;
+        skills?: CVContent["skills"]; providerLabel?: string;
+      }>("/api/cv/adapt", { method: "POST", json: { content: c, jobDescription: jobDesc } });
 
       const next: CVContent = {
         ...c,
@@ -210,14 +246,7 @@ export default function CVBuilderPage() {
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold">
               CV Builder
-              {isPremium && (
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                  style={{ background: "#10b98122", color: "#047857" }}
-                >
-                  <Star size={9} fill="currentColor" aria-hidden="true" /> Premium
-                </span>
-              )}
+              {isPremium && <PremiumBadge />}
             </h1>
             <p className="text-muted text-sm">
               One set of details, every format in real Word — they cannot disagree with each other.
@@ -265,27 +294,25 @@ export default function CVBuilderPage() {
 
       {!isPremium && (
         <div
-          className="flex flex-wrap items-center justify-between gap-4 rounded-xl border px-5 py-4"
-          style={{ borderColor: "#f59e0b44", background: "#fffbeb" }}
+          className="alert alert-warning"
+          style={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}
         >
           <div className="flex items-center gap-3">
-            <Star size={18} style={{ color: "#d97706" }} fill="#d97706" aria-hidden="true" />
+            <Star size={18} fill="currentColor" aria-hidden="true" />
             <div>
-              <p className="text-sm font-semibold" style={{ color: "#92400e" }}>
-                Upgrade to Premium for AI-powered CV tailoring
-              </p>
-              <p className="text-xs" style={{ color: "#b45309" }}>
-                Every format and every Word download is free.
-              </p>
+              <p className="text-sm font-semibold">Upgrade to Premium for AI-powered CV tailoring</p>
+              <p className="text-xs">Every format and every Word download is free.</p>
             </div>
           </div>
-          <Link href="/me" className="btn-primary shrink-0 rounded-lg px-4 py-2 text-xs font-semibold">
+          <Link href="/pricing" className="btn-primary shrink-0 rounded-lg px-4 py-2 text-xs font-semibold">
             Upgrade
           </Link>
         </div>
       )}
 
-      {(error || downloadError) && <p className="anim-in text-sm text-red-600">{error || downloadError}</p>}
+      {(error || downloadError) && (
+        <p className="anim-in text-danger text-sm" role="alert">{error || downloadError}</p>
+      )}
       {adaptResult && (
         <div
           ref={adaptPanelRef}
@@ -293,7 +320,7 @@ export default function CVBuilderPage() {
           className="anim-in glass flex flex-wrap items-start gap-3 rounded-xl px-4 py-3"
           style={{ borderLeft: "3px solid var(--primary)" }}
         >
-          <Check size={16} className="mt-0.5 shrink-0" style={{ color: "#047857" }} aria-hidden="true" />
+          <Check size={16} className="text-success mt-0.5 shrink-0" aria-hidden="true" />
 
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">
@@ -344,18 +371,17 @@ export default function CVBuilderPage() {
 
       {/* Formats */}
       {lockedFormats.length > 0 && (
-        <div
-          className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border p-4 text-sm"
-          style={{ borderColor: "#f59e0b44", background: "#f59e0b0d" }}
-        >
-          <Lock size={14} aria-hidden="true" style={{ color: "#b45309" }} />
-          <span className="font-medium" style={{ color: "#92400e" }}>
-            {lockedFormats.map((f) => f.name).join(" and ")}{" "}
-            {lockedFormats.length === 1 ? "is" : "are"} on Premium.
-          </span>
-          <span className="text-muted">
-            Your plan includes {cards.map((f) => f.name).join(" and ")} — enough to apply anywhere.
-          </span>
+        <div className="alert alert-warning" style={{ alignItems: "center" }}>
+          <Lock size={14} aria-hidden="true" className="shrink-0" />
+          <p>
+            <span className="font-medium">
+              {lockedFormats.map((f) => f.name).join(" and ")}{" "}
+              {lockedFormats.length === 1 ? "is" : "are"} on Premium.
+            </span>{" "}
+            <span className="text-muted">
+              Your plan includes {cards.map((f) => f.name).join(" and ")} — enough to apply anywhere.
+            </span>
+          </p>
         </div>
       )}
 
@@ -459,7 +485,7 @@ export default function CVBuilderPage() {
           title={isPremium ? "Adapt this CV to a job description" : "Upgrade to Premium to use AI tailoring"}
           className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition"
           style={isPremium
-            ? { borderColor: "#f59e0b", color: "#d97706", background: "#fffbeb" }
+            ? { borderColor: "var(--warning-border)", color: "var(--warning)", background: "var(--warning-bg)" }
             : { opacity: 0.5, cursor: "not-allowed", borderColor: "var(--border)" }}
         >
           {isPremium ? <Sparkles size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
@@ -718,8 +744,8 @@ export default function CVBuilderPage() {
                     ["spokenProduction", "Spoken prod."],
                     ["writing", "Writing"],
                   ] as [keyof CVLanguage["cefr"], string][]).map(([key, label]) => (
-                    <div key={key}>
-                      <label className="text-muted mb-1 block text-[11px] font-medium">{label}</label>
+                    <label key={key} className="block">
+                      <span className="text-muted mb-1 block text-[11px] font-medium">{label}</span>
                       <input
                         type="text"
                         className={inputCls}
@@ -731,7 +757,7 @@ export default function CVBuilderPage() {
                             x === i ? { ...l, cefr: { ...l.cefr, [key]: e.target.value } } : l),
                         })}
                       />
-                    </div>
+                    </label>
                   ))}
                 </div>
               )}
@@ -755,62 +781,46 @@ export default function CVBuilderPage() {
         </div>
       </div>
 
-      {/* AI adapt modal */}
-      {showAdapt && (
-        <div className="anim-backdrop fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
-          <div className="anim-panel surface max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles size={18} style={{ color: "#d97706" }} aria-hidden="true" />
-                <h3 className="font-semibold">AI CV Tailor</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setShowAdapt(false); setJobDesc(""); setAdaptErr(""); }}
-                className="text-muted transition hover:text-foreground"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      <Modal open={showAdapt} onClose={closeAdapt} title="AI CV Tailor">
+        <div className="px-5 py-4">
+          <p className="text-muted mb-4 text-sm">
+            Paste the job description. AI rewrites your summary, sharpens your positioning line, and reorders
+            your skill groups so the closest match comes first. Your roles and bullets are never rewritten.
+          </p>
 
-            <p className="text-muted mb-4 text-sm">
-              Paste the job description. AI rewrites your summary, sharpens your positioning line, and reorders
-              your skill groups so the closest match comes first. Your roles and bullets are never rewritten.
-            </p>
+          <textarea
+            className={`${inputCls} leading-relaxed`}
+            rows={10}
+            style={{ ...inputStyle, maxHeight: "40dvh" }}
+            placeholder="Paste the full job description here…"
+            aria-label="Job description"
+            value={jobDesc}
+            onChange={(e) => setJobDesc(e.target.value)}
+          />
 
-            <textarea
-              className={`${inputCls} leading-relaxed`}
-              rows={10}
-              style={{ ...inputStyle, maxHeight: "40dvh" }}
-              placeholder="Paste the full job description here…"
-              value={jobDesc}
-              onChange={(e) => setJobDesc(e.target.value)}
-            />
-
-            {adaptErr && <p className="mt-2 text-xs text-red-500">{adaptErr}</p>}
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => { setShowAdapt(false); setJobDesc(""); }}
-                className="rounded-lg border px-4 py-2 text-sm transition hover:bg-[var(--surface-2)]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleAdapt}
-                disabled={adapting || !jobDesc.trim()}
-                className="btn-primary flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-60"
-              >
-                {adapting
-                  ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Adapting…</>
-                  : <><Sparkles size={14} aria-hidden="true" /> Tailor my CV</>}
-              </button>
-            </div>
-          </div>
+          {adaptErr && <p className="text-danger mt-2 text-xs" role="alert">{adaptErr}</p>}
         </div>
-      )}
+
+        <div className="flex justify-end gap-2 border-t px-5 py-4">
+          <button
+            type="button"
+            onClick={closeAdapt}
+            className="btn-secondary rounded-lg px-4 py-2 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleAdapt}
+            disabled={adapting || !jobDesc.trim()}
+            className="btn-primary flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-60"
+          >
+            {adapting
+              ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Adapting…</>
+              : <><Sparkles size={14} aria-hidden="true" /> Tailor my CV</>}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

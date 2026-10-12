@@ -8,12 +8,19 @@ import { mintExtensionToken } from "@/lib/extensionToken";
 import { accountPaused } from "@/lib/serverAuth";
 import { checkRateLimitDb, clearRateLimitDb } from "@/lib/rateLimitStore";
 import { clientIp } from "@/lib/rateLimit";
+import { normaliseEmail } from "@/lib/emailAddress";
+import { isVerified } from "@/lib/emailVerification";
+import { withCors } from "@/lib/extensionCors";
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204 });
+export async function OPTIONS(req: Request) {
+  return withCors(req, new NextResponse(null, { status: 204 }));
 }
 
 export async function POST(req: Request) {
+  return withCors(req, await handlePost(req));
+}
+
+async function handlePost(req: Request) {
   let body: { email?: string; password?: string };
   try {
     body = await req.json();
@@ -28,7 +35,7 @@ export async function POST(req: Request) {
 
   await dbConnect();
 
-  const who = email.toLowerCase().trim();
+  const who = normaliseEmail(email);
   const throttleKey = `ext-login:${who}:${clientIp(req)}`;
   const ceilingKey = `ext-login-total:${who}`;
   const window = { windowMs: 15 * 60 * 1000, blockMs: 15 * 60 * 1000 };
@@ -44,7 +51,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const user = await User.findOne({ email: email.toLowerCase().trim() });
+  const user = await User.findOne({ email: who });
   if (!user || !user.password) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
@@ -54,9 +61,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
+  if (!isVerified(user)) {
+    return NextResponse.json({ error: "Verify your email address first.", code: "unverified" }, { status: 403 });
+  }
+
   await Promise.all([clearRateLimitDb(throttleKey), clearRateLimitDb(ceilingKey)]);
 
   if (user.status === "paused") return accountPaused();
+
+  await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } }).catch(() => {});
 
   const minted = await mintExtensionToken(user);
   if (!minted) {

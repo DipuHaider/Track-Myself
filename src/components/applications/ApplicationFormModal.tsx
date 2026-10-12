@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Calculator, Copy, FileText, Image as ImageIcon, File, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import SalaryExpectationModal, { type CalculatorApply } from "@/components/applications/SalaryExpectationModal";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { ApiError, apiFetch } from "@/lib/api/client";
 import {
   EXPECTATION_MODES, EXPECTATION_MODE_LABELS, expectationText, type ExpectationMode, type SalaryPeriod,
 } from "@/lib/salaryExpectation";
@@ -31,10 +33,10 @@ function fileExt(name: string) {
 function FileTypeIcon({ name }: { name: string }) {
   const ext = fileExt(name);
   if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext))
-    return <ImageIcon size={14} className="shrink-0 text-blue-500" />;
+    return <ImageIcon size={14} className="text-info shrink-0" aria-hidden="true" />;
   if (["pdf"].includes(ext))
-    return <FileText size={14} className="shrink-0 text-red-500" />;
-  return <File size={14} className="shrink-0 text-muted" />;
+    return <FileText size={14} className="text-danger shrink-0" aria-hidden="true" />;
+  return <File size={14} className="text-muted shrink-0" aria-hidden="true" />;
 }
 
 function fmtSize(bytes: number) {
@@ -58,11 +60,16 @@ async function uploadFile(file: File, companyName: string): Promise<string> {
   const fd = new FormData();
   fd.append("file", file);
   fd.append("companyName", companyName);
-  const res = await fetch("/api/upload", { method: "POST", body: fd });
-  if (!res.ok) throw new Error(`Upload failed: ${file.name}`);
-  const data = await res.json();
-  return data.path as string;
+  try {
+    const data = await apiFetch<{ path: string }>("/api/upload", { method: "POST", body: fd });
+    return data.path;
+  } catch (err) {
+    const detail = err instanceof ApiError ? ` — ${err.message}` : "";
+    throw new Error(`Upload failed: ${file.name}${detail}`);
+  }
 }
+
+const MAX_ATTACHMENT_LABEL = "4 MB";
 
 const CURRENCIES = [
   { code: "EUR", symbol: "€" },
@@ -238,10 +245,22 @@ function toForm(app: Application): FormData {
 const inputCls =
   "w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/* A render-prop child receives the id for its one control; a plain node is a
+   group of controls that each carry their own aria-label, so the caption
+   labels the group rather than being a <label> with nothing to point at. */
+function Field({ label, children }: { label: string; children: ReactNode | ((id: string) => ReactNode) }) {
+  const id = useId();
+  if (typeof children === "function") {
+    return (
+      <div>
+        <label htmlFor={id} className="mb-1 block text-xs font-medium">{label}</label>
+        {children(id)}
+      </div>
+    );
+  }
   return (
-    <div>
-      <label className="mb-1 block text-xs font-medium">{label}</label>
+    <div role="group" aria-labelledby={id}>
+      <span id={id} className="mb-1 block text-xs font-medium">{label}</span>
       {children}
     </div>
   );
@@ -294,6 +313,15 @@ export default function ApplicationFormModal({
       setServerDuplicate(null);
     }
   }
+
+  const initialForm = useMemo(() => (application ? toForm(application) : EMPTY), [application]);
+  const initialAttachments = useMemo(() => application?.attachments ?? [], [application]);
+  const dirty =
+    open &&
+    (pendingFiles.length > 0 ||
+      JSON.stringify(form) !== JSON.stringify(initialForm) ||
+      JSON.stringify(existingAttachments) !== JSON.stringify(initialAttachments));
+  const { confirmDiscard } = useUnsavedChanges(dirty);
 
   const responseOptions = responseOptionsFor(form.applicationStatus);
   const responseValue = responseOptions.includes(form.responseStatus) ? form.responseStatus : "";
@@ -532,28 +560,18 @@ export default function ApplicationFormModal({
       const url = endpoint ?? (isEdit ? `/api/applications/${application!._id}` : "/api/applications");
       const method = isEdit ? (methodOverride ?? "PUT") : "POST";
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.status === 409) {
-        const d = await res.json();
-        setServerDuplicate(d.existing);
-        return;
-      }
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to save. Please try again.");
-        return;
-      }
-
-      const saved = await res.json();
+      const saved = await apiFetch<Application>(url, { method, json: payload });
       onSaved(saved);
+      toast.success("Application saved");
       onClose();
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const existing = (err.body as { existing?: ServerDuplicate } | null)?.existing;
+        if (existing) {
+          setServerDuplicate(existing);
+          return;
+        }
+      }
       setError(err instanceof Error ? err.message : "An error occurred.");
     } finally {
       setSaving(false);
@@ -566,18 +584,12 @@ export default function ApplicationFormModal({
     setError("");
     try {
       const payload = await buildPayload();
-      const res = await fetch("/api/applications", {
+      const saved = await apiFetch<Application>("/api/applications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, force: true }),
+        json: { ...payload, force: true },
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Failed to save. Please try again.");
-        return;
-      }
-      const saved = await res.json();
       onSaved(saved);
+      toast.success("Application saved");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred.");
@@ -594,51 +606,62 @@ export default function ApplicationFormModal({
     form.platform === "Facebook Page" ? "e.g. Tech Jobs BD" : "e.g. Remote Jobs Group";
 
   return (
-    <Modal open={open} onClose={onClose} title={title}>
+    <Modal open={open} onClose={onClose} title={title} onRequestClose={() => !dirty || confirmDiscard()}>
       <form onSubmit={save}>
         <div className="max-h-[65vh] space-y-3 overflow-y-auto px-5 py-4">
           {/* Row 1 */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Company Name *">
-              <input
-                className={inputCls}
-                placeholder="e.g. Google"
-                value={form.companyName}
-                onChange={set("companyName")}
-                required
-              />
+              {(id) => (
+                <input
+                  id={id}
+                  className={inputCls}
+                  placeholder="e.g. Google"
+                  value={form.companyName}
+                  onChange={set("companyName")}
+                  required
+                />
+              )}
             </Field>
             <Field label="Job Title *">
-              <input
-                className={inputCls}
-                placeholder="e.g. Software Engineer"
-                value={form.jobTitle}
-                onChange={set("jobTitle")}
-                required
-              />
+              {(id) => (
+                <input
+                  id={id}
+                  className={inputCls}
+                  placeholder="e.g. Software Engineer"
+                  value={form.jobTitle}
+                  onChange={set("jobTitle")}
+                  required
+                />
+              )}
             </Field>
           </div>
 
           {/* Row 2 */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Status">
-              <select
-                className={inputCls}
-                value={form.applicationStatus}
-                onChange={set("applicationStatus")}
-              >
-                {APPLICATION_STATUSES.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
+              {(id) => (
+                <select
+                  id={id}
+                  className={inputCls}
+                  value={form.applicationStatus}
+                  onChange={set("applicationStatus")}
+                >
+                  {APPLICATION_STATUSES.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              )}
             </Field>
             <Field label="Found on">
-              <select className={inputCls} value={form.platform} onChange={handlePlatformChange}>
-                <option value="">Select platform</option>
-                {PLATFORMS.map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </select>
+              {(id) => (
+                <select id={id} className={inputCls} value={form.platform} onChange={handlePlatformChange}>
+                  <option value="">Select platform</option>
+                  {PLATFORMS.map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+                </select>
+              )}
             </Field>
           </div>
 
@@ -646,7 +669,9 @@ export default function ApplicationFormModal({
             <div className="surface-muted space-y-2 rounded-md border p-3">
               <div className="grid grid-cols-2 gap-3">
                 <Field label={isOffer ? "Offer status" : "Feedback"}>
+                  {(id) => (
                   <select
+                    id={id}
                     className={inputCls}
                     value={responseValue}
                     onChange={(e) => {
@@ -663,15 +688,19 @@ export default function ApplicationFormModal({
                       <option key={r}>{r}</option>
                     ))}
                   </select>
+                  )}
                 </Field>
                 <Field label={isOffer ? "As of" : "Feedback received"}>
-                  <input
-                    type="date"
-                    className={inputCls}
-                    value={form.responseAt}
-                    disabled={!responseValue}
-                    onChange={set("responseAt")}
-                  />
+                  {(id) => (
+                    <input
+                      id={id}
+                      type="date"
+                      className={inputCls}
+                      value={form.responseAt}
+                      disabled={!responseValue}
+                      onChange={set("responseAt")}
+                    />
+                  )}
                 </Field>
               </div>
               {responseValue && (
@@ -695,12 +724,15 @@ export default function ApplicationFormModal({
           {/* Facebook page/group detail */}
           {isFbPlatform && (
             <Field label={fbDetailLabel}>
-              <input
-                className={inputCls}
-                placeholder={fbDetailPlaceholder}
-                value={form.platformDetail}
-                onChange={set("platformDetail")}
-              />
+              {(id) => (
+                <input
+                  id={id}
+                  className={inputCls}
+                  placeholder={fbDetailPlaceholder}
+                  value={form.platformDetail}
+                  onChange={set("platformDetail")}
+                />
+              )}
             </Field>
           )}
 
@@ -731,20 +763,26 @@ export default function ApplicationFormModal({
           {/* Row 4 — Location: city + country */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="City">
-              <input
-                className={inputCls}
-                placeholder="e.g. London"
-                value={form.city}
-                onChange={set("city")}
-              />
+              {(id) => (
+                <input
+                  id={id}
+                  className={inputCls}
+                  placeholder="e.g. London"
+                  value={form.city}
+                  onChange={set("city")}
+                />
+              )}
             </Field>
             <Field label="Country">
-              <input
-                className={inputCls}
-                placeholder="e.g. United Kingdom"
-                value={form.country}
-                onChange={set("country")}
-              />
+              {(id) => (
+                <input
+                  id={id}
+                  className={inputCls}
+                  placeholder="e.g. United Kingdom"
+                  value={form.country}
+                  onChange={set("country")}
+                />
+              )}
             </Field>
           </div>
 
@@ -787,7 +825,8 @@ export default function ApplicationFormModal({
             {form.salaryType === "fixed" && (
               <input
                 type="text"
-                className={`${inputCls} mt-2 ${isValidAmount(form.salaryFixed) ? "" : "border-red-500"}`}
+                aria-label="Salary amount"
+                className={`${inputCls} mt-2 ${isValidAmount(form.salaryFixed) ? "" : "border-[var(--danger)]"}`}
                 placeholder="Amount, e.g. 70K"
                 value={form.salaryFixed}
                 onChange={set("salaryFixed")}
@@ -798,7 +837,7 @@ export default function ApplicationFormModal({
                 <input
                   type="text"
                   aria-label="Minimum salary"
-                  className={`${inputCls} ${isValidAmount(form.salaryMin) ? "" : "border-red-500"}`}
+                  className={`${inputCls} ${isValidAmount(form.salaryMin) ? "" : "border-[var(--danger)]"}`}
                   placeholder="Min, e.g. 70K"
                   value={form.salaryMin}
                   onChange={set("salaryMin")}
@@ -807,7 +846,7 @@ export default function ApplicationFormModal({
                 <input
                   type="text"
                   aria-label="Maximum salary"
-                  className={`${inputCls} ${isValidAmount(form.salaryMax) && isValidRange(form.salaryMin, form.salaryMax) ? "" : "border-red-500"}`}
+                  className={`${inputCls} ${isValidAmount(form.salaryMax) && isValidRange(form.salaryMin, form.salaryMax) ? "" : "border-[var(--danger)]"}`}
                   placeholder="Max, e.g. 90K"
                   value={form.salaryMax}
                   onChange={set("salaryMax")}
@@ -874,7 +913,7 @@ export default function ApplicationFormModal({
               <input
                 type="text"
                 aria-label="Expected salary"
-                className={`${inputCls} mt-2 ${isValidAmount(form.expectation.amount) ? "" : "border-red-500"}`}
+                className={`${inputCls} mt-2 ${isValidAmount(form.expectation.amount) ? "" : "border-[var(--danger)]"}`}
                 placeholder={form.expectation.mode === "negotiable" ? "Around (optional), e.g. 48K" : "e.g. 48K"}
                 value={form.expectation.amount}
                 onChange={(e) => setExpectation({ amount: e.target.value })}
@@ -885,7 +924,7 @@ export default function ApplicationFormModal({
                 <input
                   type="text"
                   aria-label="Expected minimum"
-                  className={`${inputCls} ${isValidAmount(form.expectation.min) ? "" : "border-red-500"}`}
+                  className={`${inputCls} ${isValidAmount(form.expectation.min) ? "" : "border-[var(--danger)]"}`}
                   placeholder="Min, e.g. 46K"
                   value={form.expectation.min}
                   onChange={(e) => setExpectation({ min: e.target.value })}
@@ -894,7 +933,7 @@ export default function ApplicationFormModal({
                 <input
                   type="text"
                   aria-label="Expected maximum"
-                  className={`${inputCls} ${isValidAmount(form.expectation.max) && isValidRange(form.expectation.min, form.expectation.max) ? "" : "border-red-500"}`}
+                  className={`${inputCls} ${isValidAmount(form.expectation.max) && isValidRange(form.expectation.min, form.expectation.max) ? "" : "border-[var(--danger)]"}`}
                   placeholder="Max, e.g. 50K"
                   value={form.expectation.max}
                   onChange={(e) => setExpectation({ max: e.target.value })}
@@ -976,51 +1015,64 @@ export default function ApplicationFormModal({
           {/* Row 6 — Priority + how the application was made */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Priority">
-              <select className={inputCls} value={form.priority} onChange={set("priority")}>
-                <option>Low</option>
-                <option>Medium</option>
-                <option>High</option>
-              </select>
+              {(id) => (
+                <select id={id} className={inputCls} value={form.priority} onChange={set("priority")}>
+                  <option>Low</option>
+                  <option>Medium</option>
+                  <option>High</option>
+                </select>
+              )}
             </Field>
             <Field label="Applied through">
-              <select className={inputCls} value={form.submissionMethod} onChange={handleSubmissionMethod}>
-                <option value="">—</option>
-                {SUBMISSION_METHODS.map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
+              {(id) => (
+                <select id={id} className={inputCls} value={form.submissionMethod} onChange={handleSubmissionMethod}>
+                  <option value="">—</option>
+                  {SUBMISSION_METHODS.map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              )}
             </Field>
           </div>
 
           {SUBMISSION_DETAIL_METHODS.has(form.submissionMethod) && (
             <Field label="Where / how">
-              <input
-                className={inputCls}
-                maxLength={300}
-                placeholder={SUBMISSION_DETAIL_HINTS[form.submissionMethod] ?? ""}
-                value={form.submissionDetail}
-                onChange={set("submissionDetail")}
-              />
+              {(id) => (
+                <input
+                  id={id}
+                  className={inputCls}
+                  maxLength={300}
+                  placeholder={SUBMISSION_DETAIL_HINTS[form.submissionMethod] ?? ""}
+                  value={form.submissionDetail}
+                  onChange={set("submissionDetail")}
+                />
+              )}
             </Field>
           )}
 
           {/* Row 7 — dates */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Applied Date & Time">
-              <input
-                type="datetime-local"
-                className={inputCls}
-                value={form.appliedDate}
-                onChange={set("appliedDate")}
-              />
+              {(id) => (
+                <input
+                  id={id}
+                  type="datetime-local"
+                  className={inputCls}
+                  value={form.appliedDate}
+                  onChange={set("appliedDate")}
+                />
+              )}
             </Field>
             <Field label="Follow-up date">
-              <input
-                type="date"
-                className={inputCls}
-                value={form.followUpDate}
-                onChange={set("followUpDate")}
-              />
+              {(id) => (
+                <input
+                  id={id}
+                  type="date"
+                  className={inputCls}
+                  value={form.followUpDate}
+                  onChange={set("followUpDate")}
+                />
+              )}
             </Field>
           </div>
 
@@ -1105,6 +1157,7 @@ export default function ApplicationFormModal({
                 <div key={i} className="flex items-center gap-2">
                   <input
                     type="url"
+                    aria-label={i === 0 ? "Job post URL" : `Job post URL ${i + 1}`}
                     className={inputCls}
                     placeholder={i === 0 ? "https://..." : "Another link, e.g. the company careers page"}
                     value={url}
@@ -1139,30 +1192,38 @@ export default function ApplicationFormModal({
 
           {/* Job description — the text AI tailoring reads when generating for this job. */}
           <Field label="Job description">
-            <textarea
-              className={inputCls}
-              rows={4}
-              maxLength={24000}
-              placeholder="Paste the job posting here. Documents generated for this application are tailored against it."
-              value={form.jobDescription}
-              onChange={set("jobDescription")}
-            />
-            <p className="text-muted mt-1 text-[11px]">
-              {form.jobDescription.trim()
-                ? form.jobDescription.length.toLocaleString() + " characters"
-                : "Optional, but tailoring is much better with it."}
-            </p>
+            {(id) => (
+              <>
+                <textarea
+                  id={id}
+                  className={inputCls}
+                  rows={4}
+                  maxLength={24000}
+                  placeholder="Paste the job posting here. Documents generated for this application are tailored against it."
+                  value={form.jobDescription}
+                  onChange={set("jobDescription")}
+                />
+                <p className="text-muted mt-1 text-[11px]">
+                  {form.jobDescription.trim()
+                    ? form.jobDescription.length.toLocaleString() + " characters"
+                    : "Optional, but tailoring is much better with it."}
+                </p>
+              </>
+            )}
           </Field>
 
           {/* Notes */}
           <Field label="Notes">
-            <textarea
-              className={inputCls}
-              rows={2}
-              placeholder="Any notes..."
-              value={form.notes}
-              onChange={set("notes")}
-            />
+            {(id) => (
+              <textarea
+                id={id}
+                className={inputCls}
+                rows={2}
+                placeholder="Any notes..."
+                value={form.notes}
+                onChange={set("notes")}
+              />
+            )}
           </Field>
 
           {/* Documents provided */}
@@ -1216,9 +1277,10 @@ export default function ApplicationFormModal({
                     <button
                       type="button"
                       onClick={() => removeExisting(p)}
-                      className="text-muted hover:text-red-500"
+                      aria-label={`Remove ${fileName(p)}`}
+                      className="text-muted hover:text-[var(--danger)]"
                     >
-                      <X size={13} />
+                      <X size={13} aria-hidden="true" />
                     </button>
                   </div>
                 ))}
@@ -1239,9 +1301,10 @@ export default function ApplicationFormModal({
                     <button
                       type="button"
                       onClick={() => removePending(i)}
-                      className="text-muted hover:text-red-500"
+                      aria-label={`Remove ${file.name}`}
+                      className="text-muted hover:text-[var(--danger)]"
                     >
-                      <X size={13} />
+                      <X size={13} aria-hidden="true" />
                     </button>
                   </div>
                 ))}
@@ -1253,14 +1316,16 @@ export default function ApplicationFormModal({
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition hover:bg-[var(--surface-2)]"
             >
-              <Plus size={14} />
+              <Plus size={14} aria-hidden="true" />
               Add files
             </button>
+            <p className="text-muted mt-1 text-[11px]">Up to {MAX_ATTACHMENT_LABEL} per file.</p>
             <input
               ref={fileInputRef}
               type="file"
               multiple
               className="hidden"
+              aria-label="Add attachments"
               accept="image/*,.pdf,.xlsx,.xls,.doc,.docx,.csv,.txt,.pptx,.ppt"
               onChange={handleFileAdd}
             />
@@ -1276,45 +1341,49 @@ export default function ApplicationFormModal({
 
           {/* Client-side duplicate warning (live as user types) */}
           {duplicateWarnings.length > 0 && !serverDuplicate && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-              <strong>Possible duplicate:</strong> You already have {duplicateWarnings.length}{" "}
-              application{duplicateWarnings.length > 1 ? "s" : ""} for{" "}
-              <em>{form.jobTitle}</em> at <em>{form.companyName}</em>. You can still save.
+            <div className="alert alert-warning" role="status">
+              <p>
+                <strong>Possible duplicate:</strong> You already have {duplicateWarnings.length}{" "}
+                application{duplicateWarnings.length > 1 ? "s" : ""} for{" "}
+                <em>{form.jobTitle}</em> at <em>{form.companyName}</em>. You can still save.
+              </p>
             </div>
           )}
 
           {/* Server-confirmed 409 duplicate */}
           {serverDuplicate && (
-            <div className="rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-              <p className="font-medium">Duplicate confirmed by server</p>
-              <p className="mt-0.5 text-xs">
-                Existing: <strong>{serverDuplicate.companyName}</strong> —{" "}
-                {serverDuplicate.jobTitle}
-                {serverDuplicate.appliedDate &&
-                  ` · applied ${new Date(serverDuplicate.appliedDate).toLocaleDateString("en-GB")}`}
-                {" "}· {serverDuplicate.applicationStatus}
-              </p>
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={saveAnyway}
-                  disabled={saving}
-                  className="rounded-md bg-amber-600 px-3 py-1 text-xs text-white transition hover:bg-amber-700 disabled:opacity-60"
-                >
-                  Save anyway
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setServerDuplicate(null)}
-                  className="rounded-md border px-3 py-1 text-xs transition hover:bg-[var(--surface-2)]"
-                >
-                  Cancel
-                </button>
+            <div className="alert alert-warning" role="alert">
+              <div>
+                <p className="font-medium">Duplicate confirmed by server</p>
+                <p className="mt-0.5 text-xs">
+                  Existing: <strong>{serverDuplicate.companyName}</strong> —{" "}
+                  {serverDuplicate.jobTitle}
+                  {serverDuplicate.appliedDate &&
+                    ` · applied ${new Date(serverDuplicate.appliedDate).toLocaleDateString("en-GB")}`}
+                  {" "}· {serverDuplicate.applicationStatus}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={saveAnyway}
+                    disabled={saving}
+                    className="btn-primary rounded-md px-3 py-1 text-xs disabled:opacity-60"
+                  >
+                    Save anyway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setServerDuplicate(null)}
+                    className="btn-secondary rounded-md px-3 py-1 text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-danger text-sm" role="alert">{error}</p>}
         </div>
 
         {/* Footer */}
@@ -1322,7 +1391,7 @@ export default function ApplicationFormModal({
           <button
             type="button"
             onClick={reset}
-            className="rounded-md border px-4 py-2 text-sm transition hover:bg-[var(--surface-2)]"
+            className="btn-secondary rounded-md px-4 py-2 text-sm"
           >
             Reset
           </button>

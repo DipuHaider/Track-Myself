@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import { sanitizeLetter, type CoverLetterText } from "@/lib/cv/coverLetter";
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import { requireAuth } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import CVProfile from "@/models/CVProfile";
@@ -13,6 +12,9 @@ import { buildMergedCV } from "@/lib/cv/import/sources";
 import { isPremiumUser, isSuperAdmin } from "@/lib/permissions";
 import { readPhotoDataUri } from "@/lib/cvFiles";
 import type { CVFormat, CVVariant } from "@/types/cv";
+import { parseObjectId } from "@/lib/objectId";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
+import { tooMany } from "@/lib/api/respond";
 
 type StoredFile = {
   name: string; mimeType: string; data: string;
@@ -27,8 +29,12 @@ export async function GET(
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
   const { id } = await params;
-  if (!mongoose.isValidObjectId(id)) {
+  if (!parseObjectId(id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (new URL(req.url).searchParams.get("as") === "pdf") {
+    const gate = await checkRateLimitDb({ key: `cv-raw-pdf:user:${auth.id}`, limit: 30, windowMs: 10 * 60 * 1000 });
+    if (!gate.ok) return tooMany(gate);
   }
   await dbConnect();
 

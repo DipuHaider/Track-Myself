@@ -10,7 +10,7 @@ export const metadata = {
 
 const ROUTES = [
   { href: "/", icon: Compass, label: "Home", hint: "What TrackMyself does" },
-  { href: "/tools", icon: Wrench, label: "Tools", hint: "Six free browser tools" },
+  { href: "/tools", icon: Wrench, label: "Tools", hint: "Eight free browser tools" },
   { href: "/faq", icon: LifeBuoy, label: "FAQ", hint: "38 answers" },
   { href: "/me/applications", icon: FileText, label: "My Applications", hint: "Your tracker" },
 ];

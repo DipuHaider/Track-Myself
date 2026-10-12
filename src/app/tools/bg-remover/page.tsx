@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft, ArrowRight, Eraser, Loader2, RotateCcw, Shield, Upload, X,
 } from "lucide-react";
+import DropZone from "@/components/shared/DropZone";
 import ExportPanel from "@/components/tools/ExportPanel";
 import { usePremium } from "@/hooks/usePremium";
 import { MODEL_LICENCE, removeBackground, type RemovalProgress } from "@/lib/tools/backgroundRemoval";
@@ -36,8 +37,6 @@ export default function BackgroundRemoverPage() {
   const [compare, setCompare] = useState(false);
   const [progress, setProgress] = useState<RemovalProgress | null>(null);
   const [error, setError] = useState("");
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const run = useCallback(async (next: File) => {
@@ -73,8 +72,7 @@ export default function BackgroundRemoverPage() {
     }
   }, []);
 
-  function onPick(files: FileList | null) {
-    const next = files?.[0];
+  function onPick([next]: File[]) {
     if (!next) return;
     if (!next.type.startsWith("image/")) {
       setError("Please choose an image file.");
@@ -112,34 +110,22 @@ export default function BackgroundRemoverPage() {
       </div>
 
       {!file && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => { e.preventDefault(); setDragging(false); onPick(e.dataTransfer.files); }}
-          onClick={() => inputRef.current?.click()}
-          className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-16 transition hover:bg-[var(--surface-2)]"
-          style={{
-            borderColor: dragging ? "var(--primary)" : "var(--border)",
-            background: dragging ? "var(--surface-2)" : undefined,
-          }}
+        <DropZone
+          accept="image/*"
+          label="Upload a photo to remove its background"
+          hint="JPG, PNG or WebP · works best on people and products"
+          className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center"
+          onFiles={onPick}
         >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => { onPick(e.target.files); e.target.value = ""; }}
-          />
           <Upload size={30} className="text-muted" aria-hidden="true" />
           <p className="text-sm font-medium">
             Drop a photo here or <span style={{ color: "var(--primary)" }}>browse</span>
           </p>
-          <p className="text-muted text-xs">JPG, PNG or WebP · works best on people and products</p>
-        </div>
+        </DropZone>
       )}
 
       {error && (
-        <p className="surface rounded-lg border p-4 text-sm text-red-600">{error}</p>
+        <p className="alert alert-danger rounded-lg p-4 text-sm">{error}</p>
       )}
 
       {file && (

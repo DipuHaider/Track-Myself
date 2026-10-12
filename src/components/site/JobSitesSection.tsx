@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight, ExternalLink, Globe, Star } from "lucide-react";
 import FlagIcon, { type FlagCode } from "@/components/site/FlagIcon";
 
@@ -294,13 +295,11 @@ function SiteLogo({ site }: { site: JobSite }) {
       style={{ background: site.color + "18" }}
     >
       {site.logo && !failed ? (
-        <img
+        <Image
           src={`/job-sites/${site.logo}.png`}
           alt={`${site.name} logo`}
           width={32}
           height={32}
-          loading="lazy"
-          decoding="async"
           className="h-8 w-8 object-contain"
           onError={() => setFailed(true)}
         />
@@ -400,13 +399,13 @@ export default function JobSitesSection() {
               target="_blank"
               rel="noopener noreferrer"
               className="surface group relative flex flex-col gap-3 overflow-hidden rounded-2xl border p-5 transition hover:-translate-y-0.5 hover:shadow-lg"
-              style={site.featured ? { borderColor: "#f59e0b", boxShadow: "0 0 0 1px #f59e0b33" } : undefined}
+              style={site.featured ? { borderColor: "var(--warning-border)", boxShadow: "0 0 0 1px var(--warning-border)" } : undefined}
             >
               {/* Featured badge */}
               {site.featured && (
                 <span
                   className="absolute right-3 top-3 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                  style={{ background: "#f59e0b", color: "#fff" }}
+                  style={{ background: "var(--warning-bg)", color: "var(--warning)", border: "1px solid var(--warning-border)" }}
                 >
                   <Star size={9} fill="currentColor" />
                   Featured

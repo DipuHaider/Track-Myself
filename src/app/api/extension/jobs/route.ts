@@ -11,6 +11,9 @@ import {
 } from "@/constants/applicationStatus";
 import { countryName, formatLocation, splitLocation } from "@/lib/applicationLocation";
 import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
+import { withCors } from "@/lib/extensionCors";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
+import { tooMany } from "@/lib/api/respond";
 
 async function getExtensionUser(req: Request) {
   const auth = req.headers.get("authorization");
@@ -19,7 +22,7 @@ async function getExtensionUser(req: Request) {
   if (!secret) return null;
   try {
     const payload = await decode({ token: auth.slice(7), secret });
-    if (!payload?.id) return null;
+    if (!payload?.id || payload.aud !== "extension") return null;
     const startedAt = payload.sessionStart ?? (payload.iat ? payload.iat * 1000 : 0);
     if (await sessionsRevokedBefore(payload.id as string, startedAt)) return null;
     return { id: payload.id as string, role: (payload.role ?? "free") as string };
@@ -32,13 +35,20 @@ function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204 });
+export async function OPTIONS(req: Request) {
+  return withCors(req, new NextResponse(null, { status: 204 }));
 }
 
 export async function POST(req: Request) {
+  return withCors(req, await handlePost(req));
+}
+
+async function handlePost(req: Request) {
   const user = await getExtensionUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const gate = await checkRateLimitDb({ key: `ext-jobs:user:${user.id}`, limit: 60, windowMs: 60 * 60 * 1000 });
+  if (!gate.ok) return tooMany(gate);
 
   let body: Record<string, unknown>;
   try {

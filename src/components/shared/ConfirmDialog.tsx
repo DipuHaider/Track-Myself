@@ -49,7 +49,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               type="button"
               autoFocus
               onClick={() => settle(false)}
-              className="rounded-md border px-4 py-2 text-sm transition hover:bg-[var(--surface-2)]"
+              className="btn-secondary rounded-md px-4 py-2 text-sm"
             >
               {opts.cancelLabel ?? "Cancel"}
             </button>
@@ -58,7 +58,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               onClick={() => settle(true)}
               className={
                 opts.tone === "danger"
-                  ? "rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                  ? "btn-danger rounded-md px-4 py-2 text-sm font-medium"
                   : "btn-primary rounded-md px-4 py-2 text-sm"
               }
             >

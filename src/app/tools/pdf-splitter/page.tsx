@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, FileText, Scissors, Upload, X } from "lucide-react";
+import DropZone from "@/components/shared/DropZone";
 
 interface PdfState {
   file: File;
@@ -63,8 +64,6 @@ export default function PdfSplitterPage() {
   const [mode, setMode] = useState<"range" | "split">("range");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const loadFile = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
@@ -82,16 +81,6 @@ export default function PdfSplitterPage() {
       setError("Could not read the PDF. Make sure it is not password-protected.");
     }
   }, []);
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) loadFile(file);
-    },
-    [loadFile],
-  );
 
   const handleExtract = async () => {
     if (!pdf) return;
@@ -152,30 +141,18 @@ export default function PdfSplitterPage() {
 
       {/* Drop zone */}
       {!pdf && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          onClick={() => inputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-16 text-center transition ${
-            dragging
-              ? "border-[var(--primary)] bg-[var(--primary)]/5"
-              : "border-[var(--border)] hover:border-[var(--primary)] hover:bg-[var(--surface-2)]"
-          }`}
+        <DropZone
+          accept=".pdf,application/pdf"
+          label="Upload a PDF to split"
+          className="flex flex-col items-center justify-center gap-3 p-16 text-center"
+          onFiles={([file]) => loadFile(file)}
         >
-          <Upload size={32} className="text-muted" />
+          <Upload size={32} className="text-muted" aria-hidden="true" />
           <div>
             <p className="font-medium">Drop a PDF here or click to upload</p>
             <p className="text-muted mt-1 text-sm">PDF files only</p>
           </div>
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".pdf,application/pdf"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && loadFile(e.target.files[0])}
-          />
-        </div>
+        </DropZone>
       )}
 
       {/* File loaded */}
@@ -185,7 +162,7 @@ export default function PdfSplitterPage() {
           <div className="surface flex items-center gap-4 rounded-xl border p-4">
             <div
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: "#10b98120", color: "#10b981" }}
+              style={{ background: "var(--success-bg)", color: "var(--success)" }}
             >
               <FileText size={22} />
             </div>
@@ -199,7 +176,7 @@ export default function PdfSplitterPage() {
             <button
               type="button"
               onClick={() => { setPdf(null); setRange(""); setError(""); }}
-              className="rounded-md p-1.5 text-muted transition hover:bg-red-50 hover:text-red-500"
+              className="rounded-md p-1.5 text-muted transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
               title="Remove file"
             >
               <X size={16} />
@@ -249,7 +226,7 @@ export default function PdfSplitterPage() {
               </p>
             )}
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-danger text-sm">{error}</p>}
 
             <button
               type="button"
@@ -259,7 +236,7 @@ export default function PdfSplitterPage() {
             >
               {processing ? (
                 <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                   Processing…
                 </>
               ) : (

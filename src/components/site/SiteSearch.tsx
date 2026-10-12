@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import {
   BarChart3, Briefcase, FileText, Globe, Search,
@@ -57,10 +58,18 @@ export default function SiteSearch() {
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<SearchHit[]>([]);
-  const [scope, setScope] = useState<string>(session ? "account" : "public");
-  const [loading, setLoading] = useState(false);
+  const [term, setTerm] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /* SWR resolves only the latest key, so a slow earlier request can never
+     overwrite the results of the one the user is actually looking at. */
+  const { data, isLoading } = useSWR<{ hits?: SearchHit[]; scope?: string }>(
+    term ? `/api/search?q=${encodeURIComponent(term)}` : null,
+    { keepPreviousData: true, revalidateOnFocus: false, dedupingInterval: 2000 },
+  );
+  const hits: SearchHit[] = term && Array.isArray(data?.hits) ? data.hits : [];
+  const loading = Boolean(term) && isLoading;
+  const scope = data?.scope && data.scope !== "empty" ? data.scope : session ? "account" : "public";
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -79,32 +88,11 @@ export default function SiteSearch() {
   }, [open]);
 
   useEffect(() => {
-    const term = query.trim();
-    const timer = setTimeout(async () => {
-      if (!term) {
-        setHits([]);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setHits(Array.isArray(data.hits) ? data.hits : []);
-          if (data.scope && data.scope !== "empty") setScope(data.scope);
-        }
-      } catch {
-        setHits([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 240);
-
+    const timer = setTimeout(() => setTerm(query.trim()), 240);
     return () => clearTimeout(timer);
   }, [query]);
 
-  const close = () => { setOpen(false); setQuery(""); setHits([]); };
+  const close = () => { setOpen(false); setQuery(""); setTerm(""); };
 
   const grouped = GROUP_ORDER
     .map((group) => ({ group, items: hits.filter((h) => h.group === group) }))

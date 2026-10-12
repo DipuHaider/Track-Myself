@@ -8,7 +8,7 @@ import path from "node:path";
 
 const ROOT = process.cwd();
 const SCAN_DIRS = ["src"];
-const SCAN_FILES = ["next.config.ts"];
+const SCAN_FILES = ["next.config.ts", "sentry.server.config.ts", "sentry.edge.config.ts", "vitest.setup.ts"];
 
 /* Set by the runtime or written (not read) by us — never expected in .env.example. */
 const IGNORED = new Set([
@@ -18,7 +18,10 @@ const IGNORED = new Set([
   "VERCEL_ENV",
   "VERCEL_URL",
   "VERCEL_GIT_COMMIT_SHA",
+  "NEXT_PUBLIC_VERCEL_ENV",
+  "NEXT_RUNTIME",
   "CI",
+  "MONGODB_TEST_URI",
 ]);
 
 function walk(dir, out = []) {
@@ -35,13 +38,29 @@ const files = [
   ...SCAN_FILES.map((f) => path.join(ROOT, f)),
 ];
 
+/* Bracket reads — process.env[someVar] — are invisible to the regex above, so
+   each file that does one declares the names it can resolve to. A new dynamic
+   read anywhere else fails the check until it is listed here. */
+const DYNAMIC_READS = {
+  "src/lib/ai/gateway.ts": ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"],
+};
+
 const used = new Map();
 for (const file of files) {
+  const rel = path.relative(ROOT, file).replace(/\\/g, "/");
   const src = readFileSync(file, "utf8");
   for (const m of src.matchAll(/process\.env\.([A-Z0-9_]+)/g)) {
     const name = m[1];
     if (IGNORED.has(name)) continue;
-    if (!used.has(name)) used.set(name, path.relative(ROOT, file).replace(/\\/g, "/"));
+    if (!used.has(name)) used.set(name, rel);
+  }
+  if (/process\.env\[/.test(src)) {
+    const declared = DYNAMIC_READS[rel];
+    if (!declared) {
+      console.error(`${rel} reads process.env[…] dynamically; list its possible names in DYNAMIC_READS in scripts/check-env-example.mjs`);
+      process.exit(1);
+    }
+    for (const name of declared) if (!used.has(name)) used.set(name, rel);
   }
 }
 

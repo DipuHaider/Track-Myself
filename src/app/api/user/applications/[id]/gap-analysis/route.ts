@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import { requireActiveAuth } from "@/lib/serverAuth";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
@@ -9,13 +8,14 @@ import { resolveGenerationContent } from "@/lib/cv/generatePipeline";
 import { getUserCredential } from "@/lib/ai/userKey";
 import { analyseJobFit, keywordGaps, JD_LIMIT } from "@/lib/ai/jobFit";
 import type { Actor } from "@/lib/ai/gateway";
+import { parseObjectId } from "@/lib/objectId";
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireActiveAuth();
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;
-  if (!mongoose.isValidObjectId(id)) {
+  if (!parseObjectId(id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -46,7 +46,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
 
-  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan };
+  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan, status: auth.status };
 
   const analysis = await analyseJobFit({
     cv: resolved.content,
@@ -67,7 +67,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;
-  if (!mongoose.isValidObjectId(id)) {
+  if (!parseObjectId(id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

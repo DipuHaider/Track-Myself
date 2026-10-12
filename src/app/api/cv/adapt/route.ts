@@ -1,10 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requirePremiumAuth } from "@/lib/serverAuth";
+import { requireActiveAuth } from "@/lib/serverAuth";
 import { normaliseContent } from "@/lib/cv/content";
 import { getUserCredential } from "@/lib/ai/userKey";
-import { aiAvailableFor, type Actor } from "@/lib/ai/gateway";
+import { aiEntitlement, type Actor } from "@/lib/ai/gateway";
 import { JD_MAX, runTailor } from "@/lib/cv/ai/adapt";
 
 /* Every call costs money, so this is capped per account rather than per IP. */
@@ -19,7 +19,7 @@ const STATUS: Record<string, number> = {
 };
 
 export async function POST(req: Request) {
-  const auth = await requirePremiumAuth();
+  const auth = await requireActiveAuth();
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json().catch(() => ({}));
@@ -37,10 +37,12 @@ export async function POST(req: Request) {
   }
 
   const userKey = await getUserCredential(auth.id);
-  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan };
+  const actor: Actor = { kind: "user", id: auth.id, role: auth.role, plan: auth.plan, status: auth.status };
 
-  if (!(await aiAvailableFor(actor, userKey))) {
-    return NextResponse.json({ error: "AI service not configured." }, { status: 503 });
+  const ent = await aiEntitlement(actor, "cv.adapt", userKey);
+  if (!ent.allowed) {
+    const status = ent.reason === "upgrade" ? 403 : ent.reason === "paused" ? 423 : 503;
+    return NextResponse.json({ error: ent.message, upgrade: ent.reason === "upgrade" }, { status });
   }
 
   const result = await runTailor(content, jobDescription, {
@@ -52,5 +54,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: result.error }, { status: STATUS[result.kind] ?? 500 });
   }
 
-  return NextResponse.json({ ...result.value, provider: result.provider, providerLabel: result.providerLabel });
+  return NextResponse.json({ ...result.value, provider: result.provider, providerLabel: result.providerLabel, note: ent.note });
 }

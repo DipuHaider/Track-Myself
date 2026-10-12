@@ -10,7 +10,7 @@ import { foundFields, parseCV } from "@/lib/cv/import/parseText";
 import { jsonFromBuffer } from "@/lib/cv/import/extractText";
 import { textForFile, buildMergedCV } from "@/lib/cv/import/sources";
 import { isPremiumUser, isSuperAdmin, cvVersionLimit } from "@/lib/permissions";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
 
 const JSON_MAX = 400_000;
 
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const gate = checkRateLimit({ key: `cv-import:${auth.id}`, limit: 40, windowMs: 60 * 60 * 1000 });
+  const gate = await checkRateLimitDb({ key: `cv-import:${auth.id}`, limit: 40, windowMs: 60 * 60 * 1000 });
   if (!gate.ok) {
     return NextResponse.json(
       { error: "Too many imports this hour. Try again shortly." },

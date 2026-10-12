@@ -23,7 +23,7 @@ export default function PermissionGate({
   if (!can(action)) {
     return (
       <div className="surface flex items-start gap-3 rounded-xl border p-5">
-        <ShieldAlert size={18} className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
+        <ShieldAlert size={18} className="text-warning mt-0.5 shrink-0" aria-hidden="true" />
         <div>
           <p className="font-medium">You don&apos;t have access to this page</p>
           <p className="text-muted mt-0.5 text-sm">

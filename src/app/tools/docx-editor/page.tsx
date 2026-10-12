@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { AlertCircle, Copy, Download, FileText, Loader2, Upload } from "lucide-react";
+import DropZone from "@/components/shared/DropZone";
 import { openDocx, type DocxParagraph, type DocxSession } from "@/lib/tools/docxEditor";
 import { downloadBlob } from "@/lib/tools/imageOps";
 
@@ -25,7 +26,6 @@ export default function DocxEditorPage() {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [onlyText, setOnlyText] = useState(true);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   async function open(file: File) {
     setBusy(true);
@@ -92,27 +92,14 @@ export default function DocxEditorPage() {
       </div>
 
       {!session && (
-        <div
-          onClick={() => !busy && inputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const f = e.dataTransfer.files[0];
-            if (f) open(f);
-          }}
-          className="glass flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-14 transition hover:bg-[var(--surface-2)]"
+        <DropZone
+          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          busy={busy}
+          label="Open a Word document"
+          hint="Legacy .doc is not supported — save it as .docx first"
+          className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center"
+          onFiles={([f]) => open(f)}
         >
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) open(f);
-              e.target.value = "";
-            }}
-          />
           {busy ? (
             <>
               <Loader2 size={22} className="animate-spin" style={{ color: "var(--primary)" }} />
@@ -124,19 +111,18 @@ export default function DocxEditorPage() {
               <p className="text-sm font-medium">
                 Drop a .docx or <span style={{ color: "var(--primary)" }}>browse</span>
               </p>
-              <p className="text-muted text-[11px]">Legacy .doc is not supported — save it as .docx first</p>
             </>
           )}
-        </div>
+        </DropZone>
       )}
 
-      {error && <p className="text-sm text-red-600" data-error>{error}</p>}
-      {status && <p className="text-xs" style={{ color: "#047857" }} data-status>{status}</p>}
+      {error && <p className="text-danger text-sm" data-error>{error}</p>}
+      {status && <p className="text-success text-xs" data-status>{status}</p>}
 
       {session && (
         <>
           <div className="glass flex flex-wrap items-start gap-2 rounded-xl px-4 py-3">
-            <AlertCircle size={14} className="mt-0.5 shrink-0" style={{ color: "#d97706" }} aria-hidden="true" />
+            <AlertCircle size={14} className="text-warning mt-0.5 shrink-0" aria-hidden="true" />
             <p className="text-muted flex-1 text-[11px] leading-relaxed">
               This edits paragraph text. Styles, headings, lists, tables, images, headers and
               footers are repacked exactly as they were — but formatting that changed

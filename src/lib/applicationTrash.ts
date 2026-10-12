@@ -1,11 +1,9 @@
 import Application from "@/models/Application";
 import Interview from "@/models/Interview";
-import Reminder from "@/models/Reminder";
+import Document from "@/models/Document";
 import type { HistoryActor } from "@/lib/applicationHistory";
 
 export const TRASH_DAYS = 30;
-
-export const SOFT_DELETE_FIELDS = ["deletedAt", "deletedBy", "deletedByName"] as const;
 
 const DAY_MS = 86_400_000;
 
@@ -35,7 +33,7 @@ export async function deleteApplicationsForever(filter: Record<string, unknown>)
   if (!ids.length) return 0;
   await Promise.all([
     Interview.deleteMany({ applicationId: { $in: ids } }),
-    Reminder.deleteMany({ applicationId: { $in: ids } }),
+    Document.deleteMany({ applicationId: { $in: ids } }),
     Application.deleteMany({ _id: { $in: ids } }),
   ]);
   return ids.length;

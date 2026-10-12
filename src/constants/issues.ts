@@ -4,6 +4,7 @@ export const ISSUE_CATEGORIES = [
   "Feature request",
   "Data problem",
   "Accessibility",
+  "Upgrade request",
   "Other",
 ] as const;
 

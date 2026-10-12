@@ -6,6 +6,10 @@ import dbConnect from "@/lib/db";
 import IssueReport from "@/models/IssueReport";
 import User from "@/models/User";
 import { sendIssueMail } from "@/lib/mail";
+import { parseObjectId } from "@/lib/objectId";
+import { checkRateLimitDb } from "@/lib/rateLimitStore";
+import { tooMany } from "@/lib/api/respond";
+import { recordAdminAction } from "@/lib/audit";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAction("manage:issues");
@@ -13,6 +17,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await dbConnect();
 
   const { id } = await params;
+  if (!parseObjectId(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const gate = await checkRateLimitDb({ key: `issue-resend:user:${auth.id}`, limit: 10, windowMs: 10 * 60 * 1000 });
+  if (!gate.ok) return tooMany(gate);
   const report = await IssueReport.findById(id).lean() as
     | {
         _id: unknown; userId?: unknown; email?: string; role?: string; category?: string;
@@ -44,5 +51,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     { new: true },
   );
 
+  await recordAdminAction({ actor: auth, action: "issue.resend", targetType: "issue", targetId: id, after: { ok: mail.ok }, req });
   return NextResponse.json({ ok: mail.ok, error: mail.error ?? "", report: updated });
 }

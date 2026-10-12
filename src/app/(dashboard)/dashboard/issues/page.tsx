@@ -1,6 +1,8 @@
 import IssueReportsPanel from "@/components/dashboard/IssueReportsPanel";
 import PermissionGate from "@/components/dashboard/PermissionGate";
 
+export const metadata = { title: "Issues" };
+
 export default function DashboardIssuesPage() {
   return (
     <div className="space-y-6">

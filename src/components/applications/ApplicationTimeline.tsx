@@ -6,7 +6,9 @@ import {
   PenLine, PartyPopper, Send, Star, Trophy, Users, XCircle,
 } from "lucide-react";
 import { STATUS_CLASS } from "@/components/applications/StatusBadge";
+import { INTERVIEW_STATUS_CLASS } from "@/components/applications/InterviewRounds";
 import type { Application } from "@/types/application";
+import type { Interview } from "@/types/interview";
 import { OFFER_RECEIVED_STATUS, WARM_LEAD_FEEDBACK, responseOptionsFor } from "@/constants/applicationStatus";
 
 const STATUS_ICON: Record<string, ReactNode> = {
@@ -25,6 +27,7 @@ const STATUS_ICON: Record<string, ReactNode> = {
 
 type Step = {
   status: string; at?: string | Date; kind: string; byId?: string; byName?: string; note?: string; value?: string;
+  overdue?: boolean;
 };
 
 const RESPONSE_LOOK: Record<string, { icon: ReactNode; cls: string }> = {
@@ -49,10 +52,40 @@ function formatDay(d?: string | Date) {
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function stepsOf(app: Application): Step[] {
+function interviewStep(round: Interview, now: number): Step {
+  const status = round.status ?? "Scheduled";
+  const at = round.scheduledDate ?? round.createdAt;
+  return {
+    status: `Interview: ${round.stageName}`,
+    at,
+    kind: "interview",
+    value: status,
+    note: round.feedback || undefined,
+    overdue: status === "Scheduled" && !!round.scheduledDate && new Date(round.scheduledDate).getTime() < now,
+  };
+}
+
+function splitInterviews(interviews: Interview[], now: number) {
+  const past: Step[] = [];
+  const upcoming: Step[] = [];
+  for (const round of interviews) {
+    const step = interviewStep(round, now);
+    const at = round.scheduledDate ? new Date(round.scheduledDate).getTime() : Number.NaN;
+    const future = (round.status ?? "Scheduled") === "Scheduled" && (Number.isNaN(at) || at >= now);
+    (future ? upcoming : past).push(step);
+  }
+  upcoming.sort((a, b) => {
+    const at = a.at ? new Date(a.at).getTime() : Number.POSITIVE_INFINITY;
+    const bt = b.at ? new Date(b.at).getTime() : Number.POSITIVE_INFINITY;
+    return at - bt;
+  });
+  return { past, upcoming };
+}
+
+function stepsOf(app: Application, past: Step[]): Step[] {
   const history: Step[] = app.statusHistory?.length
-    ? [...app.statusHistory]
-    : [{ status: app.applicationStatus, at: app.createdAt, kind: "created" }];
+    ? [...app.statusHistory, ...past]
+    : [{ status: app.applicationStatus, at: app.createdAt, kind: "created" }, ...past];
   if (app.responseStatus && responseOptionsFor(app.applicationStatus).includes(app.responseStatus)) {
     const prefix = app.applicationStatus === OFFER_RECEIVED_STATUS ? "Offer" : "Feedback";
     history.push({
@@ -73,15 +106,18 @@ function doneBy(step: Step, ownerId: string): string {
 
 function iconFor(step: Step): ReactNode {
   if (step.kind === "feedback") return RESPONSE_LOOK[step.value ?? ""]?.icon ?? <MessageSquareText size={14} />;
+  if (step.kind === "interview") return <CalendarClock size={14} />;
   return STATUS_ICON[step.status] ?? <Flag size={14} />;
 }
 
 function classFor(step: Step): string {
   if (step.kind === "feedback") return RESPONSE_LOOK[step.value ?? ""]?.cls ?? "status-wishlist";
+  if (step.kind === "interview") return INTERVIEW_STATUS_CLASS[step.value ?? ""] ?? "status-interview";
   return STATUS_CLASS[step.status] ?? "status-wishlist";
 }
 
 function detailOf(step: Step, app: Application): string {
+  if (step.kind === "interview") return step.value === "Scheduled" ? "" : step.value ?? "";
   if (step.status === "Submitted") {
     const via = app.submissionMethod || app.platform;
     return via ? `Via ${via}` : "";
@@ -90,9 +126,16 @@ function detailOf(step: Step, app: Application): string {
   return "";
 }
 
-export default function ApplicationTimeline({ application }: { application: Application }) {
+export default function ApplicationTimeline({
+  application,
+  interviews = [],
+}: {
+  application: Application;
+  interviews?: Interview[];
+}) {
   const [now] = useState(() => Date.now());
-  const steps = stepsOf(application);
+  const { past, upcoming } = splitInterviews(interviews, now);
+  const steps = stepsOf(application, past);
   const last = steps.length - 1;
 
   return (
@@ -119,8 +162,11 @@ export default function ApplicationTimeline({ application }: { application: Appl
                   {i === last && (
                     <span className="ml-1.5 rounded-full border px-1.5 py-px align-middle text-[10px] font-normal">Current</span>
                   )}
+                  {step.overdue && (
+                    <span className="text-warning ml-1.5 align-middle text-[10px] font-normal">past date, still scheduled</span>
+                  )}
                 </p>
-                <p className="text-muted mt-0.5 text-xs">
+                <p className={`mt-0.5 text-xs ${step.overdue ? "text-warning" : "text-muted"}`}>
                   {[step.kind === "feedback" ? formatDay(step.at) : formatWhen(step.at), by].filter(Boolean).join(" · ")}
                 </p>
                 {step.note && <p className="text-muted mt-1 text-xs italic">&ldquo;{step.note}&rdquo;</p>}
@@ -128,6 +174,22 @@ export default function ApplicationTimeline({ application }: { application: Appl
             </li>
           );
         })}
+        {upcoming.map((step, i) => (
+          <li key={`upcoming-${i}`} className="relative flex gap-3 pt-5">
+            <span aria-hidden className="absolute left-[13px] top-0 h-5 w-px border-l border-dashed border-[var(--border)]" />
+            <span className={`role-badge ${classFor(step)} relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full p-0`}>
+              {iconFor(step)}
+            </span>
+            <div className="min-w-0 pt-0.5">
+              <p className="text-sm font-medium leading-tight">
+                {step.status}
+                <span className="text-muted ml-1.5 align-middle text-[10px] font-normal">upcoming</span>
+              </p>
+              <p className="text-muted mt-0.5 text-xs">{step.at ? formatWhen(step.at) : "No date set"}</p>
+              {step.note && <p className="text-muted mt-1 text-xs italic">&ldquo;{step.note}&rdquo;</p>}
+            </div>
+          </li>
+        ))}
         {application.followUpDate && (
           <li className="relative flex gap-3 pt-5">
             <span aria-hidden className="absolute left-[13px] top-0 h-5 w-px border-l border-dashed border-[var(--border)]" />
@@ -138,7 +200,7 @@ export default function ApplicationTimeline({ application }: { application: Appl
               <p className="text-sm font-medium leading-tight">
                 Follow up
                 {new Date(application.followUpDate).getTime() < now && (
-                  <span className="ml-1.5 align-middle text-[10px] font-normal text-red-500">overdue</span>
+                  <span className="text-warning ml-1.5 align-middle text-[10px] font-normal">overdue</span>
                 )}
               </p>
               <p className="text-muted mt-0.5 text-xs">

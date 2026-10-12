@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 export const inputCls =
@@ -22,11 +23,15 @@ export function Field({
   type?: "input" | "textarea";
   rows?: number;
 }) {
+  const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
   return (
     <div>
-      <label className="text-muted mb-1 block text-xs font-medium">{label}</label>
+      <label htmlFor={id} className="text-muted mb-1 block text-xs font-medium">{label}</label>
       {type === "textarea" ? (
         <textarea
+          id={id}
+          aria-describedby={hintId}
           className={`${inputCls} resize-y leading-relaxed`}
           style={inputStyle}
           rows={rows}
@@ -36,7 +41,9 @@ export function Field({
         />
       ) : (
         <input
+          id={id}
           type="text"
+          aria-describedby={hintId}
           className={inputCls}
           style={inputStyle}
           value={value}
@@ -44,7 +51,7 @@ export function Field({
           onChange={(e) => onChange(e.target.value)}
         />
       )}
-      {hint && <p className="text-muted mt-1 text-[11px] leading-relaxed">{hint}</p>}
+      {hint && <p id={hintId} className="text-muted mt-1 text-[11px] leading-relaxed">{hint}</p>}
     </div>
   );
 }
@@ -103,26 +110,29 @@ export function RepeatCard({
             disabled={index === 0}
             onClick={() => onMove(index, index - 1)}
             title="Move up"
+            aria-label={`Move ${title} up`}
             className="text-muted rounded p-1 transition hover:bg-[var(--surface-2)] disabled:opacity-30"
           >
-            <ChevronUp size={14} />
+            <ChevronUp size={14} aria-hidden="true" />
           </button>
           <button
             type="button"
             disabled={index === total - 1}
             onClick={() => onMove(index, index + 1)}
             title="Move down"
+            aria-label={`Move ${title} down`}
             className="text-muted rounded p-1 transition hover:bg-[var(--surface-2)] disabled:opacity-30"
           >
-            <ChevronDown size={14} />
+            <ChevronDown size={14} aria-hidden="true" />
           </button>
           <button
             type="button"
             onClick={() => onRemove(index)}
             title="Remove"
-            className="text-muted rounded p-1 transition hover:bg-red-50 hover:text-red-600"
+            aria-label={`Remove ${title}`}
+            className="text-muted rounded p-1 transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
           >
-            <Trash2 size={14} />
+            <Trash2 size={14} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -149,15 +159,17 @@ export function StringListEditor({
             rows={2}
             value={item}
             placeholder={placeholder}
+            aria-label={`${addLabel.replace(/^Add\s+/i, "")} ${i + 1}`}
             onChange={(e) => onChange(items.map((v, idx) => (idx === i ? e.target.value : v)))}
           />
           <button
             type="button"
             onClick={() => onChange(items.filter((_, idx) => idx !== i))}
             title="Remove"
-            className="text-muted mt-1 rounded p-1.5 transition hover:bg-red-50 hover:text-red-600"
+            aria-label={`Remove item ${i + 1}`}
+            className="text-muted mt-1 rounded p-1.5 transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
           >
-            <Trash2 size={14} />
+            <Trash2 size={14} aria-hidden="true" />
           </button>
         </div>
       ))}

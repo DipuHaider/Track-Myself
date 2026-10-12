@@ -4,17 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import {
-  TOUR_AUTO_AUDIENCE, TOUR_EVENT, TOUR_INTRO, TOUR_PENDING_KEY,
-  scopeForPath, stepsFor,
-  type TourAudience, type TourScope, type TourStep,
+  TOUR_EVENT, TOUR_INTRO, TOUR_PENDING_KEY,
+  autoRunsFor, scopeForPath, stepsFor,
+  type TourScope, type TourStep,
 } from "@/lib/tour";
-
-type TourState = {
-  enabled: Record<TourScope, boolean>;
-  audience: TourAudience;
-  premium: boolean;
-  seen: TourScope[];
-};
+import { useTourState, type TourState } from "@/hooks/useTourState";
 
 type Box = { top: number; left: number; width: number; height: number };
 
@@ -46,8 +40,13 @@ export default function TourGuide() {
   const [index, setIndex] = useState(0);
   const [box, setBox] = useState<Box | null>(null);
   const [running, setRunning] = useState(false);
+  const { state: tourState } = useTourState();
   const state = useRef<TourState | null>(null);
   const autoDone = useRef<Set<TourScope>>(new Set());
+
+  useEffect(() => {
+    state.current = tourState;
+  }, [tourState]);
 
   const start = useCallback((next: TourScope, premium: boolean) => {
     const list = stepsFor(next, premium).filter((s) => visible(s.target));
@@ -62,14 +61,7 @@ export default function TourGuide() {
     if (!scope) return;
     let cancelled = false;
 
-    const load = async () => {
-      if (state.current) return state.current;
-      const res = await fetch("/api/user/tour").catch(() => null);
-      if (!res || !res.ok) return null;
-      const data = (await res.json().catch(() => null)) as TourState | null;
-      if (data) state.current = data;
-      return data;
-    };
+    const load = async () => state.current;
 
     const waitForFirstStep = (next: TourScope, premium: boolean) => {
       const first = stepsFor(next, premium)[0];
@@ -99,7 +91,7 @@ export default function TourGuide() {
       if (!pending) {
         if (autoDone.current.has(scope)) return;
         if (data.seen.includes(scope)) return;
-        if (data.audience !== TOUR_AUTO_AUDIENCE[scope]) return;
+        if (!autoRunsFor(scope, data.audience)) return;
       }
       autoDone.current.add(scope);
       waitForFirstStep(scope, data.premium);
@@ -118,7 +110,7 @@ export default function TourGuide() {
       cancelled = true;
       window.removeEventListener(TOUR_EVENT, onReplay);
     };
-  }, [scope, start]);
+  }, [scope, start, tourState]);
 
   const step = steps[index];
 

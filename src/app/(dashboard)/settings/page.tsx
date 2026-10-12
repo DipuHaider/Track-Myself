@@ -3,6 +3,8 @@ import { getSessionUser } from "@/lib/serverAuth";
 import { isAdmin, isSuperAdmin } from "@/lib/permissions";
 import SettingsPanel from "@/components/dashboard/SettingsPanel";
 
+export const metadata = { title: "Settings" };
+
 export default async function SettingsPage() {
   const user = await getSessionUser();
   if (!isAdmin(user?.role)) redirect("/dashboard");

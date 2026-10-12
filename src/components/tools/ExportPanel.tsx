@@ -96,14 +96,14 @@ export default function ExportPanel({
         {isPremium ? (
           <span
             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
-            style={{ background: "#10b98122", color: "#047857" }}
+            style={{ background: "var(--success-bg)", color: "var(--success)" }}
           >
             <Star size={9} fill="currentColor" aria-hidden="true" /> Premium
           </span>
         ) : (
           <span
             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
-            style={{ background: "#f59e0b22", color: "#d97706" }}
+            style={{ background: "var(--warning-bg)", color: "var(--warning)" }}
           >
             Free
           </span>
@@ -168,12 +168,12 @@ export default function ExportPanel({
           )}
         </>
       ) : (
-        <div className="rounded-lg border px-4 py-3" style={{ borderColor: "#f59e0b44", background: "#fffbeb" }}>
-          <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: "#92400e" }}>
+        <div className="alert alert-warning flex-col gap-1 rounded-lg px-4 py-3">
+          <p className="flex items-center gap-1.5 text-xs font-semibold">
             <Lock size={12} aria-hidden="true" />
             Optimised download — up to {FREE_MAX_EDGE} px, {FORMAT_LABEL[effectiveFormat]}
           </p>
-          <p className="mt-1 text-[11px]" style={{ color: "#b45309" }}>
+          <p className="mt-1 text-[11px]">
             Premium unlocks full resolution, PNG / JPG / WebP and a quality slider.{" "}
             <Link href="/me" className="underline">Upgrade</Link>
           </p>
@@ -189,7 +189,7 @@ export default function ExportPanel({
         <span>{canvas && estimate ? formatBytes(estimate.size) : ""}</span>
       </div>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-danger text-xs">{error}</p>}
 
       <button
         type="button"

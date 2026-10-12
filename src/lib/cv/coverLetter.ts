@@ -1,7 +1,9 @@
 import type { CVContent } from "@/types/cv";
 import type { AppInfo } from "@/lib/cv/docx/coverLetter";
 import { postingTerms } from "@/lib/ai/jobFit";
-import { runAiTask, type Actor } from "@/lib/ai/gateway";
+import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
+import { fence } from "@/lib/ai/prompt";
+import { coverLetterSchema } from "@/lib/ai/schemas";
 import type { AICredential } from "@/lib/cv/ai/provider";
 
 export type CoverLetterText = {
@@ -153,17 +155,15 @@ export function buildCoverLetterPrompt(c: CVContent, info: AppInfo, correction =
     "- Write in the same language as the job posting.",
     `- Greeting: ${info.contactName ? `address ${info.contactName} by name` : "\"Dear Hiring Manager,\" (or the posting's language equivalent)"}.`,
     "- Closing: a short sign-off line such as \"Kind regards,\" without the name.",
-    correction ? `- The candidate asked for these changes: ${correction.slice(0, 2000)}` : "",
+    correction ? `- The candidate asked for these changes:\n${fence("correction", correction.slice(0, 2000))}` : "",
     "",
     `Company: ${info.companyName}`,
     `Role: ${info.jobTitle}`,
     info.location ? `Location: ${info.location}` : "",
     "",
-    "Job posting:",
-    posting || "(no posting text — write from the role title and the CV)",
+    fence("job_posting", posting || "(no posting text — write from the role title and the CV)"),
     "",
-    "CV:",
-    cvForPrompt(c),
+    fence("cv", cvForPrompt(c)),
   ].filter((l) => l !== "").join("\n");
 }
 
@@ -195,32 +195,26 @@ export async function writeCoverLetter(opts: {
     };
   }
 
-  const run = await runAiTask({
+  const run = await runAiJsonTask({
     task: "cover-letter.write",
     actor: opts.actor,
     prompt: buildCoverLetterPrompt(opts.content, opts.info, opts.correction),
     maxOutputTokens: 1500,
     userKey: opts.userKey,
+    schema: coverLetterSchema,
+    kind: "object",
+    schemaHint: '{"greeting": string, "paragraphs": string[], "closing": string}',
   });
 
   if (!run.ok) {
     return { letter: fallback, mode: "heuristic", note: `${run.message} Showing a keyword-based draft instead.`, providerLabel: "" };
   }
 
-  const letter = parseCoverLetterJson(run.text);
-  if (!letter) {
-    return {
-      letter: fallback,
-      mode: "heuristic",
-      note: `${run.providerLabel} returned something that was not a letter. Showing a keyword-based draft instead.`,
-      providerLabel: run.providerLabel,
-    };
-  }
-
+  const letter = sanitizeLetter(run.value) ?? fallback;
   return {
     letter,
     mode: "ai",
-    note: `${run.providerLabel} wrote this letter for ${opts.info.companyName}. Edit any paragraph before accepting.`,
-    providerLabel: run.providerLabel,
+    note: `${run.meta.providerLabel} wrote this letter for ${opts.info.companyName}. Edit any paragraph before accepting.`,
+    providerLabel: run.meta.providerLabel,
   };
 }

@@ -42,6 +42,11 @@ jobs:
       - name: Every env var the code reads is documented
         run: npm run check:env
 
+      # Pure-module unit tests (vitest). DB-backed suites live under *.dbtest.ts
+      # and run in the test-db job against a MongoDB service container.
+      - name: Unit tests
+        run: npm test
+
       # Placeholders only. db.ts throws at import time if MONGODB_URI is unset, but the
       # build never opens a connection, so no real credentials are needed here.
       - name: Build
@@ -70,10 +75,11 @@ jobs:
 
       - run: npm ci
 
-      # No type check here: browser-extension/tsconfig.json declares types: ["chrome"]
-      # but @types/chrome is not installed, so `tsc --noEmit` cannot run. esbuild strips
-      # the types without checking them, so this source is currently unchecked.
-      # Install @types/chrome and add a typecheck step to close that gap.
+      # esbuild strips types without checking them, so this is the only place
+      # the extension source is type-checked (@types/chrome is a dev dependency).
+      - name: Type check
+        run: npm run typecheck
+
       - name: Build
         run: npm run build
 
@@ -119,6 +125,35 @@ jobs:
           name: trackmyself-extension
           path: ext-package
           if-no-files-found: error
+
+  test-db:
+    name: Database-backed tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Suites under src/**/*.dbtest.ts. The job passes trivially until the
+      # first one exists; it is here so adding one needs no CI change.
+      - name: DB tests
+        run: npm run test:db -- --passWithNoTests
+        env:
+          MONGODB_TEST_URI: mongodb://127.0.0.1:27017/trackmyself-ci
+          NEXTAUTH_SECRET: ci-placeholder-value-not-a-real-secret
+          AI_KEY_SECRET: ci-placeholder-ai-key-secret-32chars
 
   audit:
     name: Dependency audit

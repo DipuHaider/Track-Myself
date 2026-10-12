@@ -21,6 +21,9 @@ const PRIMARY_KEYS: (keyof CVPrimaryFiles)[] = [
 const TEMPLATE_TABS = ["ats", "europass", "designer"];
 
 const PROJECTION = { uploadedFiles: 0 };
+const TEXT_MAX = 20_000;
+const PHOTO_MAX = 2 * 1024 * 1024 * 1.4;
+const CONTENT_MAX = 400_000;
 
 type ProfileDoc = Record<string, unknown> & {
   content?: unknown;
@@ -80,7 +83,12 @@ export async function PUT(req: Request) {
   const data: Record<string, unknown> = { userId: auth.id };
 
   for (const k of FORM_FIELDS) {
-    if (typeof body[k] === "string") data[k] = body[k];
+    if (typeof body[k] !== "string") continue;
+    const limit = k === "photo" ? PHOTO_MAX : TEXT_MAX;
+    if (body[k].length > limit) {
+      return NextResponse.json({ error: k === "photo" ? "That photo is too large (2 MB max)." : `${k} is too long.` }, { status: 400 });
+    }
+    data[k] = body[k];
   }
   if (typeof body.templateTab === "string" && TEMPLATE_TABS.includes(body.templateTab)) {
     data.templateTab = body.templateTab;
@@ -89,6 +97,9 @@ export async function PUT(req: Request) {
     data.templateIdx = body.templateIdx;
   }
   if (body.content && typeof body.content === "object") {
+    if (JSON.stringify(body.content).length > CONTENT_MAX) {
+      return NextResponse.json({ error: "Your CV content is too large to save." }, { status: 400 });
+    }
     data.content = normaliseContent(body.content);
     data.contentReady = true;
   }

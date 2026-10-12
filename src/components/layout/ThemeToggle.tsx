@@ -1,31 +1,14 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
+import { useA11y } from "@/hooks/useA11y";
 
 type Theme = "light" | "dark";
 
-const THEME_EVENT = "theme-change";
-
-function subscribe(onChange: () => void) {
-  window.addEventListener(THEME_EVENT, onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(THEME_EVENT, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-function readTheme(): Theme {
-  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
-}
-
-function applyTheme(theme: Theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  try { localStorage.setItem("theme", theme); } catch {}
-  window.dispatchEvent(new Event(THEME_EVENT));
-}
-
+/* Routes through the accessibility preferences so the choice lands in the
+   same storage the boot script reads. Writing only the legacy "theme" key
+   meant the toggle silently reverted on reload once tm-a11y existed. */
 export default function ThemeToggle({
   variant = "button",
   onToggled,
@@ -33,11 +16,12 @@ export default function ThemeToggle({
   variant?: "button" | "menu";
   onToggled?: () => void;
 }) {
-  const theme = useSyncExternalStore(subscribe, readTheme, () => "light" as Theme);
+  const theme = useTheme();
+  const { update } = useA11y();
   const next: Theme = theme === "dark" ? "light" : "dark";
 
   const toggle = () => {
-    applyTheme(next);
+    update({ scheme: next });
     onToggled?.();
   };
 

@@ -75,7 +75,7 @@ export default function RecentlyDeletedModal<T>({
   const deleteForever = async (item: DeletedItem) => {
     const ok = await ask({
       title: "Delete forever?",
-      message: `"${item.jobTitle}" at ${item.companyName} will be removed for good, with its interviews and reminders. This cannot be undone.`,
+      message: `"${item.jobTitle}" at ${item.companyName} will be removed for good, with its interviews and attachments. This cannot be undone.`,
       confirmLabel: "Delete forever",
       tone: "danger",
     });
@@ -94,10 +94,10 @@ export default function RecentlyDeletedModal<T>({
       <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
         <p className="text-muted mb-3 text-xs">
           Deleted applications are kept for {days} days, then removed for good together with their
-          interviews and reminders.
+          interviews and attachments.
         </p>
 
-        {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+        {error && <p className="text-danger mb-3 text-sm" role="alert">{error}</p>}
 
         {loading ? (
           <p className="text-muted py-6 text-center text-sm">Loading…</p>
@@ -118,7 +118,7 @@ export default function RecentlyDeletedModal<T>({
                       Deleted {formatDate(item.deletedAt)}
                       {item.deletedByName && <> by {item.deletedByName}</>}
                       {" · "}
-                      <span className={left <= 3 ? "text-red-500" : ""}>
+                      <span className={left <= 3 ? "text-danger" : ""}>
                         {left === 0 ? "removed today" : `${left} day${left === 1 ? "" : "s"} left`}
                       </span>
                     </p>
@@ -131,15 +131,15 @@ export default function RecentlyDeletedModal<T>({
                       disabled={busyId === item._id}
                       className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition hover:bg-[var(--surface-2)] disabled:opacity-50"
                     >
-                      <RotateCcw size={12} /> Restore
+                      <RotateCcw size={12} aria-hidden="true" /> Restore
                     </button>
                     <button
                       type="button"
                       onClick={() => deleteForever(item)}
                       disabled={busyId === item._id}
-                      className="inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2.5 py-1 text-xs text-red-500 transition hover:bg-red-500/10 disabled:opacity-50"
+                      className="text-danger inline-flex items-center gap-1 rounded-md border border-[var(--danger-border)] px-2.5 py-1 text-xs transition hover:bg-[var(--danger-bg)] disabled:opacity-50"
                     >
-                      <Trash2 size={12} /> Delete forever
+                      <Trash2 size={12} aria-hidden="true" /> Delete forever
                     </button>
                   </div>
                 </li>

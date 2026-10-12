@@ -1,5 +1,7 @@
 import type { CVContent } from "@/types/cv";
-import { runAiTask, type Actor } from "@/lib/ai/gateway";
+import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
+import { fence } from "@/lib/ai/prompt";
+import { salaryEstimateSchema } from "@/lib/ai/schemas";
 import type { AICredential } from "@/lib/cv/ai/provider";
 
 export type SalaryEstimate = { low: number; high: number; currency: string; note: string };
@@ -34,7 +36,7 @@ export function buildEstimatePrompt(role: EstimateRole, cv: CVContent): string {
     role.companyName ? `Company: ${role.companyName}` : "",
     role.location ? `Location: ${role.location}` : "",
     `Candidate: ${latest ? `currently ${latest.title}` : "seniority unknown"}, about ${yearsOfExperience(cv)} years of experience`,
-    role.jobDescription ? `\nPosting:\n${role.jobDescription.slice(0, 6000)}` : "",
+    role.jobDescription ? `\n${fence("posting", role.jobDescription.slice(0, 6000))}` : "",
   ].filter((l) => l !== "").join("\n");
 }
 
@@ -65,15 +67,22 @@ export async function estimateSalary(opts: {
   actor: Actor;
   userKey?: AICredential | null;
 }): Promise<{ ok: true; estimate: SalaryEstimate; providerLabel: string } | { ok: false; error: string }> {
-  const run = await runAiTask({
+  const run = await runAiJsonTask({
     task: "salary.estimate",
     actor: opts.actor,
     prompt: buildEstimatePrompt(opts.role, opts.cv),
     maxOutputTokens: 400,
     userKey: opts.userKey,
+    schema: salaryEstimateSchema,
+    kind: "object",
+    schemaHint: '{"low": number, "high": number, "currency": string, "note": string} with low <= high',
   });
   if (!run.ok) return { ok: false, error: run.message };
-  const estimate = parseEstimate(run.text, opts.role.currency);
-  if (!estimate) return { ok: false, error: `${run.providerLabel} did not return a usable salary range.` };
-  return { ok: true, estimate, providerLabel: run.providerLabel };
+  const estimate: SalaryEstimate = {
+    low: Math.round(run.value.low),
+    high: Math.round(run.value.high),
+    currency: opts.role.currency,
+    note: run.value.note,
+  };
+  return { ok: true, estimate, providerLabel: run.meta.providerLabel };
 }

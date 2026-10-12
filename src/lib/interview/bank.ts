@@ -42,19 +42,6 @@ export const ROLE_FAMILIES = [
 
 export type RoleFamily = (typeof ROLE_FAMILIES)[number];
 
-export const FAMILY_LABELS: Record<RoleFamily, string> = {
-  engineering: "Engineering",
-  data: "Data & analytics",
-  design: "Design",
-  product: "Product",
-  sales: "Sales",
-  marketing: "Marketing",
-  operations: "Operations",
-  support: "Customer support",
-  finance: "Finance",
-  general: "General",
-};
-
 /* Longest match wins, so "data engineer" lands in data rather than engineering. */
 export const FAMILY_KEYWORDS: { family: RoleFamily; words: string[] }[] = [
   { family: "data", words: ["data scientist", "data engineer", "data analyst", "machine learning", "ml engineer", "analytics", "bi ", "business intelligence", "statistician"] },

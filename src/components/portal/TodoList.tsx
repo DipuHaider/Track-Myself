@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Check, ListTodo, Plus, Trash2 } from "lucide-react";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { apiFetch, ApiError } from "@/lib/api/client";
 
 type Todo = {
   _id: string;
@@ -10,20 +13,23 @@ type Todo = {
   dueAt: string | null;
 };
 
+const describe = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
+
 export default function TodoList({ variant = "card" }: { variant?: "card" | "plain" }) {
+  const confirm = useConfirm();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [title, setTitle] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/user/todos")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows) => setTodos(Array.isArray(rows) ? rows : []))
-      .catch(() => setError("Could not load your to-dos"))
-      .finally(() => setLoading(false));
+    let alive = true;
+    apiFetch<Todo[]>("/api/user/todos")
+      .then((rows) => { if (alive) setTodos(Array.isArray(rows) ? rows : []); })
+      .catch((err) => { if (alive) toast.error(describe(err, "Could not load your to-dos.")); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
   }, []);
 
   const remaining = useMemo(() => todos.filter((t) => !t.done).length, [todos]);
@@ -31,49 +37,48 @@ export default function TodoList({ variant = "card" }: { variant?: "card" | "pla
   const add = async () => {
     const value = title.trim();
     if (!value || busy) return;
-
     setBusy(true);
-    setError("");
-    const res = await fetch("/api/user/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: value, dueAt: dueAt || null }),
-    }).catch(() => null);
-    setBusy(false);
-
-    if (!res || !res.ok) {
-      const body = await res?.json().catch(() => null);
-      setError(body?.error ?? "Could not add that");
-      return;
+    try {
+      const created = await apiFetch<Todo>("/api/user/todos", {
+        method: "POST",
+        json: { title: value, dueAt: dueAt || null },
+      });
+      setTodos((list) => [...list, created]);
+      setTitle("");
+      setDueAt("");
+    } catch (err) {
+      toast.error(describe(err, "Could not add that."));
+    } finally {
+      setBusy(false);
     }
-
-    const created = await res.json();
-    setTodos((list) => [...list, created]);
-    setTitle("");
-    setDueAt("");
   };
 
   const toggle = async (todo: Todo) => {
     setTodos((list) => list.map((t) => (t._id === todo._id ? { ...t, done: !t.done } : t)));
-    const res = await fetch(`/api/user/todos/${todo._id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ done: !todo.done }),
-    }).catch(() => null);
-
-    if (!res || !res.ok) {
+    try {
+      await apiFetch(`/api/user/todos/${todo._id}`, { method: "PATCH", json: { done: !todo.done } });
+    } catch (err) {
       setTodos((list) => list.map((t) => (t._id === todo._id ? { ...t, done: todo.done } : t)));
-      setError("Could not save that change");
+      toast.error(describe(err, "Could not save that change."));
     }
   };
 
   const remove = async (todo: Todo) => {
+    const ok = await confirm({
+      title: "Delete this to-do?",
+      message: `“${todo.title}” will be removed. This cannot be undone.`,
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
     const before = todos;
     setTodos((list) => list.filter((t) => t._id !== todo._id));
-    const res = await fetch(`/api/user/todos/${todo._id}`, { method: "DELETE" }).catch(() => null);
-    if (!res || !res.ok) {
+    try {
+      await apiFetch(`/api/user/todos/${todo._id}`, { method: "DELETE" });
+      toast.success("To-do deleted.");
+    } catch (err) {
       setTodos(before);
-      setError("Could not delete that");
+      toast.error(describe(err, "Could not delete that."));
     }
   };
 
@@ -126,8 +131,6 @@ export default function TodoList({ variant = "card" }: { variant?: "card" | "pla
         </button>
       </div>
 
-      {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
-
       <ul className="mt-4 space-y-1.5">
         {loading && <li className="text-muted text-sm">Loading…</li>}
         {!loading && !todos.length && (
@@ -164,7 +167,7 @@ export default function TodoList({ variant = "card" }: { variant?: "card" | "pla
               type="button"
               onClick={() => remove(todo)}
               aria-label={`Delete "${todo.title}"`}
-              className="text-muted shrink-0 rounded p-1 transition hover:text-red-500"
+              className="text-muted shrink-0 rounded p-1 transition hover:text-[var(--danger)]"
             >
               <Trash2 size={14} aria-hidden="true" />
             </button>

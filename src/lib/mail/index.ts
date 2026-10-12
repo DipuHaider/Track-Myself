@@ -1,9 +1,11 @@
-import { resendConfigured, sendPasswordResetViaResend, sendViaResend } from "./resend";
+import {
+  resendConfigured, sendPasswordResetViaResend, sendVerificationViaResend, sendViaResend, sendWelcomeViaResend,
+} from "./resend";
 import { sendViaWeb3Forms, web3formsConfigured } from "./web3forms";
-import type { PasswordReset } from "./templates";
+import type { PasswordReset, Verification, Welcome } from "./templates";
 import type { IssueMail, MailProvider, MailResult } from "./types";
 
-export type { IssueMail, MailProvider, MailResult, PasswordReset };
+export type { IssueMail, MailProvider, MailResult, PasswordReset, Verification, Welcome };
 
 /* Resend wins when it is configured: Web3Forms is a browser-form service whose
    throttle assumes a human at a keyboard, so a burst of real reports loses mail
@@ -50,4 +52,17 @@ export async function sendPasswordResetMail(to: string, reset: PasswordReset): P
   const result = await sendPasswordResetViaResend(to, reset);
 
   return result.ok ? result : { ...result, error: `[resend] ${result.error ?? "Send failed"}` };
+}
+
+export async function sendVerificationMail(to: string, v: Verification): Promise<MailResult> {
+  if (!canMailUsers()) {
+    return { ok: false, retryable: false, error: "Verification email needs RESEND_API_KEY" };
+  }
+  const result = await sendVerificationViaResend(to, v);
+  return result.ok ? result : { ...result, error: `[resend] ${result.error ?? "Send failed"}` };
+}
+
+export async function sendWelcomeMail(to: string, w: Welcome): Promise<MailResult> {
+  if (!canMailUsers()) return { ok: false, retryable: false, error: "No mail provider" };
+  return sendWelcomeViaResend(to, w);
 }

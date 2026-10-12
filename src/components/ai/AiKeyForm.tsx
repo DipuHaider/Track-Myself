@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Trash2, Zap } from "lucide-react";
 import { AI_KEY_EVENT, PROVIDER_OPTIONS, type AiKeyState } from "@/lib/ai/shared";
+import { refreshAiKeyState } from "@/hooks/useAiKeyState";
 
 const STATUS_COPY: Record<string, { label: string; cls: string }> = {
   ok: { label: "Working", cls: "badge-mail-sent" },
@@ -68,6 +69,7 @@ export default function AiKeyForm() {
     setApiKey("");
     setDone("Key verified and saved. AI features are now using it.");
     window.dispatchEvent(new Event(AI_KEY_EVENT));
+    refreshAiKeyState();
   };
 
   const remove = async () => {
@@ -80,6 +82,7 @@ export default function AiKeyForm() {
     load();
     setDone("Key removed.");
     window.dispatchEvent(new Event(AI_KEY_EVENT));
+    refreshAiKeyState();
   };
 
   const status = state?.status ? STATUS_COPY[state.status] : null;
@@ -97,7 +100,7 @@ export default function AiKeyForm() {
         </p>
 
         {state && !state.storageReady && (
-          <p className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p className="alert alert-warning mb-4 text-xs">
             <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
             This deployment has no AI_KEY_SECRET set, so keys cannot be stored yet.
           </p>
@@ -169,8 +172,8 @@ export default function AiKeyForm() {
             </div>
           )}
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          {done && <p className="text-sm text-emerald-600">{done}</p>}
+          {error && <p className="text-danger text-sm">{error}</p>}
+          {done && <p className="text-success text-sm">{done}</p>}
 
           <div className="flex flex-wrap gap-2 border-t pt-4">
             <button
@@ -252,7 +255,7 @@ export default function AiKeyForm() {
             </div>
 
             {state.lastError && (
-              <p className="mt-3 text-xs text-amber-600">{state.lastError}</p>
+              <p className="text-warning mt-3 text-xs">{state.lastError}</p>
             )}
 
             <p className="text-muted mt-4 border-t pt-3 text-[11px]">

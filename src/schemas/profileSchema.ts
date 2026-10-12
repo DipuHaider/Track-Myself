@@ -6,6 +6,13 @@ import { z } from "zod";
 export const profileUpdateSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(80).optional(),
   bio: z.string().max(2000, "Bio is too long").optional(),
+  image: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((v) => v === "" || v.startsWith("/api/user/cv/files/") || /^https:\/\/[^\s]+$/.test(v), "Unsupported image source")
+    .optional(),
+  notifPrefs: z.record(z.string().max(40), z.boolean()).optional(),
   currentPassword: z.string().max(200).optional(),
   newPassword: z
     .string()

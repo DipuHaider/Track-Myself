@@ -8,12 +8,17 @@ const SALT = "trackmyself.ai-key.v1";
 
 /* Deliberately not NEXTAUTH_SECRET: rotating session signing should not render
    every stored key undecryptable, and vice versa. */
+let cachedKey: { secret: string; key: Buffer } | null = null;
+
 function key(): Buffer {
   const secret = process.env.AI_KEY_SECRET;
   if (!secret || secret.length < 16) {
     throw new Error("AI_KEY_SECRET is not set, or is shorter than 16 characters.");
   }
-  return scryptSync(secret, SALT, 32);
+  if (cachedKey?.secret !== secret) {
+    cachedKey = { secret, key: scryptSync(secret, SALT, 32) };
+  }
+  return cachedKey.key;
 }
 
 export function secretBoxReady(): boolean {

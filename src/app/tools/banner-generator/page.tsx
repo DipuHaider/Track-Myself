@@ -255,7 +255,7 @@ export default function BannerGeneratorPage() {
           ))}
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-danger text-sm">{error}</p>}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
@@ -444,8 +444,8 @@ export default function BannerGeneratorPage() {
               <span
                 className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
                 style={isPremium
-                  ? { background: "#10b98122", color: "#047857" }
-                  : { background: "#f59e0b22", color: "#d97706" }}
+                  ? { background: "var(--success-bg)", color: "var(--success)" }
+                  : { background: "var(--warning-bg)", color: "var(--warning)" }}
               >
                 {isPremium ? <><Star size={9} fill="currentColor" aria-hidden="true" /> Premium</> : "Free"}
               </span>
@@ -482,11 +482,11 @@ export default function BannerGeneratorPage() {
                 </label>
               </>
             ) : (
-              <div className="rounded-lg border px-4 py-3" style={{ borderColor: "#f59e0b44", background: "#fffbeb" }}>
-                <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: "#92400e" }}>
+              <div className="alert alert-warning flex-col gap-1 rounded-lg px-4 py-3">
+                <p className="flex items-center gap-1.5 text-xs font-semibold">
                   <Lock size={12} aria-hidden="true" /> PNG at exact platform size
                 </p>
-                <p className="mt-1 text-[11px]" style={{ color: "#b45309" }}>
+                <p className="mt-1 text-[11px]">
                   Premium adds JPG and WebP, a quality slider, 2× retina export and every size in one click.{" "}
                   <Link href="/me" className="underline">Upgrade</Link>
                 </p>
@@ -499,7 +499,7 @@ export default function BannerGeneratorPage() {
             </div>
 
             {oversize && (
-              <p className="text-[11px] text-amber-600">
+              <p className="text-warning text-[11px]">
                 Larger than {activePreset.platform}&apos;s limit — lower the quality or use JPG.
               </p>
             )}

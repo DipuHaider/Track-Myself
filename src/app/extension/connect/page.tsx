@@ -14,7 +14,9 @@ export default async function ConnectExtensionPage({
 }) {
   const { ext = "" } = await searchParams;
   const allowed = (process.env.EXTENSION_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean);
-  const known = EXTENSION_ID.test(ext) && (!allowed.length || allowed.includes(ext));
+  const known =
+    EXTENSION_ID.test(ext) &&
+    (allowed.length ? allowed.includes(ext) : process.env.NODE_ENV !== "production");
   const extensionId = known ? ext : "";
 
   const user = await getSessionUser();

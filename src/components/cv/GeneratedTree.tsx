@@ -96,34 +96,38 @@ function Branch({
                   type="button"
                   onClick={() => onView(file)}
                   title="View"
-                  className="text-muted rounded-md p-1.5 transition hover:bg-[var(--surface-2)] hover:text-foreground"
+                  aria-label={`View ${file.name}`}
+                  className="text-muted rounded-md p-1.5 transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
                 >
-                  <Eye size={14} />
+                  <Eye size={14} aria-hidden="true" />
                 </button>
                 <a
                   href={`/api/user/cv/files/${file._id}/raw?download=1`}
                   title="Download"
-                  className="text-muted rounded-md p-1.5 transition hover:bg-[var(--surface-2)] hover:text-foreground"
+                  aria-label={`Download ${file.name}`}
+                  className="text-muted rounded-md p-1.5 transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
                 >
-                  <Download size={14} />
+                  <Download size={14} aria-hidden="true" />
                 </a>
                 <button
                   type="button"
                   onClick={() => onEdit(file)}
                   title="Edit the text and re-render"
+                  aria-label={`Edit ${file.name}`}
                   data-edit={file._id}
-                  className="text-muted rounded-md p-1.5 transition hover:bg-[var(--surface-2)] hover:text-foreground"
+                  className="text-muted rounded-md p-1.5 transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
                 >
-                  <Pencil size={14} />
+                  <Pencil size={14} aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={() => onDelete(file)}
                   disabled={busyId === file._id}
                   title="Delete"
-                  className="text-muted rounded-md p-1.5 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                  aria-label={`Delete ${file.name}`}
+                  className="text-muted rounded-md p-1.5 transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-40"
                 >
-                  {busyId === file._id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  {busyId === file._id ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Trash2 size={14} aria-hidden="true" />}
                 </button>
               </div>
             </li>
@@ -198,7 +202,7 @@ export default function GeneratedTree({
 
   return (
     <div className="glass space-y-1 rounded-xl p-3">
-      {error && <p className="px-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="text-danger px-2 text-xs" role="alert">{error}</p>}
 
       {tree.map((folder) => (
         <Branch

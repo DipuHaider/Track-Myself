@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
+import { toolMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = toolMetadata({
+  slug: "image-optimizer",
   title: "Image Optimizer",
   description: "Compress and convert JPEG, PNG and WebP images in your browser. Adjust quality, see the saving before you download, and keep every file on your own device.",
-  alternates: { canonical: "/tools/image-optimizer" },
-  openGraph: {
-    title: "Image Optimizer · TrackMyself",
-    description: "Compress and convert JPEG, PNG and WebP images in your browser. Adjust quality, see the saving before you download, and keep every file on your own device.",
-    url: "/tools/image-optimizer",
-  },
-};
+});
 
 export default function ToolLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

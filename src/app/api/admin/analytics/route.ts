@@ -58,6 +58,8 @@ export async function GET() {
     totalUsers,
     activeUsers,
     recent,
+    roleRows,
+    recentUsers,
   ] = await Promise.all([
     Application.aggregate<CountRow>([
       { $group: { _id: "$applicationStatus", count: { $sum: 1 } } },
@@ -88,7 +90,12 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .limit(8)
       .lean(),
+    User.aggregate<CountRow>([{ $group: { _id: "$role", count: { $sum: 1 } } }]),
+    User.find({}, "name email role plan createdAt lastLoginAt").sort({ createdAt: -1 }).limit(8).lean(),
   ]);
+
+  const usersByRole: Record<string, number> = {};
+  for (const row of roleRows) usersByRole[row._id ?? "free"] = row.count;
 
   const statusCounts: Record<string, number> = {};
   for (const status of APPLICATION_STATUSES) statusCounts[status] = 0;
@@ -126,6 +133,16 @@ export async function GET() {
     trend,
     topCompanies: companyRows.map((r) => ({ name: r._id ?? "Unknown", count: r.count })),
     topPlatforms: platformRows.map((r) => ({ name: r._id ?? "Unknown", count: r.count })),
+    usersByRole,
+    recentUsers: recentUsers.map((u: Record<string, unknown>) => ({
+      _id: String(u._id),
+      name: u.name as string,
+      email: u.email as string,
+      role: u.role as string,
+      plan: u.plan as string,
+      createdAt: u.createdAt as string,
+      lastLoginAt: (u.lastLoginAt as string | null) ?? null,
+    })),
     recent: recent.map((a: Record<string, unknown>) => ({
       _id: String(a._id),
       companyName: a.companyName as string,
