@@ -1,8 +1,7 @@
 import {
-  resendConfigured, sendPasswordResetViaResend, sendVerificationViaResend, sendViaResend, sendWelcomeViaResend,
-} from "./resend";
+  resendConfigured, sendPasswordResetViaResend, sendVerificationViaResend, sendViaResend, sendWelcomeViaResend, sendJobHuntReportViaResend } from "./resend";
 import { sendViaWeb3Forms, web3formsConfigured } from "./web3forms";
-import type { PasswordReset, Verification, Welcome } from "./templates";
+import type { JobHuntReportMail, PasswordReset, Verification, Welcome } from "./templates";
 import type { IssueMail, MailProvider, MailResult } from "./types";
 
 export type { IssueMail, MailProvider, MailResult, PasswordReset, Verification, Welcome };
@@ -65,4 +64,9 @@ export async function sendVerificationMail(to: string, v: Verification): Promise
 export async function sendWelcomeMail(to: string, w: Welcome): Promise<MailResult> {
   if (!canMailUsers()) return { ok: false, retryable: false, error: "No mail provider" };
   return sendWelcomeViaResend(to, w);
+}
+
+export async function sendJobHuntReportMail(to: string, r: JobHuntReportMail): Promise<MailResult> {
+  if (!canMailUsers()) return { ok: false, retryable: false, error: "No mail provider" };
+  return sendJobHuntReportViaResend(to, r);
 }

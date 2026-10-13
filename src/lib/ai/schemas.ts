@@ -41,6 +41,8 @@ export const interviewQuestionsSchema = z.array(
   z.object({ q: z.string().trim().min(10).max(300), s: z.string().trim().max(40).catch("role") }),
 );
 
+export const reportAdviceSchema = z.array(z.string().trim().min(1).max(240)).min(1).max(5);
+
 export const triageSuggestionsSchema = (n: number) => z.array(z.string().trim().max(200)).length(n);
 
 const HEX = /^#[0-9a-f]{6}$/i;

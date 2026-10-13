@@ -1,8 +1,7 @@
 import { Resend } from "resend";
 import {
   issueEmail, passwordResetEmail, verificationEmail, welcomeEmail,
-  type Composed, type PasswordReset, type Verification, type Welcome,
-} from "./templates";
+  type Composed, type PasswordReset, type Verification, type Welcome, jobHuntReportEmail, type JobHuntReportMail } from "./templates";
 import type { IssueMail, MailResult } from "./types";
 
 const ATTEMPTS = 3;
@@ -103,4 +102,8 @@ export async function sendVerificationViaResend(to: string, v: Verification): Pr
 
 export async function sendWelcomeViaResend(to: string, w: Welcome): Promise<MailResult> {
   return deliver([to], welcomeEmail(w), {});
+}
+
+export async function sendJobHuntReportViaResend(to: string, r: JobHuntReportMail): Promise<MailResult> {
+  return deliver([to], jobHuntReportEmail(r), {});
 }

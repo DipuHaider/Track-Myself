@@ -118,3 +118,65 @@ export function passwordResetEmail({ name, resetUrl, expiresMinutes }: PasswordR
     ),
   };
 }
+
+export type JobHuntReportMail = {
+  name: string;
+  date: string;
+  summary: string[];
+  newLeads: { company: string; title: string; platform: string; fitScore: number | null }[];
+  ready: { company: string; title: string }[];
+  deadlines: { company: string; title: string; deadline: string | null }[];
+  suggestions: string[];
+  reportUrl: string;
+  inboxUrl: string;
+  settingsUrl: string;
+};
+
+export function jobHuntReportEmail(r: JobHuntReportMail): Composed {
+  const li = (items: string[]) =>
+    items.length ? `<ul style="margin:4px 0 16px;padding-left:18px;font-size:14px;line-height:1.55">${items.map((i) => `<li>${i}</li>`).join("")}</ul>` : "";
+  const section = (title: string, body: string) =>
+    body ? `<h3 style="margin:16px 0 4px;font-size:14px">${escapeHtml(title)}</h3>${body}` : "";
+
+  const leads = r.newLeads.map((l) =>
+    `${escapeHtml(l.title)} — ${escapeHtml(l.company)} <span style="color:#64748b">(${escapeHtml(l.platform)}${l.fitScore != null ? `, fit ${l.fitScore}` : ""})</span>`);
+  const ready = r.ready.map((l) => `${escapeHtml(l.title)} — ${escapeHtml(l.company)}`);
+  const deadlines = r.deadlines.map((l) =>
+    `${escapeHtml(l.title)} — ${escapeHtml(l.company)}${l.deadline ? ` <span style="color:#b45309">closes ${escapeHtml(l.deadline.slice(0, 10))}</span>` : ""}`);
+
+  const text = [
+    `Your job hunt, ${r.date}`,
+    "",
+    ...r.summary,
+    "",
+    r.newLeads.length ? "New jobs:" : "",
+    ...r.newLeads.map((l) => `- ${l.title} — ${l.company} (${l.platform}${l.fitScore != null ? `, fit ${l.fitScore}` : ""})`),
+    r.ready.length ? "\nReady for your review:" : "",
+    ...r.ready.map((l) => `- ${l.title} — ${l.company}`),
+    r.deadlines.length ? "\nClosing soon:" : "",
+    ...r.deadlines.map((l) => `- ${l.title} — ${l.company}${l.deadline ? ` (closes ${l.deadline.slice(0, 10)})` : ""}`),
+    r.suggestions.length ? "\nWhat the numbers say:" : "",
+    ...r.suggestions.map((s) => `- ${s}`),
+    "",
+    `Full report: ${r.reportUrl}`,
+    `Job inbox: ${r.inboxUrl}`,
+    `Turn these emails off: ${r.settingsUrl}`,
+  ].filter((l) => l !== "").join("\n");
+
+  return {
+    subject: `Your job hunt for ${r.date}: ${r.summary[0] ?? "daily report"}`,
+    text,
+    html: shell(
+      `<h2 style="margin:0 0 4px;font-size:17px">Good morning${r.name ? `, ${escapeHtml(r.name.split(" ")[0])}` : ""}</h2>
+<p style="margin:0 0 12px;color:#64748b;font-size:13px">Your TrackMyself job hunt for ${escapeHtml(r.date)}</p>
+${li(r.summary.map(escapeHtml))}
+${section("New jobs", li(leads))}
+${section("Ready for your review", li(ready))}
+${section("Closing soon", li(deadlines))}
+${section("What the numbers say", li(r.suggestions.map(escapeHtml)))}
+<p style="margin:20px 0"><a href="${escapeHtml(r.inboxUrl)}" style="background:#4f46e5;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Open the job inbox</a>
+&nbsp; <a href="${escapeHtml(r.reportUrl)}" style="color:#4f46e5">Full report</a></p>
+<p style="color:#94a3b8;font-size:12px">You get this because the daily report email is on. <a href="${escapeHtml(r.settingsUrl)}" style="color:#94a3b8">Turn it off</a>.</p>`,
+    ),
+  };
+}

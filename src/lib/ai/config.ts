@@ -19,7 +19,8 @@ export type AiTaskId =
   | "cv.gap-analysis"
   | "cover-letter.write"
   | "salary.estimate"
-  | "applications.triage";
+  | "applications.triage"
+  | "jobs.report";
 
 export const AI_TASKS: AiTaskId[] = [
   "cv.adapt",
@@ -30,6 +31,7 @@ export const AI_TASKS: AiTaskId[] = [
   "cover-letter.write",
   "salary.estimate",
   "applications.triage",
+  "jobs.report",
 ];
 
 /* Owner's rule: the shared money ceiling never exceeds this, whatever the

@@ -5,17 +5,23 @@ import User from "@/models/User";
 import { jobHuntEnabledUserIds, runHuntForUser, type HuntSummary } from "@/lib/jobs/hunt";
 import { autoPrepareForUser } from "@/lib/jobs/autoPrepare";
 import { normaliseJobHunt } from "@/lib/jobs/settings";
+import { closeMissedDeadlines, createFollowUpTodos, deliverDailyReport } from "@/lib/jobs/upkeep";
 
 export type DailyUserResult = {
   userId: string;
   hunt?: HuntSummary;
   autoPrepared?: { prepared: string[]; failed: string[]; skipped: number };
+  upkeep?: { followUpTodos: number; missedDeadlines: number };
+  report?: { emailed: boolean; notified: boolean; webhook: boolean };
   error?: string;
   skipped?: string;
 };
 export type DailySummary = { startedAt: string; users: DailyUserResult[]; leftOver: number };
 
 const BUDGET_MS = 50_000;
+
+/* Seconds held back from auto-prepare so upkeep and the report always run. */
+const REPORT_RESERVE_MS = 12_000;
 
 /* One pass over every account with job hunt switched on, inside the time a
    single Vercel invocation allows. Accounts that do not fit are reported as
@@ -30,7 +36,7 @@ export async function runDailyJobHunt(now = new Date()): Promise<DailySummary> {
   const users: DailyUserResult[] = [];
   let processed = 0;
   for (const userId of ids) {
-    if (Date.now() > deadline - 5_000) break;
+    if (Date.now() > deadline - REPORT_RESERVE_MS) break;
     processed++;
     try {
       const u = (await User.findById(userId, "role plan status email jobHunt").lean()) as
@@ -40,14 +46,23 @@ export async function runDailyJobHunt(now = new Date()): Promise<DailySummary> {
         continue;
       }
       const remaining = deadline - Date.now();
-      const hunt = await runHuntForUser(userId, { now, deadlineAt: Date.now() + Math.min(remaining, 40_000) });
+      const hunt = await runHuntForUser(userId, { now, deadlineAt: Date.now() + Math.max(5_000, Math.min(remaining - REPORT_RESERVE_MS, 35_000)) });
       const settingsForUser = normaliseJobHunt(u.jobHunt);
       const autoPrepared = await autoPrepareForUser(
         { id: userId, role: u.role, plan: u.plan === "premium" ? "premium" : "free", status: u.status === "paused" ? "paused" : "active", email: u.email },
         settingsForUser,
-        deadline,
+        deadline - REPORT_RESERVE_MS,
       );
-      users.push({ userId, hunt, autoPrepared });
+      const missedDeadlines = await closeMissedDeadlines(userId, now);
+      const delivered = await deliverDailyReport(userId, now);
+      const followUpTodos = delivered.report ? await createFollowUpTodos(userId, delivered.report.followUps, now) : 0;
+      users.push({
+        userId,
+        hunt,
+        autoPrepared,
+        upkeep: { followUpTodos, missedDeadlines },
+        report: { emailed: delivered.emailed, notified: delivered.notified, webhook: delivered.webhook },
+      });
     } catch (err) {
       users.push({ userId, error: err instanceof Error ? err.message : "failed" });
     }
