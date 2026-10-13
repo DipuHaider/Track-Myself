@@ -30,7 +30,7 @@ export default function CoverLetterReview({
 
   return (
     <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
-      <p className={`mb-3 flex items-start gap-1.5 text-xs ${upgrade ? "text-warning" : "text-muted"}`}>
+      <p className={`mb-3 flex items-start gap-1.5 text-xs ${upgrade || tailorMode !== "ai" ? "text-warning" : "text-muted"}`}>
         {tailorMode === "ai"
           ? <Sparkles size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
           : <Wand2 size={13} className="mt-0.5 shrink-0" aria-hidden="true" />}

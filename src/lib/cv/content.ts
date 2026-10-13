@@ -129,6 +129,13 @@ export function skillGroup(v: unknown): CVSkillGroup[] {
     .filter((g) => g.label || g.items);
 }
 
+/* Older imports cut the opening bracket off numbers written "(+880) 171…". */
+export function tidyPhone(phone: string): string {
+  const open = (phone.match(/\(/g) ?? []).length;
+  const close = (phone.match(/\)/g) ?? []).length;
+  return close > open && /^\+?\d{1,4}\)/.test(phone) ? `(${phone}` : phone;
+}
+
 function experienceArray(v: unknown): CVExperience[] {
   if (!Array.isArray(v)) return [];
   return v.map((row) => {
@@ -197,7 +204,7 @@ export function normaliseContent(raw: unknown): CVContent {
     contact: {
       city: str(contact.city),
       addressFull: str(contact.addressFull),
-      phone: str(contact.phone),
+      phone: tidyPhone(str(contact.phone)),
       email: str(contact.email),
       linkedin: str(contact.linkedin),
       github: str(contact.github),
@@ -262,7 +269,7 @@ export function importFromLegacy(flat: LegacyFlatCV): CVContent {
       ...content.contact,
       city: str(flat.location),
       addressFull: str(flat.location),
-      phone: str(flat.phone),
+      phone: tidyPhone(str(flat.phone)),
       email: str(flat.email),
       linkedin: str(flat.linkedin),
       portfolio: str(flat.website),

@@ -38,7 +38,7 @@ export const HEADING_ALIASES: Record<string, string> = {
 };
 
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/;
-const PHONE_RE = /(\+?\d[\d\s().-]{7,}\d)/;
+const PHONE_RE = /(\(?\+?\d[\d\s().-]{7,}\d)/;
 const URL_RE = /((?:https?:\/\/)?(?:www\.)?[\w-]+\.[a-z]{2,}(?:\/[\w\-./?%&=+#]*)?)/gi;
 const BULLET_RE = /^\s*[•▪◦‣·*\-–—]\s+/;
 const DATE_RANGE_RE =

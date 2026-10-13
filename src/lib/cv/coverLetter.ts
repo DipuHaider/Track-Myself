@@ -44,10 +44,27 @@ function overlap(text: string, terms: Set<string>): number {
   return n;
 }
 
+const LABEL_PREFIX = /^[A-Z][\w&/ -]{1,40}:\s+(?=\S)/;
+
 function sentence(text: string): string {
-  const t = text.trim().replace(/[.;,\s]+$/, "");
+  const t = text.trim().replace(LABEL_PREFIX, "").replace(/[.;,\s]+$/, "");
   if (!t) return "";
+  if (/^[A-Z]{2}/.test(t) || /^[A-Z][a-z]*[A-Z]/.test(t.split(/\s/)[0])) return t;
   return `${t.charAt(0).toLowerCase()}${t.slice(1)}`;
+}
+
+const ORG_RE = /\b(group|gmbh|ag|se|kg|ltd|limited|llc|inc|corp|corporation|plc|company|co\.|bank|university|universität|institute|agency|solutions|technologies|systems|holding|holdings)(?=\W|$)/i;
+const PLACE_PREFIX = /^[^,()]{2,30},\s*[A-Z][\w-]+\s+(?=[A-Z])/;
+
+/* Imported CVs sometimes put the employer in the title slot and "City, Country Title"
+   in the company slot; the letter should still name the role and the employer correctly. */
+export function roleParts(e: { title: string; company: string }): { title: string; company: string } {
+  let title = e.title.trim();
+  let company = e.company.trim();
+  if (ORG_RE.test(title) && !ORG_RE.test(company)) [title, company] = [company, title];
+  title = title.replace(PLACE_PREFIX, "").trim();
+  company = company.replace(PLACE_PREFIX, "").trim();
+  return { title, company };
 }
 
 function list(items: string[]): string {
@@ -73,8 +90,8 @@ export function draftCoverLetter(c: CVContent, info: AppInfo): CoverLetterText {
   const ranked = terms.size
     ? [...roles].sort((a, b) => overlap(b.bullets.join(" "), terms) - overlap(a.bullets.join(" "), terms))
     : roles;
-  const lead = ranked[0];
-  const latest = roles[0];
+  const lead = ranked[0] ? { ...ranked[0], ...roleParts(ranked[0]) } : undefined;
+  const latest = roles[0] ? { ...roles[0], ...roleParts(roles[0]) } : undefined;
 
   const bullets = lead
     ? [...lead.bullets]
