@@ -47,7 +47,53 @@ function overlap(text: string, terms: Set<string>): number {
   return n;
 }
 
-const LABEL_PREFIX =/^[A-Z][\w&/ -]{1,40}:\s+(?=\S)/;
+/* "Backend Architecture: Design…" — a short Title Case label, not a sentence that
+   happens to contain a colon ("Architected a decoupled CMS: WordPress…"). */
+const LABEL_PREFIX = /^(?:[A-Z][\w/.+-]*|&)(?:\s+(?:[A-Z][\w/.+-]*|&)){0,3}:\s+(?=\S)/;
+
+export function splitSkills(items: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of items) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth = Math.max(0, depth - 1);
+    if (ch === "," && depth === 0) { out.push(cur); cur = ""; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim()).filter(Boolean);
+}
+
+export function allSkills(c: CVContent): string[] {
+  return [...new Set(c.skills.flatMap((g) => splitSkills(g.items)))];
+}
+
+const RECENT_ROLES = 4;
+
+/* The one or two recent roles whose bullets best match the posting, one per employer,
+   in CV order. Older roles are left to the CV itself. */
+export function featuredRoles<T extends { company: string; bullets: string[]; i: number }>(
+  roles: T[],
+  terms: Set<string>,
+  max = 2,
+): T[] {
+  const recent = roles.slice(0, RECENT_ROLES);
+  const ranked = terms.size
+    ? [...recent].sort((a, b) => overlap(b.bullets.join(" "), terms) - overlap(a.bullets.join(" "), terms) || a.i - b.i)
+    : recent;
+  const seen = new Set<string>();
+  const picked: T[] = [];
+  for (const r of ranked) {
+    const key = r.company.trim().toLowerCase();
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    if (!r.bullets.some(Boolean)) continue;
+    picked.push(r);
+    if (picked.length === max) break;
+  }
+  return picked.sort((a, b) => a.i - b.i);
+}
 
 export function sentence(text: string): string {
   const t = text.trim().replace(LABEL_PREFIX, "").replace(/[.;,\s]+$/, "");
@@ -138,7 +184,7 @@ export function draftCoverLetter(c: CVContent, info: AppInfo): CoverLetterText {
   const posting = [info.jobDescription, info.notes].filter(Boolean).join("\n");
   const terms = new Set(postingTerms(posting));
 
-  const skills = [...new Set(c.skills.flatMap((g) => g.items.split(",").map((s) => s.trim()).filter(Boolean)))];
+  const skills = allSkills(c);
   const matchedSkills = terms.size
     ? skills.filter((s) => [...words(s)].some((w) => terms.has(w))).slice(0, 5)
     : [];
@@ -147,10 +193,7 @@ export function draftCoverLetter(c: CVContent, info: AppInfo): CoverLetterText {
   const roles = c.experience
     .filter((e) => e.title || e.company)
     .map((e, i) => ({ ...e, ...roleParts(e), i }));
-  const ranked = terms.size
-    ? [...roles].sort((a, b) => overlap(b.bullets.join(" "), terms) - overlap(a.bullets.join(" "), terms) || a.i - b.i)
-    : roles;
-  const featured = ranked.slice(0, 2).sort((a, b) => a.i - b.i);
+  const featured = featuredRoles(roles, terms);
   const latest = roles[0];
 
   const who = introPhrase(c, info.jobTitle);

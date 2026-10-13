@@ -4,7 +4,9 @@ import { postingTerms } from "@/lib/ai/jobFit";
 import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
 import { fence } from "@/lib/ai/prompt";
 import { applicationEmailSchema } from "@/lib/ai/schemas";
-import { greetingFor, introPhrase, pickProjects, roleParts, sentence, yearsOfExperience } from "@/lib/cv/coverLetter";
+import {
+  allSkills, featuredRoles, greetingFor, introPhrase, pickProjects, roleParts, sentence, yearsOfExperience,
+} from "@/lib/cv/coverLetter";
 import type { AICredential } from "@/lib/cv/ai/provider";
 
 export type ApplicationEmail = { subject: string; body: string };
@@ -50,15 +52,13 @@ function list(items: string[]): string {
 export function draftApplicationEmail(c: CVContent, info: AppInfo): ApplicationEmail {
   const posting = [info.jobDescription, info.notes].filter(Boolean).join("\n");
   const terms = new Set(postingTerms(posting));
-  const skills = [...new Set(c.skills.flatMap((g) => g.items.split(",").map((s) => s.trim()).filter(Boolean)))];
+  const skills = allSkills(c);
   const matched = terms.size ? skills.filter((s) => [...words(s)].some((w) => terms.has(w))) : [];
   const shown = (matched.length ? matched : skills).slice(0, 4);
 
-  const roles = c.experience.filter((e) => e.title || e.company).map((e) => ({ ...e, ...roleParts(e) }));
+  const roles = c.experience.filter((e) => e.title || e.company).map((e, i) => ({ ...e, ...roleParts(e), i }));
   const latest = roles[0];
-  const best = terms.size
-    ? [...roles].sort((a, b) => overlap(b.bullets.join(" "), terms) - overlap(a.bullets.join(" "), terms))[0]
-    : latest;
+  const best = featuredRoles(roles, terms, 1)[0];
   const bullet = best
     ? [...best.bullets].filter(Boolean).sort((a, b) => (terms.size ? overlap(b, terms) - overlap(a, terms) : 0)).map(sentence)[0]
     : "";

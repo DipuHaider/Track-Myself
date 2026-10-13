@@ -4,7 +4,7 @@ vi.mock("@/lib/ai/gateway", () => ({ runAiJsonTask: vi.fn() }));
 
 import {
   draftCoverLetter, introPhrase, introTitle, letterBlocks, letterPlainText, pickProjects, roleParts, sanitizeLetter,
-  yearsOfExperience,
+  yearsOfExperience, sentence, splitSkills, featuredRoles,
 } from "@/lib/cv/coverLetter";
 import { normaliseContent, tidyPhone } from "@/lib/cv/content";
 
@@ -117,5 +117,27 @@ describe("introducing the candidate", () => {
   it("counts years from the earliest role", () => {
     expect(yearsOfExperience(cv, new Date("2026-10-13"))).toBe(14);
     expect(introPhrase(cv, "Full Stack Developer")).toMatch(/^a Full Stack Developer with \d+ years of experience$/);
+  });
+});
+
+describe("portfolio-shaped CVs", () => {
+  it("strips a Title Case label but keeps a sentence with a colon", () => {
+    expect(sentence("Backend Architecture: Design and maintain APIs.")).toBe("design and maintain APIs");
+    expect(sentence("Architected a decoupled CMS: WordPress backend.")).toBe("architected a decoupled CMS: WordPress backend");
+  });
+
+  it("does not split skills inside brackets", () => {
+    expect(splitSkills("LLM integration (OpenAI, Gemini), RAG, MCP")).toEqual(["LLM integration (OpenAI, Gemini)", "RAG", "MCP"]);
+  });
+
+  it("features recent roles, one per employer", () => {
+    const roles = [
+      { company: "A", bullets: ["node api"], i: 0 },
+      { company: "A", bullets: ["node api typescript"], i: 1 },
+      { company: "B", bullets: ["php"], i: 2 },
+      { company: "C", bullets: ["x"], i: 3 },
+      { company: "Old", bullets: ["node api typescript react"], i: 4 },
+    ];
+    expect(featuredRoles(roles, new Set(["node", "api", "typescript"])).map((r) => r.i)).toEqual([1, 2]);
   });
 });
