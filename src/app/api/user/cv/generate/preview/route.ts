@@ -8,7 +8,8 @@ import { aiEntitlement, type Actor } from "@/lib/ai/gateway";
 import {
   checkGenerationGates, isTooThinToPrint, resolveGenerationContent,
 } from "@/lib/cv/generatePipeline";
-import { CORRECTION_MAX, JD_MAX, applyTailorOutput, runTailor } from "@/lib/cv/ai/adapt";
+import { CORRECTION_MAX, applyTailorOutput, runTailor } from "@/lib/cv/ai/adapt";
+import { jobDescriptionFrom } from "@/lib/cv/jobDescription";
 import { draftHash, findDraft, findLetterDraft, saveDraft, saveLetterDraft } from "@/lib/cv/draftCache";
 import { writeCoverLetter } from "@/lib/cv/coverLetter";
 import { tailorToApplication } from "@/lib/cv/import/merge";
@@ -28,18 +29,6 @@ type FileDoc = {
   _id: unknown; name: string; mimeType: string; data: string;
   category: string; parsedText?: string;
 };
-
-function jobDescriptionFrom(info: AppInfo): string {
-  return [
-    info.jobDescription,
-    info.jobTitle,
-    info.companyName,
-    info.location,
-    info.platform,
-    info.jobPostUrl,
-    info.notes,
-  ].filter(Boolean).join("\n").slice(0, JD_MAX);
-}
 
 export async function POST(req: Request) {
   const auth = await requireAuth();

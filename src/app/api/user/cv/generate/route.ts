@@ -3,14 +3,11 @@ export const dynamic = "force-dynamic";
 import { draftCoverLetter, sanitizeLetter } from "@/lib/cv/coverLetter";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/serverAuth";
-import CVFile from "@/models/CVFile";
 import { isTooThinToPrint, resolveGenerationContent } from "@/lib/cv/generatePipeline";
 import { generatedFileName } from "@/lib/cv/fileName";
 import { checkRateLimitDb } from "@/lib/rateLimitStore";
 import { tooMany } from "@/lib/api/respond";
-
-/* How many generated documents the library keeps before trimming the oldest. */
-const GENERATED_KEEP = 60;
+import { saveGeneratedFile } from "@/lib/cv/saveGenerated";
 import {
   DOCX_MIME, renderCVDocx,
   renderCoverLetterDocx, renderTailoredResumeDocx, type AppInfo,
@@ -147,61 +144,24 @@ export async function POST(req: Request) {
      double the row. It is re-injected from the profile on re-render. */
   const snapshot = JSON.stringify({ ...content, photo: "", ...(letter ? { coverLetter: letter } : {}) });
 
-  /* Keep a copy in My Docs. Upserted on a stable signature so downloading the same
-     document twice replaces the entry instead of stacking duplicates. */
-  if (body.save !== false && buffer.length < 6 * 1024 * 1024) {
+  /* Keep a copy in My Docs. */
+  if (body.save !== false) {
     const genFor = docType === "cv" ? "" : `${appInfo?.companyName ?? ""} — ${appInfo?.jobTitle ?? ""}`.trim();
     try {
-      await CVFile.findOneAndUpdate(
-        {
-          userId: auth.id,
-          generated: true,
-          genFormat: format,
-          genVariant: variant,
-          genDocType: docType,
-          genOutput: isPdf ? "pdf" : "docx",
-          genFor,
-          genDate: naming.isoDate,
-        },
-        {
-          $set: {
-            userId: auth.id,
-            category: docType === "cover-letter" ? "cover-letter" : docType === "resume" ? "resume" : "cv",
-            name: filename,
-            size: buffer.length,
-            mimeType: isPdf ? PDF_MIME : DOCX_MIME,
-            data: buffer.toString("base64"),
-            generated: true,
-            genFormat: format,
-            genVariant: variant,
-            genDocType: docType,
-            genOutput: isPdf ? "pdf" : "docx",
-            genFor,
-            genContent: snapshot,
-            genContentAt: new Date(),
-            genDate: naming.isoDate,
-            genTailor: String(body.genTailor ?? ""),
-            genNote: String(body.genNote ?? "").slice(0, 2000),
-            genEdited: false,
-            uploadedAt: new Date(),
-          },
-        },
-        { upsert: true },
-      );
-      /* genDate is part of the signature now, so a regenerated document replaces
-         only today's copy and the day folders keep real history. That grows without
-         bound, and generated rows are exempt from the 40-file upload cap, so the
-         library trims its own tail. */
-      const extra = await CVFile.countDocuments({ userId: auth.id, generated: true }) - GENERATED_KEEP;
-      if (extra > 0) {
-        const oldest = await CVFile.find(
-          { userId: auth.id, generated: true },
-          { _id: 1 },
-        ).sort({ uploadedAt: 1 }).limit(extra).lean() as unknown as { _id: unknown }[];
-        if (oldest.length) {
-          await CVFile.deleteMany({ _id: { $in: oldest.map((f) => f._id) } });
-        }
-      }
+      await saveGeneratedFile({
+        userId: auth.id,
+        buffer,
+        filename,
+        format,
+        variant,
+        docType,
+        genFor,
+        isoDate: naming.isoDate,
+        snapshot,
+        genTailor: String(body.genTailor ?? ""),
+        genNote: String(body.genNote ?? ""),
+        applicationId: typeof body.applicationId === "string" && /^[a-f0-9]{24}$/i.test(body.applicationId) ? body.applicationId : undefined,
+      });
     } catch {
       /* the download is what matters — never fail it because the copy did not save */
     }

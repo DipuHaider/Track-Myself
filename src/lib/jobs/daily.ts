@@ -3,8 +3,16 @@ import { getAppSettings } from "@/lib/appSettings";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { jobHuntEnabledUserIds, runHuntForUser, type HuntSummary } from "@/lib/jobs/hunt";
+import { autoPrepareForUser } from "@/lib/jobs/autoPrepare";
+import { normaliseJobHunt } from "@/lib/jobs/settings";
 
-export type DailyUserResult = { userId: string; hunt?: HuntSummary; error?: string; skipped?: string };
+export type DailyUserResult = {
+  userId: string;
+  hunt?: HuntSummary;
+  autoPrepared?: { prepared: string[]; failed: string[]; skipped: number };
+  error?: string;
+  skipped?: string;
+};
 export type DailySummary = { startedAt: string; users: DailyUserResult[]; leftOver: number };
 
 const BUDGET_MS = 50_000;
@@ -25,14 +33,21 @@ export async function runDailyJobHunt(now = new Date()): Promise<DailySummary> {
     if (Date.now() > deadline - 5_000) break;
     processed++;
     try {
-      const u = (await User.findById(userId, "role plan").lean()) as { role: Role; plan: string } | null;
+      const u = (await User.findById(userId, "role plan status email jobHunt").lean()) as
+        { role: Role; plan: string; status?: string; email?: string; jobHunt?: unknown } | null;
       if (!u || !canUseJobHunt(u.role, u.plan, settings.features.jobHunt)) {
         users.push({ userId, skipped: "not-entitled" });
         continue;
       }
       const remaining = deadline - Date.now();
       const hunt = await runHuntForUser(userId, { now, deadlineAt: Date.now() + Math.min(remaining, 40_000) });
-      users.push({ userId, hunt });
+      const settingsForUser = normaliseJobHunt(u.jobHunt);
+      const autoPrepared = await autoPrepareForUser(
+        { id: userId, role: u.role, plan: u.plan === "premium" ? "premium" : "free", status: u.status === "paused" ? "paused" : "active", email: u.email },
+        settingsForUser,
+        deadline,
+      );
+      users.push({ userId, hunt, autoPrepared });
     } catch (err) {
       users.push({ userId, error: err instanceof Error ? err.message : "failed" });
     }
