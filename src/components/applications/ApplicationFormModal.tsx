@@ -103,6 +103,7 @@ type FormData = {
   jobDescription: string;
   appliedDate: string;
   followUpDate: string;
+  deadline: string;
   priority: string;
   notes: string;
   documents: Record<string, string>;
@@ -199,6 +200,7 @@ const EMPTY: FormData = {
   jobDescription: "",
   appliedDate: "",
   followUpDate: "",
+  deadline: "",
   priority: "Medium",
   notes: "",
   documents: {},
@@ -231,6 +233,7 @@ function toForm(app: Application): FormData {
     jobDescription: app.jobDescription ?? "",
     appliedDate: toDateTimeStr(app.appliedDate),
     followUpDate: toDateTimeStr(app.followUpDate).slice(0, 10),
+    deadline: toDateTimeStr(app.deadline ?? undefined).slice(0, 10),
     priority: app.priority ?? "Medium",
     notes: app.notes ?? "",
     responseStatus: app.responseStatus ?? "",
@@ -533,6 +536,7 @@ export default function ApplicationFormModal({
       jobDescription: form.jobDescription || undefined,
       appliedDate: form.appliedDate || undefined,
       followUpDate: form.followUpDate ? new Date(`${form.followUpDate}T12:00`).toISOString() : null,
+      deadline: form.deadline ? new Date(`${form.deadline}T23:59`).toISOString() : null,
       priority: form.priority,
       notes: form.notes || undefined,
       ...(responseOptionsFor(form.applicationStatus).includes(form.responseStatus)
@@ -1071,6 +1075,17 @@ export default function ApplicationFormModal({
                   className={inputCls}
                   value={form.followUpDate}
                   onChange={set("followUpDate")}
+                />
+              )}
+            </Field>
+            <Field label="Application deadline">
+              {(id) => (
+                <input
+                  id={id}
+                  type="date"
+                  className={inputCls}
+                  value={form.deadline}
+                  onChange={set("deadline")}
                 />
               )}
             </Field>

@@ -68,3 +68,15 @@ describe("roleTier and canDo", () => {
     expect(canDo(null, "view:users")).toBe(false);
   });
 });
+
+describe("canUseJobHunt", () => {
+  it("superadmin always, premium only with the flag", async () => {
+    const { canUseJobHunt } = await import("./permissions");
+    expect(canUseJobHunt("superadmin", "free", false)).toBe(true);
+    expect(canUseJobHunt("paid", "free", false)).toBe(false);
+    expect(canUseJobHunt("paid", "free", true)).toBe(true);
+    expect(canUseJobHunt("free", "premium", true)).toBe(true);
+    expect(canUseJobHunt("free", "free", true)).toBe(false);
+    expect(canUseJobHunt("admin", "free", true)).toBe(false);
+  });
+});

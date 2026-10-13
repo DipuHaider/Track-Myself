@@ -77,6 +77,9 @@ const UserSchema = new Schema(
       monthOutputTokens: { type: Number, default: 0 },
       monthCalls: { type: Number, default: 0 },
     },
+    /* Job hunt settings are free-form here and normalised by
+       normaliseJobHunt() on every read and write (src/lib/jobs/settings.ts). */
+    jobHunt: { type: Schema.Types.Mixed, default: undefined },
     a11y: {
       textScale: { type: String, enum: ["sm", "md", "lg", "xl"], default: "md" },
       scheme: { type: String, enum: ["light", "dark", "system"], default: "system" },

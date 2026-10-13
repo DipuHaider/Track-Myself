@@ -8,6 +8,9 @@ const AppSettingsSchema = new Schema(
     tourPortal: { type: Boolean, default: true },
     tourDashboard: { type: Boolean, default: true },
     updatedBy: { type: String, default: "" },
+    features: {
+      jobHunt: { type: Boolean, default: false },
+    },
 
     /* AI runtime policy. Kept beside the tour flags because both are operator
        switches on one singleton, but written by saveAiConfig() rather than

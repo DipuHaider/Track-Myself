@@ -8,6 +8,8 @@ export const NOTIFICATION_TYPES = [
   "issue-new",
   "account",
   "ai-key",
+  "deadline",
+  "job-hunt",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -22,6 +24,8 @@ export const TYPE_LABELS: Record<NotificationType, string> = {
   "issue-new": "New reports",
   account: "Account",
   "ai-key": "AI key",
+  deadline: "Deadlines",
+  "job-hunt": "Job hunt",
 };
 
 export const TYPE_HINTS: Record<NotificationType, string> = {
@@ -34,6 +38,8 @@ export const TYPE_HINTS: Record<NotificationType, string> = {
   "issue-new": "New reports from users (staff only).",
   account: "Role, plan and account changes.",
   "ai-key": "Problems with your own AI key.",
+  deadline: "Application deadlines on jobs you have not applied to yet.",
+  "job-hunt": "Your daily job report and leads ready for review.",
 };
 
 export const USER_NOTIFICATION_TYPES: readonly NotificationType[] = NOTIFICATION_TYPES.filter(

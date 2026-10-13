@@ -132,6 +132,13 @@ export function canDo(role: string | null | undefined, action: DashboardAction):
   return (ACTION_ROLES[action] as readonly string[]).includes(role);
 }
 
+/* Job hunt ships to the owner first: superadmin always, premium accounts
+   only once an admin switches the global feature flag on. */
+export function canUseJobHunt(role?: string | null, plan?: string | null, featureOn = false): boolean {
+  if (isSuperAdmin(role)) return true;
+  return featureOn && isPremiumUser(role, plan);
+}
+
 /* Role only: the JWT role is already verified-gated (effectiveRole), so an
    account merely registered under a superadmin address gets nothing here. */
 export function canUseLebenslauf(role?: string | null): boolean {

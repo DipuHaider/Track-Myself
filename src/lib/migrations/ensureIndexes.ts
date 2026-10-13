@@ -7,8 +7,11 @@ import Notification from "@/models/Notification";
 import CVFile from "@/models/CVFile";
 import Todo from "@/models/Todo";
 import IssueReport from "@/models/IssueReport";
+import JobSearch from "@/models/JobSearch";
+import JobLead from "@/models/JobLead";
+import ApiToken from "@/models/ApiToken";
 
-const MODELS = { Application, Interview, Document, User, Notification, CVFile, Todo, IssueReport };
+const MODELS = { Application, Interview, Document, User, Notification, CVFile, Todo, IssueReport, JobSearch, JobLead, ApiToken };
 
 export async function ensureIndexes(): Promise<Record<string, string[]>> {
   await dbConnect();

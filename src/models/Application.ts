@@ -123,6 +123,8 @@ const ApplicationSchema = new Schema(
     postedAgeText: { type: String, default: "" },
     postingObservedAt: { type: Date, default: null },
     postingPrecision: { type: String, enum: ["exact", "approximate"] },
+    deadline: { type: Date, default: null },
+    leadId: { type: Schema.Types.ObjectId, ref: "JobLead", default: null },
 
     statusHistory: {
       type: [

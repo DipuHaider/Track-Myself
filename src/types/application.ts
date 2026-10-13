@@ -29,6 +29,8 @@ export interface Application {
   jobType?: string;
   workplaceType?: string;
   postedAt?: string | Date | null;
+  deadline?: string | Date | null;
+  leadId?: string | null;
   postedAgeText?: string;
   postingObservedAt?: string | Date | null;
   postingPrecision?: "exact" | "approximate";

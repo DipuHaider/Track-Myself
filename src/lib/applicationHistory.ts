@@ -40,7 +40,7 @@ export function initialHistory(status: unknown, actor?: HistoryActor | null): St
    append. If the guard misses, the row moved underneath us and we re-read once. */
 const PROTECTED_FIELDS = new Set([
   "_id", "userId", "createdAt", "updatedAt", "statusHistory", "interviewSeen",
-  "deletedAt", "deletedBy", "deletedByName", "__v",
+  "deletedAt", "deletedBy", "deletedByName", "leadId", "__v",
 ]);
 
 const WRITE_OPTIONS = { new: true, runValidators: true } as const;

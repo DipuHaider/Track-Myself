@@ -44,27 +44,31 @@ function allowlist(): string[] {
    literal IPs, and nothing that resolves to a private, loopback, link-local or
    cloud-metadata address. Resolution is checked on every address the name
    maps to, because one public A record next to one private one is the trick. */
-export async function assertSafeBaseUrl(raw: string): Promise<SafeUrlResult> {
+export async function assertSafeBaseUrl(
+  raw: string,
+  opts: { label?: string; useAllowlist?: boolean } = {},
+): Promise<SafeUrlResult> {
+  const label = opts.label ?? "Base URL";
   let url: URL;
   try {
     url = new URL(raw.trim());
   } catch {
-    return { ok: false, error: "Base URL is not a valid URL." };
+    return { ok: false, error: `${label} is not a valid URL.` };
   }
 
-  if (url.protocol !== "https:") return { ok: false, error: "Base URL must use https." };
-  if (url.username || url.password) return { ok: false, error: "Base URL must not contain credentials." };
-  if (url.port && url.port !== "443") return { ok: false, error: "Base URL must use the default https port." };
+  if (url.protocol !== "https:") return { ok: false, error: `${label} must use https.` };
+  if (url.username || url.password) return { ok: false, error: `${label} must not contain credentials.` };
+  if (url.port && url.port !== "443") return { ok: false, error: `${label} must use the default https port.` };
 
   const host = url.hostname.toLowerCase().replace(/\.$/, "");
   if (!host || net.isIP(host) || host.startsWith("[")) {
-    return { ok: false, error: "Base URL must use a public host name, not an IP address." };
+    return { ok: false, error: `${label} must use a public host name, not an IP address.` };
   }
   if (BLOCKED_HOSTS.test(host) || !host.includes(".")) {
-    return { ok: false, error: "Base URL must be a public host name." };
+    return { ok: false, error: `${label} must be a public host name.` };
   }
 
-  const allowed = allowlist();
+  const allowed = opts.useAllowlist === false ? [] : allowlist();
   if (allowed.length && !allowed.some((a) => host === a || host.endsWith(`.${a}`))) {
     return { ok: false, error: "That provider host is not on this deployment's allowlist." };
   }
@@ -73,10 +77,10 @@ export async function assertSafeBaseUrl(raw: string): Promise<SafeUrlResult> {
   try {
     addresses = await dns.promises.lookup(host, { all: true, verbatim: true });
   } catch {
-    return { ok: false, error: "Base URL host could not be resolved." };
+    return { ok: false, error: `${label} host could not be resolved.` };
   }
   if (!addresses.length || addresses.some((a) => isPrivateAddress(a.address))) {
-    return { ok: false, error: "Base URL must resolve to a public address." };
+    return { ok: false, error: `${label} must resolve to a public address.` };
   }
 
   const path = url.pathname.replace(/\/+$/, "");

@@ -12,6 +12,9 @@ import AiCallLog from "@/models/AiCallLog";
 import AiUsageCounter from "@/models/AiUsageCounter";
 import RateBucket from "@/models/RateBucket";
 import Todo from "@/models/Todo";
+import JobSearch from "@/models/JobSearch";
+import JobLead from "@/models/JobLead";
+import ApiToken from "@/models/ApiToken";
 import User from "@/models/User";
 import { invalidateClaims } from "@/lib/auth";
 
@@ -30,6 +33,9 @@ export type PurgeSummary = {
   aiCalls: number;
   aiCounters: number;
   rateBuckets: number;
+  jobLeads: number;
+  jobSearches: number;
+  apiTokens: number;
   userDeleted: boolean;
   errors: string[];
 };
@@ -47,7 +53,8 @@ export async function purgeUserData(userId: string, email?: string | null): Prom
   const summary: PurgeSummary = {
     applications: 0, interviews: 0, cvFiles: 0, cvProfiles: 0, documents: 0, todos: 0,
     notifications: 0, issueReports: 0, resetTokens: 0, verificationTokens: 0, aiDrafts: 0,
-    aiCalls: 0, aiCounters: 0, rateBuckets: 0, userDeleted: false, errors: [],
+    aiCalls: 0, aiCounters: 0, rateBuckets: 0, jobLeads: 0, jobSearches: 0, apiTokens: 0,
+    userDeleted: false, errors: [],
   };
 
   await User.updateOne(
@@ -74,6 +81,9 @@ export async function purgeUserData(userId: string, email?: string | null): Prom
     ["aiCalls", () => AiCallLog.deleteMany({ userId })],
     ["aiCounters", () => AiUsageCounter.deleteMany({ subject: `user:${userId}` })],
     ["rateBuckets", () => RateBucket.deleteMany({ key: { $regex: escapeRegex(userId) } })],
+    ["jobLeads", () => JobLead.deleteMany({ userId })],
+    ["jobSearches", () => JobSearch.deleteMany({ userId })],
+    ["apiTokens", () => ApiToken.deleteMany({ userId })],
   ];
 
   for (const [name, run] of steps) {

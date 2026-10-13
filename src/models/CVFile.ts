@@ -29,6 +29,7 @@ const CVFileSchema = new Schema(
     genDocType: { type: String, default: "" },
     genOutput:  { type: String, default: "" },
     genFor:     { type: String, default: "" },
+    applicationId: { type: String, default: "", index: true },
 
     /* The content this document was built from, so it can be re-rendered or edited
        later without guessing. Photo is stripped — a data URI would dwarf the row. */

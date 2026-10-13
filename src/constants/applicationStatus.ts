@@ -63,6 +63,7 @@ export const PLATFORMS = [
   "Facebook Page",
   "Facebook Group",
   "Xing",
+  "StepStone",
   "Referral",
   "Other",
 ] as const;

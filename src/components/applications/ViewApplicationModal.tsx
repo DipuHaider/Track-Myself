@@ -128,6 +128,7 @@ export default function ViewApplicationModal({
           <Row label="Documents provided" value={documents} />
           <Row label="Applied" value={formatDateTime(application.appliedDate)} />
           <Row label="Follow Up" value={formatDate(application.followUpDate)} />
+          <Row label="Deadline" value={application.deadline ? formatDate(application.deadline) : ""} />
         </div>
 
         {application.responseNote && (

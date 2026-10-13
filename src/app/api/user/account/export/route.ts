@@ -11,6 +11,9 @@ import IssueReport from "@/models/IssueReport";
 import CVProfile from "@/models/CVProfile";
 import CVFile from "@/models/CVFile";
 import Document from "@/models/Document";
+import JobSearch from "@/models/JobSearch";
+import JobLead from "@/models/JobLead";
+import ApiToken from "@/models/ApiToken";
 import { requireAuth } from "@/lib/serverAuth";
 import { checkRateLimitDb } from "@/lib/rateLimitStore";
 import { tooMany } from "@/lib/api/respond";
@@ -29,7 +32,7 @@ export async function GET() {
   await dbConnect();
   const userId = auth.id;
 
-  const [user, applications, todos, notifications, issues, cvProfile, cvFiles, documents] = await Promise.all([
+  const [user, applications, todos, notifications, issues, cvProfile, cvFiles, documents, jobSearches, jobLeads, apiTokens] = await Promise.all([
     User.findById(userId, USER_PROFILE_SELECT).lean(),
     Application.find({ userId }).setOptions({ withDeleted: true }).sort({ createdAt: -1 }).lean(),
     Todo.find({ userId }).lean(),
@@ -38,6 +41,9 @@ export async function GET() {
     CVProfile.findOne({ userId }, { uploadedFiles: 0 }).lean(),
     CVFile.find({ userId }, { data: 0, genContent: 0 }).lean(),
     Document.find({ userId }, { data: 0 }).lean(),
+    JobSearch.find({ userId }).lean(),
+    JobLead.find({ userId }).lean(),
+    ApiToken.find({ userId }, { hash: 0 }).lean(),
   ]);
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -56,6 +62,9 @@ export async function GET() {
     cvProfile,
     cvFiles,
     attachments: documents,
+    jobSearches,
+    jobLeads,
+    apiTokens,
   };
 
   const stamp = new Date().toISOString().slice(0, 10);

@@ -5,10 +5,12 @@ import type { TourScope } from "@/lib/tour";
 
 export type AppFeatureSettings = {
   tours: Record<TourScope, boolean>;
+  features: { jobHunt: boolean };
 };
 
 export const APP_SETTINGS_DEFAULTS: AppFeatureSettings = {
   tours: { home: true, portal: true, dashboard: true },
+  features: { jobHunt: false },
 };
 
 const FIELD: Record<TourScope, "tourHome" | "tourPortal" | "tourDashboard"> = {
@@ -31,7 +33,10 @@ export async function getAppSettings(): Promise<AppFeatureSettings> {
   try {
     await dbConnect();
     const doc = (await AppSettings.findOne({ key: "default" }).lean()) as
-      | { tourEnabled?: boolean; tourHome?: boolean; tourPortal?: boolean; tourDashboard?: boolean }
+      | {
+          tourEnabled?: boolean; tourHome?: boolean; tourPortal?: boolean; tourDashboard?: boolean;
+          features?: { jobHunt?: boolean };
+        }
       | null;
 
     /* A doc written before the split only has tourEnabled; honour it as the
@@ -43,6 +48,7 @@ export async function getAppSettings(): Promise<AppFeatureSettings> {
         portal: doc?.tourPortal ?? legacy,
         dashboard: doc?.tourDashboard ?? legacy,
       },
+      features: { jobHunt: doc?.features?.jobHunt === true },
     };
     cached = { value, at: Date.now() };
     return value;
@@ -52,7 +58,7 @@ export async function getAppSettings(): Promise<AppFeatureSettings> {
 }
 
 export async function saveAppSettings(
-  patch: Partial<Record<TourScope, boolean>>,
+  patch: Partial<Record<TourScope, boolean>> & { jobHunt?: boolean },
   updatedBy: string,
 ): Promise<AppFeatureSettings> {
   await dbConnect();
@@ -61,6 +67,7 @@ export async function saveAppSettings(
   for (const scope of Object.keys(FIELD) as TourScope[]) {
     if (typeof patch[scope] === "boolean") update[FIELD[scope]] = patch[scope];
   }
+  if (typeof patch.jobHunt === "boolean") update["features.jobHunt"] = patch.jobHunt;
 
   await AppSettings.findOneAndUpdate({ key: "default" }, update, {
     new: true,

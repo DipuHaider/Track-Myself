@@ -14,11 +14,13 @@ function daysBetween(from: Date, to: Date) {
 const TERMINAL_STATUSES: readonly string[] = ["Offer Received", "Rejected"];
 const FOLLOW_UP_LEAD_DAYS = 1;
 const FOLLOW_UP_GRACE_DAYS = 14;
+const DEADLINE_LEAD_DAYS = 2;
+const PRE_APPLY_STATUSES: readonly string[] = ["Wishlist", "Not Completed"];
 
 /* Exactly the fields the rules below read. The list used to come down with
    every field including the job description, sixty seconds apart, per tab. */
 export const DERIVE_PROJECTION =
-  "companyName jobTitle jobPostUrl applicationStatus appliedDate createdAt followUpDate contacts.name";
+  "companyName jobTitle jobPostUrl applicationStatus appliedDate createdAt followUpDate deadline contacts.name";
 
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -84,6 +86,22 @@ export function deriveItems({ apps, todos, interviews, now = new Date() }: Deriv
           body: `${app.companyName} — ${app.jobTitle}${contact ? ` (${contact})` : ""}.`,
           href: appHref(id),
           createdAt: new Date(app.followUpDate).toISOString(),
+          read: false,
+        });
+      }
+    }
+
+    if (app.deadline && PRE_APPLY_STATUSES.includes(app.applicationStatus)) {
+      const days = daysBetween(startOfDay(now), startOfDay(new Date(app.deadline)));
+      if (days >= 0 && days <= DEADLINE_LEAD_DAYS) {
+        items.push({
+          id: `deadline:${id}:${new Date(app.deadline).toISOString().slice(0, 10)}`,
+          kind: "derived",
+          type: "deadline",
+          title: `Deadline ${whenLabel(days)}`,
+          body: `${app.companyName} — ${app.jobTitle} closes ${whenLabel(days)} and is not submitted yet.`,
+          href: appHref(id),
+          createdAt: new Date(now.getTime() - (DEADLINE_LEAD_DAYS - days) * 3_600_000).toISOString(),
           read: false,
         });
       }

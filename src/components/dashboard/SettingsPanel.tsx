@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Compass, Database, Loader2, Play, Shield, XCircle } from "lucide-react";
+import { AlertTriangle, Briefcase, CheckCircle2, Compass, Database, Loader2, Play, Shield, XCircle } from "lucide-react";
 import { PLAN_LABELS, ROLE_LABELS, type Plan, type Role } from "@/lib/permissions";
 import { TOUR_DESCRIPTIONS, TOUR_LABELS, TOUR_SCOPES, type TourScope } from "@/lib/tour";
 import AiBudgetPanel from "@/components/dashboard/AiBudgetPanel";
@@ -131,6 +131,66 @@ function FeatureToggles() {
   );
 }
 
+function JobHuntToggle() {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setOn(d?.features?.jobHunt === true))
+      .catch(() => setOn(false));
+  }, []);
+
+  const toggle = async () => {
+    if (on === null || saving) return;
+    const next = !on;
+    setSaving(true);
+    setOn(next);
+    try {
+      await apiFetch("/api/admin/settings", { method: "PUT", json: { features: { jobHunt: next } } });
+      toast.success(`Job hunt ${next ? "opened to premium accounts" : "limited to superadmin"}`);
+    } catch (err) {
+      setOn(!next);
+      toast.error(err instanceof Error ? err.message : "Could not save that setting.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="surface rounded-xl border p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="mb-1 flex items-center gap-2 font-semibold">
+            <Briefcase size={16} aria-hidden="true" />
+            Job hunt for premium accounts
+          </h3>
+          <p className="text-muted text-xs">
+            Daily job search, prepared CVs and cover letters, assisted apply and the daily report.
+            Superadmin always has it; this switch opens it to premium accounts.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on === true}
+          aria-label="Job hunt for premium accounts"
+          onClick={toggle}
+          disabled={on === null || saving}
+          className="relative h-6 w-11 shrink-0 rounded-full border transition disabled:opacity-50"
+          style={{ background: on ? "var(--primary)" : "var(--surface-2)", borderColor: on ? "var(--primary)" : "var(--border)" }}
+        >
+          <span
+            className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all"
+            style={{ left: on ? "1.5rem" : "0.2rem" }}
+          />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CountRow({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="flex items-center justify-between border-b py-2 last:border-b-0">
@@ -213,6 +273,7 @@ export default function SettingsPanel({ isSuperAdmin }: { isSuperAdmin: boolean 
   return (
     <div className="space-y-6">
       <FeatureToggles />
+      <JobHuntToggle />
       <AiBudgetPanel />
 
       <section className="grid gap-4 lg:grid-cols-2">
