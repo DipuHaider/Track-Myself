@@ -92,6 +92,9 @@ export default function ViewApplicationModal({
     .join(", ");
   const contacts = (application.contacts ?? []).filter((c) => c.name || c.email || c.phone);
   const appliedVia = [application.submissionMethod, application.submissionDetail].filter(Boolean).join(" — ");
+  const appliedLink = application.submissionDetail && /^https?:\/\/\S+$/i.test(application.submissionDetail)
+    ? application.submissionDetail
+    : "";
   const links = [application.jobPostUrl, ...(application.additionalJobPostUrls ?? [])]
     .filter((u): u is string => Boolean(u && /^https?:\/\//i.test(u)));
 
@@ -118,7 +121,19 @@ export default function ViewApplicationModal({
           <Row label="Posted" value={postedLabel(application)} />
           <Row label="Priority" value={application.priority} />
           {!contacts.length && <Row label="Contact Number" value={application.contactNumber} />}
-          <Row label="Applied through" value={appliedVia} />
+          {appliedLink ? (
+            <div>
+              <p className="text-muted text-xs">Applied through</p>
+              <p className="mt-0.5 text-sm font-medium">
+                {application.submissionMethod} —{" "}
+                <a href={appliedLink} target="_blank" rel="noreferrer" className="text-primary break-all hover:underline">
+                  {appliedLink}
+                </a>
+              </p>
+            </div>
+          ) : (
+            <Row label="Applied through" value={appliedVia} />
+          )}
           <Row
             label={application.applicationStatus === OFFER_RECEIVED_STATUS ? "Offer status" : "Feedback"}
             value={responseOptionsFor(application.applicationStatus).includes(application.responseStatus ?? "")

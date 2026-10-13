@@ -17,6 +17,7 @@ const STATUS_CLS: Record<string, string> = {
   "Active - Cultural Fit": "status-active",
   "Offer Received":        "status-offer",
   "Rejected":              "status-rejected",
+  "Withdrawn":             "status-withdrawn",
 };
 
 const PRIORITY_CLS: Record<string, string> = {

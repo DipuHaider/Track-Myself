@@ -1,4 +1,4 @@
-import { DEFAULT_APPLICATION_STATUS, NOT_APPLIED_STATUSES } from "@/constants/applicationStatus";
+import { CLOSED_STATUSES, DEFAULT_APPLICATION_STATUS, NOT_APPLIED_STATUSES } from "@/constants/applicationStatus";
 import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
 import { fence } from "@/lib/ai/prompt";
 import { triageSuggestionsSchema } from "@/lib/ai/schemas";
@@ -29,7 +29,7 @@ export type TriageRow = {
 /* Nothing here reads a status string literally — they come from the record, and
    the two terminal outcomes are named by comparison against what the row
    actually holds. */
-const TERMINAL = new Set(["Offer Received", "Rejected"]);
+const TERMINAL = new Set(CLOSED_STATUSES);
 
 const SILENT_DAYS = 14;
 const WISHLIST_STALE_DAYS = 21;

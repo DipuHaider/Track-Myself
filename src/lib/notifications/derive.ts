@@ -1,4 +1,5 @@
 import dbConnect from "@/lib/db";
+import { CLOSED_STATUSES } from "@/constants/applicationStatus";
 import Application from "@/models/Application";
 import Interview from "@/models/Interview";
 import Todo from "@/models/Todo";
@@ -11,7 +12,7 @@ function daysBetween(from: Date, to: Date) {
   return Math.round((to.getTime() - from.getTime()) / 86_400_000);
 }
 
-const TERMINAL_STATUSES: readonly string[] = ["Offer Received", "Rejected"];
+const TERMINAL_STATUSES: readonly string[] = CLOSED_STATUSES;
 const FOLLOW_UP_LEAD_DAYS = 1;
 const FOLLOW_UP_GRACE_DAYS = 14;
 const DEADLINE_LEAD_DAYS = 2;

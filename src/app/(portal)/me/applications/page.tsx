@@ -18,7 +18,8 @@ import {
   APPLICATION_FLAGS, APPLICATION_SORTS, FLAG_LABELS, PRIORITIES, SORT_LABELS, type ApplicationFlag, type ApplicationSort,
 } from "@/lib/applicationQuery";
 import type { DuplicateKind } from "@/lib/applicationFlags";
-import { APPLICATION_STATUSES, JOB_TYPES } from "@/constants/applicationStatus";
+import { JOB_TYPES } from "@/constants/applicationStatus";
+import StatusOptions from "@/components/applications/StatusOptions";
 import type { Application } from "@/types/application";
 
 const SELECT = "surface rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]";
@@ -187,7 +188,7 @@ function PortalApplicationsContent() {
           className={`${SELECT} ${filters.status ? "border-[var(--primary)]" : ""}`}
         >
           <option value="">All Statuses</option>
-          {APPLICATION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          <StatusOptions />
         </select>
 
         <select

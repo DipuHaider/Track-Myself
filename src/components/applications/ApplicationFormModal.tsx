@@ -11,7 +11,8 @@ import {
 } from "@/lib/salaryExpectation";
 import Modal from "@/components/shared/Modal";
 import {
-  APPLICATION_STATUSES, CONTACT_FIRST_METHODS, CONTACT_ROLES, DEFAULT_DOCUMENT_FORMAT, DOCUMENT_FORMATS,
+  ACTIVE_GROUP, ACTIVE_STAGES, MAIN_STATUSES, SUBMISSION_LINK_METHODS, SUBMITTED_STATUS, composeStatus, mainStatusOf, stageOf,
+  CONTACT_FIRST_METHODS, CONTACT_ROLES, DEFAULT_DOCUMENT_FORMAT, DOCUMENT_FORMATS,
   FACEBOOK_PLATFORMS, JOB_TYPES, MAX_CONTACTS, MAX_JOB_POST_URLS, PLATFORMS, PROVIDED_DOCUMENTS, SUBMISSION_DETAIL_HINTS,
   OFFER_RECEIVED_STATUS, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, WARM_LEAD_FEEDBACK, responseOptionsFor,
   joinJobTypes, parseJobTypes,
@@ -434,6 +435,9 @@ export default function ApplicationFormModal({
   const removeContact = (i: number) =>
     setForm((f) => ({ ...f, contacts: f.contacts.filter((_, j) => j !== i) }));
 
+  const mainStatus = mainStatusOf(form.applicationStatus);
+  const isLinkMethod = SUBMISSION_LINK_METHODS.has(form.submissionMethod);
+
   const handleSubmissionMethod = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const method = e.target.value;
     setForm((f) => ({
@@ -609,6 +613,42 @@ export default function ApplicationFormModal({
   const fbDetailPlaceholder =
     form.platform === "Facebook Page" ? "e.g. Tech Jobs BD" : "e.g. Remote Jobs Group";
 
+  const submissionMethodField = (
+    <Field label={mainStatus === SUBMITTED_STATUS ? "Submitted via" : "Applied through"}>
+      {(id) => (
+        <select id={id} className={inputCls} value={form.submissionMethod} onChange={handleSubmissionMethod}>
+          <option value="">—</option>
+          {SUBMISSION_METHODS.map((m) => (
+            <option key={m}>{m}</option>
+          ))}
+        </select>
+      )}
+    </Field>
+  );
+
+  const submissionDetailField = SUBMISSION_DETAIL_METHODS.has(form.submissionMethod) ? (
+    <Field label={isLinkMethod ? "Application link" : "Where / how"}>
+      {(id) => (
+        <input
+          id={id}
+          type={isLinkMethod ? "url" : "text"}
+          className={inputCls}
+          maxLength={300}
+          placeholder={SUBMISSION_DETAIL_HINTS[form.submissionMethod] ?? ""}
+          value={form.submissionDetail}
+          onChange={set("submissionDetail")}
+        />
+      )}
+    </Field>
+  ) : null;
+
+  const submissionFields = (
+    <>
+      {submissionMethodField}
+      {submissionDetailField}
+    </>
+  );
+
   return (
     <Modal open={open} onClose={onClose} title={title} onRequestClose={() => !dirty || confirmDiscard()}>
       <form onSubmit={save}>
@@ -648,11 +688,14 @@ export default function ApplicationFormModal({
                 <select
                   id={id}
                   className={inputCls}
-                  value={form.applicationStatus}
-                  onChange={set("applicationStatus")}
+                  value={mainStatus}
+                  onChange={(e) => {
+                    const main = e.target.value;
+                    setForm((f) => ({ ...f, applicationStatus: composeStatus(main, stageOf(f.applicationStatus)) }));
+                  }}
                 >
-                  {APPLICATION_STATUSES.map((s) => (
-                    <option key={s}>{s}</option>
+                  {MAIN_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s === ACTIVE_GROUP ? "Active (in process)" : s}</option>
                   ))}
                 </select>
               )}
@@ -668,6 +711,34 @@ export default function ApplicationFormModal({
               )}
             </Field>
           </div>
+
+          {mainStatus === ACTIVE_GROUP && (
+            <div className="surface-muted rounded-md border p-3">
+              <Field label="Stage">
+                {(id) => (
+                  <select
+                    id={id}
+                    className={inputCls}
+                    value={stageOf(form.applicationStatus)}
+                    onChange={(e) => {
+                      const stage = e.target.value;
+                      setForm((f) => ({ ...f, applicationStatus: composeStatus(ACTIVE_GROUP, stage) }));
+                    }}
+                  >
+                    {ACTIVE_STAGES.map((st) => (
+                      <option key={st} value={st}>{st}</option>
+                    ))}
+                  </select>
+                )}
+              </Field>
+            </div>
+          )}
+
+          {mainStatus === SUBMITTED_STATUS && (
+            <div className="surface-muted space-y-2 rounded-md border p-3">
+              {submissionFields}
+            </div>
+          )}
 
           {responseOptions.length > 0 && (
             <div className="surface-muted space-y-2 rounded-md border p-3">
@@ -1027,32 +1098,10 @@ export default function ApplicationFormModal({
                 </select>
               )}
             </Field>
-            <Field label="Applied through">
-              {(id) => (
-                <select id={id} className={inputCls} value={form.submissionMethod} onChange={handleSubmissionMethod}>
-                  <option value="">—</option>
-                  {SUBMISSION_METHODS.map((m) => (
-                    <option key={m}>{m}</option>
-                  ))}
-                </select>
-              )}
-            </Field>
+            {mainStatus !== SUBMITTED_STATUS && submissionMethodField}
           </div>
 
-          {SUBMISSION_DETAIL_METHODS.has(form.submissionMethod) && (
-            <Field label="Where / how">
-              {(id) => (
-                <input
-                  id={id}
-                  className={inputCls}
-                  maxLength={300}
-                  placeholder={SUBMISSION_DETAIL_HINTS[form.submissionMethod] ?? ""}
-                  value={form.submissionDetail}
-                  onChange={set("submissionDetail")}
-                />
-              )}
-            </Field>
-          )}
+          {mainStatus !== SUBMITTED_STATUS && submissionDetailField}
 
           {/* Row 7 — dates */}
           <div className="grid grid-cols-2 gap-3">

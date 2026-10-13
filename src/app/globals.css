@@ -343,6 +343,7 @@ select optgroup {
 .status-active    { background: #ede9fe; color: #7c3aed; }
 .status-offer     { background: #dcfce7; color: #166534; }
 .status-rejected  { background: #fee2e2; color: #b91c1c; }
+.status-withdrawn { background: #e5e7eb; color: #4b5563; }
 
 :root[data-theme="dark"] .status-not-completed { background: #331400; color: #fdba74; }
 :root[data-theme="dark"] .status-submitted { background: #0d1f3b; color: #93c5fd; }
@@ -351,6 +352,7 @@ select optgroup {
 :root[data-theme="dark"] .status-active    { background: #1e0a3b; color: #c4b5fd; }
 :root[data-theme="dark"] .status-offer     { background: #052e16; color: #86efac; }
 :root[data-theme="dark"] .status-rejected  { background: #3b0d0d; color: #fca5a5; }
+:root[data-theme="dark"] .status-withdrawn { background: #27272a; color: #a1a1aa; }
 
 /* Job type badge */
 .job-type { background: var(--surface-2); color: var(--muted-foreground); }

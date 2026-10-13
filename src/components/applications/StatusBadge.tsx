@@ -10,6 +10,7 @@ export const STATUS_CLASS: Record<string, string> = {
   "Active - Cultural Fit": "status-active",
   "Offer Received":        "status-offer",
   "Rejected":              "status-rejected",
+  "Withdrawn":             "status-withdrawn",
 };
 
 export default function StatusBadge({ status }: { status: string }) {

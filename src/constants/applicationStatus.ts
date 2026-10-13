@@ -10,7 +10,37 @@ export const APPLICATION_STATUSES = [
   "Active - Cultural Fit",
   "Offer Received",
   "Rejected",
+  "Withdrawn",
 ] as const;
+
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
+/* The form shows statuses in two levels: a main status, and for the in-process and
+   submitted ones a second list (interview stage, or how it was sent). The stored
+   value stays the flat string, so filters, analytics and history are unchanged. */
+export const ACTIVE_PREFIX = "Active - ";
+export const ACTIVE_GROUP = "Active" as const;
+
+export const ACTIVE_STAGES = APPLICATION_STATUSES
+  .filter((s) => s.startsWith(ACTIVE_PREFIX))
+  .map((s) => s.slice(ACTIVE_PREFIX.length));
+
+export const MAIN_STATUSES: string[] = [
+  ...new Set(APPLICATION_STATUSES.map((s) => (s.startsWith(ACTIVE_PREFIX) ? ACTIVE_GROUP : s))),
+];
+
+export function mainStatusOf(status: string): string {
+  return status.startsWith(ACTIVE_PREFIX) ? ACTIVE_GROUP : status;
+}
+
+export function stageOf(status: string): string {
+  return status.startsWith(ACTIVE_PREFIX) ? status.slice(ACTIVE_PREFIX.length) : "";
+}
+
+export function composeStatus(main: string, stage = ""): string {
+  if (main !== ACTIVE_GROUP) return main;
+  return `${ACTIVE_PREFIX}${ACTIVE_STAGES.includes(stage) ? stage : ACTIVE_STAGES[0]}`;
+}
 
 /* What a newly captured job starts as. Named rather than positional so the list
    can be reordered without silently changing what the extension saves. */
@@ -25,6 +55,12 @@ export const NOT_APPLIED_STATUSES: readonly string[] = [DEFAULT_APPLICATION_STAT
 export const GHOST_STATUSES: readonly string[] = [...NOT_APPLIED_STATUSES, SUBMITTED_STATUS, "No Response"];
 
 export const REJECTED_STATUS = "Rejected" as const;
+
+export const WITHDRAWN_STATUS = "Withdrawn" as const;
+
+/* Finished applications: no follow-ups, no reminders. Withdrawn is the candidate's
+   own decision, so it never counts as a reply from the employer. */
+export const CLOSED_STATUSES: readonly string[] = ["Offer Received", REJECTED_STATUS, WITHDRAWN_STATUS];
 
 export const REJECTION_FEEDBACK = [
   "No reason given",
@@ -82,10 +118,23 @@ export const SUBMISSION_METHODS = [
   "Postal Mail",
   "Job Fair / Event",
   "Message / Call",
+  "LinkedIn Message",
+  "CV Drop",
+  "Hand to Hand",
+  "Passed On by Contact",
   "Other",
 ] as const;
 
+export const SUBMISSION_LINK_METHODS: ReadonlySet<string> = new Set([
+  "Online / Job Portal",
+  "Company Application Form",
+]);
+
 export const SUBMISSION_DETAIL_METHODS: ReadonlySet<string> = new Set([
+  ...SUBMISSION_LINK_METHODS,
+  "CV Drop",
+  "Hand to Hand",
+  "Passed On by Contact",
   "In Person",
   "Postal Mail",
   "Job Fair / Event",
@@ -94,6 +143,11 @@ export const SUBMISSION_DETAIL_METHODS: ReadonlySet<string> = new Set([
 ]);
 
 export const SUBMISSION_DETAIL_HINTS: Record<string, string> = {
+  "Online / Job Portal": "https://… link to the portal or your application page",
+  "Company Application Form": "https://… link to the company's application form",
+  "CV Drop": "e.g. Dropped at the reception, or the company's CV drop box / talent pool",
+  "Hand to Hand": "e.g. Handed to the hiring manager at the office",
+  "Passed On by Contact": "e.g. Passed to the team lead by Anna Weber",
   "In Person": "e.g. Hard copy handed to HR, or CV dropped at reception, Hauptstr. 5",
   "Postal Mail": "e.g. Posted to HR, Musterstr. 1, 10115 Berlin",
   "Job Fair / Event": "e.g. Spoke at the Acme booth, Berlin Tech Job Fair",
@@ -106,6 +160,8 @@ export const CONTACT_FIRST_METHODS: ReadonlySet<string> = new Set([
   "Referred by Contact",
   "Recruitment Agency",
   "Message / Call",
+  "LinkedIn Message",
+  "Passed On by Contact",
 ]);
 
 export const PROVIDED_DOCUMENTS = [

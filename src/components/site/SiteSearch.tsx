@@ -27,6 +27,7 @@ const STATUS_COLOR: Record<string, string> = {
   "Interview Scheduled": "status-interview",
   "Offer Received": "status-offer",
   "Rejected": "status-rejected",
+  "Withdrawn": "status-withdrawn",
 };
 
 const GROUP_ICON: Record<SearchGroupKey, React.ReactNode> = {

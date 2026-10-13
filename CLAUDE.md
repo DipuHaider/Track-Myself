@@ -203,8 +203,12 @@ Provider-agnostic: `BillingProvider` interface, `manual` provider, `applyBilling
 ```
 "Wishlist" | "Not Completed" | "Submitted" | "No Response" | "Interview Scheduled" |
 "Active - Written" | "Active - HR" | "Active - Technical" | "Active - Cultural Fit" |
-"Offer Received" | "Rejected"
+"Offer Received" | "Rejected" | "Withdrawn"
 ```
+
+The form shows these in two levels (`MAIN_STATUSES`, `ACTIVE_STAGES`, `composeStatus`): "Active" with a
+Stage list, and "Submitted" with a "Submitted via" list (`SUBMISSION_METHODS`; link methods store the URL in
+`submissionDetail`). The stored value stays the flat string. `CLOSED_STATUSES` = offer, rejected, withdrawn.
 
 Ghost job = 45+ days in Wishlist/Not Completed/Submitted/No Response (`src/lib/applicationFlags.ts`).
 

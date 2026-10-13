@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import {
   Ban, BellRing, CalendarClock, CircleDashed, Clock, Code, FileText, Flag, Heart, HeartHandshake, MessageSquareText,
-  PenLine, PartyPopper, Send, Star, Trophy, Users, XCircle,
+  PenLine, PartyPopper, Send, Star, Trophy, Undo2, Users, XCircle,
 } from "lucide-react";
 import { STATUS_CLASS } from "@/components/applications/StatusBadge";
 import { INTERVIEW_STATUS_CLASS } from "@/components/applications/InterviewRounds";
@@ -23,6 +23,7 @@ const STATUS_ICON: Record<string, ReactNode> = {
   "Active - Cultural Fit": <HeartHandshake size={14} />,
   "Offer Received":        <Trophy size={14} />,
   "Rejected":              <XCircle size={14} />,
+  "Withdrawn":             <Undo2 size={14} />,
 };
 
 type Step = {

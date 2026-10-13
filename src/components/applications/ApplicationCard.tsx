@@ -2,7 +2,8 @@
 
 import { AlertTriangle, ChevronDown, Eye, Ghost, Pencil, Star, Trash2 } from "lucide-react";
 import type { Application } from "@/types/application";
-import { APPLICATION_STATUSES, parseJobTypes } from "@/constants/applicationStatus";
+import { parseJobTypes } from "@/constants/applicationStatus";
+import StatusOptions from "@/components/applications/StatusOptions";
 import { formatLocation } from "@/lib/applicationLocation";
 import { formatSalary } from "@/lib/salary";
 import { isPossibleGhost, postingAge, type DuplicateKind } from "@/lib/applicationFlags";
@@ -120,9 +121,7 @@ export function StatusSelect({ app, handlers }: { app: Application; handlers: Ro
         onChange={(e) => handlers.onChange?.("applicationStatus", e.target.value)}
         className={`role-badge cursor-pointer appearance-none whitespace-nowrap pr-5 transition-opacity ${cls} ${saving ? "opacity-40" : ""}`}
       >
-        {APPLICATION_STATUSES.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
+        <StatusOptions />
       </select>
       <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50" aria-hidden="true" />
     </div>

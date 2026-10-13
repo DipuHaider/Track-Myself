@@ -9,7 +9,7 @@ const PLATFORMS = ["linkedin", "xing", "stepstone", "other"] as const;
 const APPLICATION_STATUSES = [
   "Wishlist", "Not Completed", "Submitted", "No Response", "Interview Scheduled",
   "Active - Written", "Active - HR", "Active - Technical", "Active - Cultural Fit",
-  "Offer Received", "Rejected",
+  "Offer Received", "Rejected", "Withdrawn",
 ] as const;
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
