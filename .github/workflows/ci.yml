@@ -126,6 +126,44 @@ jobs:
           path: ext-package
           if-no-files-found: error
 
+  mcp:
+    name: MCP server
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mcp-server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+
+      # Start the server over stdio and check it answers initialize and lists
+      # its tools; a broken SDK upgrade fails here rather than in a client.
+      - name: Handshake
+        env:
+          TRACKMYSELF_TOKEN: tm_pat_ci
+          TRACKMYSELF_URL: http://localhost:3000
+        run: |
+          printf '%s\n%s\n%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | timeout 15 node dist/index.js > out.jsonl || true
+          node -e '
+            const lines = require("fs").readFileSync("out.jsonl", "utf8").trim().split("\n").map(JSON.parse);
+            const tools = lines.find(l => l.id === 2)?.result?.tools ?? [];
+            console.log(tools.map(t => t.name).join(", "));
+            if (tools.length < 10) process.exit(1);
+          '
+
   test-db:
     name: Database-backed tests
     runs-on: ubuntu-latest

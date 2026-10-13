@@ -1,0 +1,27 @@
+{
+  "name": "trackmyself-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server that lets Claude work your TrackMyself job hunt through the /api/v1 automation API.",
+  "type": "module",
+  "bin": {
+    "trackmyself-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "typecheck": "tsc -p . --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3"
+  }
+}

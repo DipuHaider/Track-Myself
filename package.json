@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:db": "cross-env VITEST_DB=1 vitest run --config vitest.db.config.ts",
-    "typecheck:ext": "npm --prefix browser-extension run typecheck"
+    "typecheck:ext": "npm --prefix browser-extension run typecheck",
+    "typecheck:mcp": "npm --prefix mcp-server run typecheck"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

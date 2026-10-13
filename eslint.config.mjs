@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "mcp-server/dist/**",
+    "mcp-server/node_modules/**",
   ]),
 
   /* Every provider call has to go through the gateway, which is what applies

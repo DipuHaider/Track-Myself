@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
-    exclude: ["**/node_modules/**", "**/.next/**", "browser-extension/**"],
+    exclude: ["**/node_modules/**", "**/.next/**", "browser-extension/**", "mcp-server/**"],
     setupFiles: ["./vitest.setup.ts"],
     clearMocks: true,
   },
