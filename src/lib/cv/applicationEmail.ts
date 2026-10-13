@@ -4,7 +4,7 @@ import { postingTerms } from "@/lib/ai/jobFit";
 import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
 import { fence } from "@/lib/ai/prompt";
 import { applicationEmailSchema } from "@/lib/ai/schemas";
-import { greetingFor, pickProjects, roleParts, sentence } from "@/lib/cv/coverLetter";
+import { greetingFor, introPhrase, pickProjects, roleParts, sentence, yearsOfExperience } from "@/lib/cv/coverLetter";
 import type { AICredential } from "@/lib/cv/ai/provider";
 
 export type ApplicationEmail = { subject: string; body: string };
@@ -63,8 +63,8 @@ export function draftApplicationEmail(c: CVContent, info: AppInfo): ApplicationE
     ? [...best.bullets].filter(Boolean).sort((a, b) => (terms.size ? overlap(b, terms) - overlap(a, terms) : 0)).map(sentence)[0]
     : "";
 
-  const who = c.positioning || latest?.title || c.gradeTitle || "";
-  const intro = who ? `I am ${/^[aeiou]/i.test(who) ? "an" : "a"} ${who}${latest?.company ? ` at ${latest.company}` : ""}.` : "";
+  const who = introPhrase(c, info.jobTitle);
+  const intro = who ? `I am ${who}${latest?.company ? `, currently at ${latest.company}` : ""}.` : "";
   const proof = !bullet || !best
     ? ""
     : best === latest && latest.company
@@ -96,7 +96,8 @@ export function draftApplicationEmail(c: CVContent, info: AppInfo): ApplicationE
 function cvForPrompt(c: CVContent): string {
   return [
     `Name: ${c.name}`,
-    c.positioning && `Positioning: ${c.positioning}`,
+    c.positioning && `Headline: ${c.positioning}`,
+    yearsOfExperience(c) > 0 && `Years of experience: ${yearsOfExperience(c)}`,
     c.summary && `Summary: ${c.summary}`,
     c.skills.length && `Skills: ${c.skills.map((g) => `${g.label}: ${g.items}`).join(" | ")}`,
     ...c.experience.slice(0, 4).map((e) => {
@@ -127,6 +128,7 @@ export function buildEmailPrompt(c: CVContent, info: AppInfo, correction = ""): 
     "- Subject: under 90 characters, in the form \"Application for <role> – <name>\", adding the reference number if the posting gives one.",
     "- 90-170 words before the signature. No markdown, no placeholders such as [Name].",
     "- Use only facts from the CV. Never invent employers, numbers, links, degrees or skills.",
+    "- Introduce the candidate with the job title from the CV that best fits this posting and their years of experience. Do not copy the CV headline word for word.",
     "- A short, specific covering email; do not repeat the cover letter.",
     "- Avoid: \"I am writing to\", \"passionate\", \"proven track record\", \"dynamic team\", \"I am confident\", \"strong fit\".",
     "- Write in the same language as the job posting.",

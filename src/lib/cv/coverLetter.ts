@@ -99,8 +99,39 @@ export function pickProjects(c: CVContent, posting: string, max = 4): string[] {
   return ranked.slice(0, max).map(projectLine).map((l) => l.slice(0, MAX_PROJECT_LINE));
 }
 
-function aOrAn(word: string): string {
+export function aOrAn(word: string): string {
   return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
+export function yearsOfExperience(c: CVContent, now = new Date()): number {
+  const years = c.experience.flatMap((e) => (e.dates.match(/\b(19|20)\d{2}\b/g) ?? []).map(Number));
+  if (!years.length) return 0;
+  return Math.max(0, now.getFullYear() - Math.min(...years));
+}
+
+/* A long CV headline ("X – Cloud & Web Applications") repeated in every letter
+   reads as boilerplate. Introduce the candidate with the core of the headline or
+   whichever of their real job titles is closest to the role applied for. */
+export function introTitle(c: CVContent, jobTitle: string): string {
+  const core = c.positioning.split(/\s+[-–—|·]\s+|\s*\|\s*/)[0].trim();
+  const target = words(jobTitle);
+  const options = [core, ...c.experience.map((e) => roleParts(e).title)]
+    .map((t) => t.trim())
+    .filter((t) => t && t.length <= 60);
+  let best = options[0] ?? c.gradeTitle;
+  let bestScore = 0;
+  for (const t of options) {
+    const score = [...words(t)].filter((w) => target.has(w)).length;
+    if (score > bestScore) { best = t; bestScore = score; }
+  }
+  return best ?? "";
+}
+
+export function introPhrase(c: CVContent, jobTitle: string): string {
+  const title = introTitle(c, jobTitle);
+  const years = yearsOfExperience(c);
+  if (!title) return years ? `a developer with ${years} years of experience` : "";
+  return `${aOrAn(title)} ${title}${years >= 2 ? ` with ${years} years of experience` : ""}`;
 }
 
 export function draftCoverLetter(c: CVContent, info: AppInfo): CoverLetterText {
@@ -122,7 +153,7 @@ export function draftCoverLetter(c: CVContent, info: AppInfo): CoverLetterText {
   const featured = ranked.slice(0, 2).sort((a, b) => a.i - b.i);
   const latest = roles[0];
 
-  const who = c.positioning || latest?.title || c.gradeTitle || "";
+  const who = introPhrase(c, info.jobTitle);
   const where = info.location ? ` in ${info.location.split(",")[0].trim()}` : "";
   const seen = info.platform ? `, advertised on ${info.platform}` : "";
   const paragraphs: string[] = [];
@@ -130,8 +161,8 @@ export function draftCoverLetter(c: CVContent, info: AppInfo): CoverLetterText {
   paragraphs.push(
     `I am applying for the ${info.jobTitle} position at ${info.companyName}${where}${seen}. ` +
     (who
-      ? `As ${aOrAn(who)} ${who}${latest?.company && !featured.includes(latest) ? ` at ${latest.company}` : ""}, I build the kind of systems this role ` +
-        `is about, and I would like to do that for ${info.companyName}.`
+      ? `As ${who}${latest?.company && !featured.includes(latest) ? `, currently at ${latest.company}` : ""}, I build the kind ` +
+        `of systems this role is about, and I would like to do that for ${info.companyName}.`
       : `The role matches the work I do best, and I would like to do it for ${info.companyName}.`),
   );
 
@@ -177,7 +208,8 @@ export function draftCoverLetter(c: CVContent, info: AppInfo): CoverLetterText {
 function cvForPrompt(c: CVContent): string {
   const lines = [
     `Name: ${c.name}`,
-    c.positioning && `Positioning: ${c.positioning}`,
+    c.positioning && `Headline: ${c.positioning}`,
+    yearsOfExperience(c) > 0 && `Years of experience: ${yearsOfExperience(c)}`,
     c.summary && `Summary: ${c.summary}`,
     c.skills.length && `Skills: ${c.skills.map((g) => `${g.label}: ${g.items}`).join(" | ")}`,
     ...c.experience.slice(0, 5).map((e) => {
@@ -209,6 +241,7 @@ export function buildCoverLetterPrompt(c: CVContent, info: AppInfo, correction =
     "Rules:",
     "- 280-400 words in the paragraphs. No headings or bullets inside paragraphs, no placeholders.",
     "- Use only facts from the CV below. Never invent employers, numbers, links, degrees or skills.",
+    "- Introduce the candidate with the job title from the CV that best fits this posting and their years of experience. Do not copy the CV headline word for word.",
     "- Plain, confident, specific. Avoid: \"passionate\", \"proven track record\", \"dynamic team\", \"I am confident\", \"strong fit\", \"team player\", \"hit the ground running\".",
     "- Write in the same language as the job posting.",
     `- Greeting: ${info.contactName ? `address ${info.contactName} by name` : "\"Dear Hiring Manager,\" (or the posting's language equivalent)"}.`,

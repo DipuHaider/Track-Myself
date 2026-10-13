@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ai/gateway", () => ({ runAiJsonTask: vi.fn() }));
 
-import { draftCoverLetter, letterBlocks, letterPlainText, pickProjects, roleParts, sanitizeLetter } from "@/lib/cv/coverLetter";
+import {
+  draftCoverLetter, introPhrase, introTitle, letterBlocks, letterPlainText, pickProjects, roleParts, sanitizeLetter,
+  yearsOfExperience,
+} from "@/lib/cv/coverLetter";
 import { normaliseContent, tidyPhone } from "@/lib/cv/content";
 
 describe("roleParts", () => {
@@ -93,5 +96,26 @@ describe("relevant projects", () => {
     const out = sanitizeLetter({ greeting: "Hi", paragraphs: ["x"], projects: ["- One", "", "• Two"], closing: "Bye" });
     expect(out?.projects).toEqual(["One", "Two"]);
     expect(sanitizeLetter({ greeting: "Hi", paragraphs: ["x"], closing: "Bye" })).not.toHaveProperty("projects");
+  });
+});
+
+describe("introducing the candidate", () => {
+  const cv = normaliseContent({
+    positioning: "Senior Software Engineer - Cloud & Web Applications",
+    experience: [
+      { title: "Senior Software Engineer", company: "Bashundhara Group", dates: "Apr 2025 – Present" },
+      { title: "Full Stack Developer", company: "AHZ Associates", dates: "Jul 2022 – Oct 2022" },
+      { title: "Software Engineer", company: "Workspace Infotech", dates: "Oct 2012 – Mar 2013" },
+    ],
+  });
+
+  it("drops the headline's qualifier and prefers the title closest to the job", () => {
+    expect(introTitle(cv, "Backend Engineer")).toBe("Senior Software Engineer");
+    expect(introTitle(cv, "Full Stack Developer (m/w/d)")).toBe("Full Stack Developer");
+  });
+
+  it("counts years from the earliest role", () => {
+    expect(yearsOfExperience(cv, new Date("2026-10-13"))).toBe(14);
+    expect(introPhrase(cv, "Full Stack Developer")).toMatch(/^a Full Stack Developer with \d+ years of experience$/);
   });
 });
