@@ -16,7 +16,15 @@ function extensionRuntime(): ExtensionRuntime | null {
 
 type Phase = "idle" | "busy" | "done" | "error";
 
-export default function ConnectExtension({ extensionId, email }: { extensionId: string; email: string }) {
+export default function ConnectExtension({
+  extensionId,
+  unlistedId,
+  email,
+}: {
+  extensionId: string;
+  unlistedId: string;
+  email: string;
+}) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState("");
 
@@ -51,7 +59,13 @@ export default function ConnectExtension({ extensionId, email }: { extensionId: 
         <div className="surface rounded-xl border p-6">
           <h1 className="text-2xl font-semibold">Connect the extension</h1>
 
-          {!extensionId ? (
+          {!extensionId && unlistedId ? (
+            <p className="text-muted mt-2 text-sm">
+              This extension (ID <span className="font-mono text-xs">{unlistedId}</span>) isn&apos;t registered with this site
+              yet. Add that ID to <span className="font-mono text-xs">EXTENSION_IDS</span> on the server, redeploy, then sign in
+              from the extension again.
+            </p>
+          ) : !extensionId ? (
             <p className="text-muted mt-2 text-sm">
               This link doesn&apos;t come from the TrackMyself extension. Open it from the extension&apos;s sign-in panel.
             </p>

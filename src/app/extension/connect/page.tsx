@@ -18,6 +18,7 @@ export default async function ConnectExtensionPage({
     EXTENSION_ID.test(ext) &&
     (allowed.length ? allowed.includes(ext) : process.env.NODE_ENV !== "production");
   const extensionId = known ? ext : "";
+  const unlisted = EXTENSION_ID.test(ext) && !known ? ext : "";
 
   const user = await getSessionUser();
   if (!user) {
@@ -25,5 +26,5 @@ export default async function ConnectExtensionPage({
     redirect(`/login?from=${encodeURIComponent(back)}`);
   }
 
-  return <ConnectExtension extensionId={extensionId} email={user.email ?? ""} />;
+  return <ConnectExtension extensionId={extensionId} unlistedId={unlisted} email={user.email ?? ""} />;
 }
