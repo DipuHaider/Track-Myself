@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { decode } from "next-auth/jwt";
 import dbConnect from "@/lib/db";
 import Application from "@/models/Application";
 import { historyActor, initialHistory } from "@/lib/applicationHistory";
@@ -10,26 +9,11 @@ import {
   WORKPLACE_TYPES, joinJobTypes,
 } from "@/constants/applicationStatus";
 import { countryName, formatLocation, splitLocation } from "@/lib/applicationLocation";
-import { liveStatus, sessionsRevokedBefore } from "@/lib/serverAuth";
+import { liveStatus } from "@/lib/serverAuth";
+import { getExtensionUser } from "@/lib/extensionAuth";
 import { withCors } from "@/lib/extensionCors";
 import { checkRateLimitDb } from "@/lib/rateLimitStore";
 import { tooMany } from "@/lib/api/respond";
-
-async function getExtensionUser(req: Request) {
-  const auth = req.headers.get("authorization");
-  if (!auth?.startsWith("Bearer ")) return null;
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) return null;
-  try {
-    const payload = await decode({ token: auth.slice(7), secret });
-    if (!payload?.id || payload.aud !== "extension") return null;
-    const startedAt = payload.sessionStart ?? (payload.iat ? payload.iat * 1000 : 0);
-    if (await sessionsRevokedBefore(payload.id as string, startedAt)) return null;
-    return { id: payload.id as string, role: (payload.role ?? "free") as string };
-  } catch {
-    return null;
-  }
-}
 
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -102,6 +86,12 @@ async function handlePost(req: Request) {
     return at;
   };
 
+  const deadlineDate = (raw: string) => {
+    if (!raw) return null;
+    const at = new Date(raw);
+    return Number.isNaN(at.getTime()) || at.getFullYear() < 2000 ? null : at;
+  };
+
   const sentCity = str("city").slice(0, 120);
   const sentCountry = str("country").slice(0, 120);
   const place = sentCity || sentCountry
@@ -133,6 +123,7 @@ async function handlePost(req: Request) {
     postedAgeText:     str("postedAgeText").slice(0, 60),
     postingObservedAt: str("postedAt") || str("postedAgeText") ? new Date() : null,
     postingPrecision:  oneOf(str("postingPrecision"), ["exact", "approximate"]),
+    deadline:          deadlineDate(str("deadline")),
     notes:             str("notes"),
     applicationStatus,
     statusHistory: initialHistory(applicationStatus, await historyActor(user.id)),

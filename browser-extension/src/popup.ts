@@ -10,6 +10,21 @@ const dot = document.getElementById("dot");
 const status = document.getElementById("status");
 const open = document.getElementById("open") as HTMLAnchorElement | null;
 const google = document.getElementById("google") as HTMLAnchorElement | null;
+const assist = document.getElementById("assist") as HTMLAnchorElement | null;
+const assistNote = document.getElementById("assist-note");
+
+assist?.addEventListener("click", (e) => {
+  e.preventDefault();
+  chrome.runtime
+    .sendMessage({ type: "INJECT_ASSIST" })
+    .then((reply: { ok?: boolean; error?: string }) => {
+      if (reply?.ok) window.close();
+      else if (assistNote) assistNote.textContent = reply?.error ?? "Could not open the helper on this page.";
+    })
+    .catch(() => {
+      if (assistNote) assistNote.textContent = "Could not open the helper on this page.";
+    });
+});
 
 google?.addEventListener("click", (e) => {
   e.preventDefault();

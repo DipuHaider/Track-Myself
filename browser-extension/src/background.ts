@@ -30,7 +30,37 @@ type InMsg =
   | { type: "LOGIN";   email: string; password: string }
   | { type: "LOGOUT" }
   | { type: "OPEN_CONNECT" }
-  | { type: "ADD_JOB"; job: JobPayload };
+  | { type: "ADD_JOB"; job: JobPayload }
+  | { type: "HARVEST"; site: string; leads: unknown[] }
+  | { type: "LIST_READY" }
+  | { type: "FETCH_KIT"; leadId: string }
+  | { type: "MARK_SUBMITTED"; leadId: string; method?: string }
+  | { type: "INJECT_ASSIST" };
+
+/* One authorised call to the TrackMyself API. A 401 means the token expired
+   or was revoked, so it is dropped and the caller is told to sign in again. */
+type ApiResult = { ok: true; data: unknown } | { ok: false; error: string; authExpired?: boolean };
+
+async function api(path: string, init: RequestInit = {}): Promise<ApiResult> {
+  const auth = await getAuth();
+  if (!auth) return { ok: false, error: "Sign in to the TrackMyself extension first.", authExpired: true };
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      Authorization: `Bearer ${auth.token}`,
+    },
+  });
+  const data = await res.json().catch(() => ({})) as unknown;
+  if (res.status === 401) {
+    await clearAuth();
+    return { ok: false, error: "Session expired — please sign in again", authExpired: true };
+  }
+  if (!res.ok) return { ok: false, error: ((data as { error?: string }).error) ?? `Request failed (${res.status})` };
+  return { ok: true, data };
+}
+
+const LEAD_ID = /^[a-f0-9]{24}$/i;
 
 // ── storage helpers ──────────────────────────────────────────────────────────
 
@@ -110,6 +140,41 @@ async function handle(msg: InMsg): Promise<unknown> {
 
     case "LOGOUT": {
       await clearAuth();
+      return { ok: true };
+    }
+
+    case "HARVEST": {
+      const res = await api("/api/extension/leads", { method: "POST", body: JSON.stringify({ site: msg.site, leads: msg.leads }) });
+      return res.ok ? { ok: true, ...(res.data as object) } : res;
+    }
+
+    case "LIST_READY": {
+      const res = await api("/api/extension/leads");
+      return res.ok ? { ok: true, leads: Array.isArray(res.data) ? res.data : [] } : res;
+    }
+
+    case "FETCH_KIT": {
+      if (!LEAD_ID.test(msg.leadId)) return { ok: false, error: "Unknown application." };
+      const res = await api(`/api/extension/leads/${msg.leadId}/kit`);
+      return res.ok ? { ok: true, kit: res.data } : res;
+    }
+
+    case "MARK_SUBMITTED": {
+      if (!LEAD_ID.test(msg.leadId)) return { ok: false, error: "Unknown application." };
+      const res = await api(`/api/extension/leads/${msg.leadId}/submitted`, {
+        method: "POST",
+        body: JSON.stringify({ submissionMethod: msg.method }),
+      });
+      return res.ok ? { ok: true, ...(res.data as object) } : res;
+    }
+
+    /* activeTab: the popup was just opened by the owner on this tab, which
+       grants temporary access to it. That is the only way the helper reaches
+       company career sites; the extension holds no host access to them. */
+    case "INJECT_ASSIST": {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id || !/^https:\/\//.test(tab.url ?? "")) return { ok: false, error: "Open the application form in this tab first." };
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["dist/assist.js"] });
       return { ok: true };
     }
 

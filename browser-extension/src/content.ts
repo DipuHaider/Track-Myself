@@ -1,4 +1,7 @@
 import PANEL_CSS from "./styles.css";
+import { harvestCards, isSearchPage, type HarvestSite } from "./harvest";
+import { startAssist } from "./assist";
+import { leadIdFromHash } from "./fillRules";
 
 const APP_URL = "https://trackmyself.webarden.tech";
 
@@ -25,6 +28,7 @@ interface JobData {
   postedAt?:          string;
   postedAgeText?:     string;
   postingPrecision?:  "exact" | "approximate";
+  deadline?:          string;
 }
 
 interface UserInfo { name: string; email: string }
@@ -53,7 +57,7 @@ interface State {
   panelOpen:     boolean;
   btnY:          number;
   btnDragging:   boolean;
-  site:          "linkedin" | "indeed" | "other";
+  site:          "linkedin" | "indeed" | "xing" | "stepstone" | "other";
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────
@@ -118,6 +122,8 @@ function detectSite(): State["site"] {
   const h = location.hostname.replace("www.", "");
   if (h === "linkedin.com") return "linkedin";
   if (h === "indeed.com")   return "indeed";
+  if (h === "xing.com" || h.endsWith(".xing.com")) return "xing";
+  if (h === "stepstone.de" || h.endsWith(".stepstone.de")) return "stepstone";
   return "other";
 }
 
@@ -133,6 +139,8 @@ function isJobPage(site: State["site"]): boolean {
     return path.startsWith("/viewjob") || path.startsWith("/job/") || path.startsWith("/jobs")
       || new URLSearchParams(location.search).has("vjk");
   }
+  if (site === "xing") return /^\/jobs\/[a-z0-9-]+-\d{5,}/i.test(path);
+  if (site === "stepstone") return /\/stellenangebote--/i.test(path);
   return false;
 }
 
@@ -487,6 +495,7 @@ function parseJobLd(): Partial<JobData> {
           salary,
           postedAt: posted,
           postingPrecision: posted ? "exact" : undefined,
+          deadline: typeof d.validThrough === "string" ? d.validThrough.trim() : undefined,
         };
       }
     }
@@ -732,7 +741,7 @@ function scrapeJob(site: State["site"]): JobData {
       location:    placeOnly(t.location ?? ""),
       jobPostUrl:  location.href,
       notes:       "",
-      platform:    site === "linkedin" ? "LinkedIn" : site === "indeed" ? "Indeed" : "",
+      platform:    PLATFORM_LABEL[site] ?? "",
     };
   }
 }
@@ -740,6 +749,7 @@ function scrapeJob(site: State["site"]): JobData {
 function scrapeJobUnsafe(site: State["site"]): JobData {
   if (site === "linkedin") return scrapeLinkedIn();
   if (site === "indeed")   return scrapeIndeed();
+  if (site === "xing" || site === "stepstone") return scrapeBoard(site);
   // Generic: try JSON-LD first, then title tag
   const ld = parseJobLd();
   return {
@@ -749,6 +759,46 @@ function scrapeJobUnsafe(site: State["site"]): JobData {
     jobPostUrl:  location.href,
     notes:       "",
     jobDescription: ld.jobDescription ?? "",
+  };
+}
+
+const PLATFORM_LABEL: Partial<Record<State["site"], string>> = {
+  linkedin: "LinkedIn",
+  indeed: "Indeed",
+  xing: "Xing",
+  stepstone: "StepStone",
+};
+
+/* XING and StepStone both publish a JobPosting in JSON-LD for search engines,
+   so that is the primary source; the visible header is only a fallback for
+   when a posting ships without it. */
+function scrapeBoard(site: "xing" | "stepstone"): JobData {
+  const ld = parseJobLd();
+  const ogTitle = metaAttr(["og:title"]);
+  const jobTitle = ld.jobTitle
+    || qs("h1", "[data-testid='job-details-title']", "[data-at='header-job-title']")
+    || ogTitle.split(/\s+(?:bei|at|[-–|])\s+/)[0]
+    || "";
+  const companyName = ld.companyName
+    || qs("[data-testid='job-details-company-info-name']", "[data-at='header-company-name']", "a[href*='/pages/']", "a[href*='/cmp/']")
+    || "";
+  const ageText = qs("[data-at='metadata-online-date']", "[data-testid*='published']", "time");
+  const age = ld.postedAt ? null : postingAge(ageText);
+  return {
+    jobTitle: jobTitle.trim(),
+    companyName: cleanCompany(companyName),
+    location: placeOnly(ld.location ?? "") || qs("[data-at='metadata-location']", "[data-testid*='location']"),
+    jobPostUrl: location.href.split("#")[0],
+    notes: "",
+    platform: PLATFORM_LABEL[site],
+    jobType: normaliseJobType(ld.jobType ?? ""),
+    workplaceType: ld.workplaceType ?? "",
+    salary: ld.salary ?? "",
+    jobDescription: (ld.jobDescription || descText("[data-at='job-ad-content']", "[data-testid='expandable-content']", "article")).slice(0, 24000),
+    postedAt: ld.postedAt || age?.postedAt,
+    postedAgeText: age?.text,
+    postingPrecision: ld.postedAt ? "exact" : age ? "approximate" : undefined,
+    deadline: ld.deadline,
   };
 }
 
@@ -1249,4 +1299,71 @@ function escHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// ── job hunt: harvest search results, help with applications ─────────────
+
+const HARVEST_SITES: readonly string[] = ["linkedin", "xing", "stepstone", "indeed"];
+
+function initJobHunt() {
+  if (window.top !== window) return;
+  if (leadIdFromHash(location.hash) || sessionStorageLead()) startAssist();
+  if (!HARVEST_SITES.includes(state.site)) return;
+
+  const harvestHost = document.createElement("div");
+  const hShadow = harvestHost.attachShadow({ mode: "open" });
+  hShadow.innerHTML = `<style>
+    button { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 2147483645; font: 600 13px/1 ui-sans-serif, system-ui, sans-serif;
+      background: #4f46e5; color: #fff; border: 0; border-radius: 999px; padding: 10px 14px; box-shadow: 0 6px 18px rgba(15,23,42,.25); cursor: pointer; }
+    button[disabled] { opacity: .6; cursor: default; }
+  </style><button type="button" id="tm-harvest">Send results to TrackMyself</button>`;
+  const btn = hShadow.getElementById("tm-harvest") as HTMLButtonElement;
+
+  btn.addEventListener("click", async () => {
+    const site = state.site as HarvestSite;
+    const cards = harvestCards(site).map((c) => {
+      const age = c.postedAt ? null : postingAge(c.postedAgeText ?? "");
+      return { ...c, postedAt: c.postedAt ?? age?.postedAt, postedAgeText: age?.text ?? c.postedAgeText };
+    });
+    if (!cards.length) {
+      btn.textContent = "No job cards found on this page";
+      setTimeout(() => { btn.textContent = "Send results to TrackMyself"; }, 2500);
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = `Sending ${cards.length}…`;
+    const res = await send({ type: "HARVEST", site, leads: cards }) as { ok: boolean; created?: number; merged?: number; tracked?: number; error?: string; authExpired?: boolean };
+    btn.disabled = false;
+    btn.textContent = res.ok
+      ? `${res.created ?? 0} new, ${(res.merged ?? 0) + (res.tracked ?? 0)} already known`
+      : res.authExpired ? "Sign in to the extension first" : (res.error ?? "Could not send");
+    setTimeout(() => { btn.textContent = "Send results to TrackMyself"; }, 4000);
+  });
+
+  const sync = () => {
+    const show = isSearchPage(state.site as HarvestSite);
+    if (show && !harvestHost.isConnected) document.documentElement.append(harvestHost);
+    if (!show && harvestHost.isConnected) harvestHost.remove();
+  };
+  sync();
+  let lastHarvestUrl = location.href;
+  new MutationObserver(() => {
+    if (location.href === lastHarvestUrl) return;
+    lastHarvestUrl = location.href;
+    sync();
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
+function sessionStorageLead(): string | null {
+  try {
+    return sessionStorage.getItem("tm-lead");
+  } catch {
+    return null;
+  }
+}
+
+try {
+  initJobHunt();
+} catch (err) {
+  console.warn("[TrackMyself] job hunt helpers failed to start:", err);
 }

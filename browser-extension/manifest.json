@@ -1,64 +1,74 @@
 {
   "manifest_version": 3,
   "name": "TrackMyself — Job Tracker",
-  "version": "1.1.0",
-  "description": "Save jobs from LinkedIn and Indeed to your TrackMyself tracker with one click.",
-
-  "permissions": ["storage"],
-
+  "version": "1.2.0",
+  "description": "Save jobs from LinkedIn, XING, StepStone and Indeed to TrackMyself, send search results to your job inbox, and fill prepared applications. You always press Submit.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
   "host_permissions": [
     "https://www.linkedin.com/*",
     "https://linkedin.com/*",
     "https://www.indeed.com/*",
     "https://indeed.com/*",
+    "https://www.xing.com/*",
+    "https://xing.com/*",
+    "https://www.stepstone.de/*",
+    "https://stepstone.de/*",
     "https://trackmyself.webarden.tech/*",
     "https://track-myself.vercel.app/*"
   ],
-
   "externally_connectable": {
     "matches": [
       "https://trackmyself.webarden.tech/*",
       "https://track-myself.vercel.app/*"
     ]
   },
-
   "background": {
     "service_worker": "dist/background.js"
   },
-
   "content_scripts": [
     {
       "matches": [
         "https://www.linkedin.com/*",
         "https://linkedin.com/*",
         "https://www.indeed.com/*",
-        "https://indeed.com/*"
+        "https://indeed.com/*",
+        "https://www.xing.com/*",
+        "https://xing.com/*",
+        "https://www.stepstone.de/*",
+        "https://stepstone.de/*"
       ],
-      "js": ["dist/content.js"],
+      "js": [
+        "dist/content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-
   "action": {
     "default_popup": "popup.html",
     "default_title": "TrackMyself",
     "default_icon": {
-      "16":  "icons/icon16.png",
-      "48":  "icons/icon48.png",
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },
-
   "icons": {
-    "16":  "icons/icon16.png",
-    "48":  "icons/icon48.png",
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-
   "web_accessible_resources": [
     {
-      "resources": ["icons/*"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "icons/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

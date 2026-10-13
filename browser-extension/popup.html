@@ -36,6 +36,7 @@
   }
   a.btn:hover { opacity: .9; }
   [hidden] { display: none !important; }
+  a.btn + a.btn { margin-top: 8px; }
   a.btn.ghost { background: transparent; color: inherit; border: 1px solid #cbd5e1; margin-bottom: 8px; }
   @media (prefers-color-scheme: dark) { a.btn.ghost { border-color: #334155; } }
 </style>
@@ -53,12 +54,14 @@
     </div>
   </div>
 
-  <p class="muted" style="margin:0 0 6px">This extension works on the job page itself:</p>
+  <p class="muted" style="margin:0 0 6px">On a LinkedIn, XING, StepStone or Indeed job page:</p>
   <ol class="muted">
-    <li>Open a LinkedIn or Indeed job</li>
-    <li>Click the briefcase on the right edge</li>
-    <li>Sign in there and save the job</li>
+    <li>Click the briefcase on the right edge to save the job</li>
+    <li>On a search results page, press <b>Send results to TrackMyself</b></li>
   </ol>
+
+  <a class="btn" id="assist" href="#" hidden>Fill the application on this page</a>
+  <p class="muted" id="assist-note" style="margin:6px 0 10px" hidden>Fills fields and attaches your prepared CV and letter. You review and press Submit.</p>
 
   <a class="btn ghost" id="google" href="#" hidden>Continue with Google</a>
 
