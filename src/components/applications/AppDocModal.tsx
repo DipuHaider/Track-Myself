@@ -22,6 +22,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useScrollLock } from "@/hooks/useScrollLock";
 import DocDiffPanel, { type DocDiff, type LeftSource } from "./DocDiffPanel";
 import CoverLetterReview from "./CoverLetterReview";
+import ApplicationEmailPanel from "./ApplicationEmailPanel";
 import type { CoverLetterText } from "@/lib/cv/coverLetter";
 import type { CVContent, CVFormat, CVVariant } from "@/types/cv";
 
@@ -600,6 +601,8 @@ export default function AppDocModal({
                       </div>
                     );
                   })}
+
+                  <ApplicationEmailPanel info={info} disabled={busy || cvEmpty} />
 
                   {/* Interview prep needs no CV content and no diff review, so it
                       sits outside the tailoring flow with its own direct download. */}

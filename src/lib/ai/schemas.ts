@@ -37,6 +37,11 @@ export const coverLetterSchema = z.object({
   closing: text(200),
 });
 
+export const applicationEmailSchema = z.object({
+  subject: text(200),
+  body: z.string().trim().min(20).max(4000),
+});
+
 export const interviewQuestionsSchema = z.array(
   z.object({ q: z.string().trim().min(10).max(300), s: z.string().trim().max(40).catch("role") }),
 );

@@ -161,7 +161,7 @@ plan, never counted; premium → shared model; free → `freeMonthlyAttempts` (1
 month, then the feature's non-AI mode. Paused accounts are denied.
 
 Tasks (`config.ts`): `cv.adapt`, `cv.preview`, `interview.questions`, `tools.banner-brief`,
-`cv.gap-analysis`, `cover-letter.write`, `salary.estimate`, `applications.triage`.
+`cv.gap-analysis`, `cover-letter.write`, `application.email`, `salary.estimate`, `applications.triage`, `jobs.report`.
 
 Models (`models.ts`): shared default `anthropic:claude-haiku-4-5`; `anthropic:claude-sonnet-5`
 and `openai:gpt-6-luna` (needs `OPENAI_API_KEY`) toggled by admins; `gemini:superadmin` is a

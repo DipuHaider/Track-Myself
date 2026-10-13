@@ -18,6 +18,7 @@ export type AiTaskId =
   | "tools.banner-brief"
   | "cv.gap-analysis"
   | "cover-letter.write"
+  | "application.email"
   | "salary.estimate"
   | "applications.triage"
   | "jobs.report";
@@ -29,6 +30,7 @@ export const AI_TASKS: AiTaskId[] = [
   "tools.banner-brief",
   "cv.gap-analysis",
   "cover-letter.write",
+  "application.email",
   "salary.estimate",
   "applications.triage",
   "jobs.report",
