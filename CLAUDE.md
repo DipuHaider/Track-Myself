@@ -16,6 +16,7 @@ Sans + Geist Mono, Josefin (display), Atkinson Hyperlegible (dyslexia mode, lazy
 | Public | `/`, `/tools/*`, `/faq`, `/terms`, `/privacy`, `/pricing`, `/verify-email` | None |
 | Auth | `/(auth)/login`, `/register`, `/forgot-password`, `/reset-password`, `/redirect` | `(auth)/layout.tsx` redirects signed-in users to `/me` |
 | Portal | `/(portal)/me`, `/me/applications`, `/me/settings`, `/me/my-cv`, `/me/cv`, `/me/todos`, `/me/issues`, `/me/notifications`, `/me/ai-key` | Any session → layout redirects to `/login` |
+| Job hunt | `/me/jobs`, `/me/jobs/[id]`, `/me/jobs/searches`, `/me/jobs/report` | `me/jobs/layout.tsx`: `jobHuntAllowed()` (superadmin, or premium when `AppSettings.features.jobHunt`) |
 | Dashboard | `/(dashboard)/dashboard`, `/applications`, `/analytics`, `/dashboard/cv`, `/dashboard/issues`, `/dashboard/users`, `/dashboard/audit`, `/profile` (redirect), `/users` (redirect) | editor+ → layout redirects to `/me` |
 | Dashboard (admin) | `/settings`, `/dashboard/rbac` | admin+ → page redirects to `/dashboard` |
 | Legacy | `/admin/*` | `redirects()` in `next.config.ts` → `/dashboard` |
@@ -102,7 +103,16 @@ with it (`src/lib/pagination.ts`).
 
 `AccessControl`, `AdminAction`, `AiBudget`, `AiCallLog`, `AiDraft`, `AiUsageCounter`,
 `AppSettings`, `Application`, `CVFile`, `CVProfile`, `Document`, `EmailVerificationToken`,
-`Interview`, `IssueReport`, `Notification`, `PasswordResetToken`, `RateBucket`, `Todo`, `User`.
+`Interview`, `IssueReport`, `Notification`, `PasswordResetToken`, `RateBucket`, `Todo`, `User`,
+`JobSearch`, `JobLead`, `ApiToken`.
+
+- `JobSearch` — saved search (keywords, location, radius, sources `ba|adzuna|extension`, maxAgeDays)
+- `JobLead` — a found job: source/externalId (unique per user), platform (from the apply link),
+  identity + matchKey for dedupe, fitScore/fitGaps, status `new → shortlisted → preparing → ready →
+  applying → submitted` (or dismissed/expired/failed), applicationId, cvFileIds, prepared.letter
+- `ApiToken` — personal access token: sha256 hash only, scopes, expiry, revokedAt
+- `User.jobHunt` is Mixed, always read through `normaliseJobHunt()` (`src/lib/jobs/settings.ts`);
+  the webhook secret is sealed with `secretBox` and never returned
 
 - `User` — name, email (lowercase), password?, googleId, role, plan, status, `emailVerifiedAt`,
   `lastLoginAt`, `deletingAt`, bio, image, aiKey (encrypted), aiUsage/aiSharedUsage, a11y,
@@ -162,6 +172,26 @@ Money ceiling: **hard-capped at USD 10** (`MAX_CEILING_USD`), default 9, superad
 BYOK keys: AES-256-GCM under `AI_KEY_SECRET`; OpenAI-compatible base URLs pass
 `assertSafeBaseUrl()` (`src/lib/net/safeUrl.ts`).
 
+## Job hunt (`src/lib/jobs/`)
+
+Gate: `requireJobHuntAuth()` (`access.ts`) = `requireActiveAuth` + `canUseJobHunt(role, plan, features.jobHunt)`.
+
+- Sources: `sources/ba.ts` (Bundesagentur Jobsuche, v6 search + v4 detail, public client id),
+  `sources/adzuna.ts` (needs `ADZUNA_APP_ID/KEY`). `normalise.ts` → `LeadDraft`, `ingest.ts` is the
+  single dedupe/score/upsert path for the cron, extension harvest and `/api/v1/leads`.
+- `hunt.ts` `runHuntForUser`, `daily.ts` `runDailyJobHunt` (cron), `autoPrepare.ts`, `prepare.ts`
+  `prepareLead` (application + tailored CV + letter + gap check, all through the AI gateway),
+  `leads.ts` (list/summary/actions), `report.ts` (`computeReport` pure + `buildDailyReport`),
+  `upkeep.ts` (follow-up to-dos, missed deadlines, report delivery), `kit.ts` (extension fill kit),
+  `webhooks.ts` + `events.ts` (signed outbound events), `insights.ts`.
+- Routes: `/api/user/job-hunt` (+`/refresh`, `/report`, `/webhook`), `/api/user/job-searches`,
+  `/api/user/leads` (+`/summary`, `/bulk`, `/[id]`, `/[id]/prepare`), `/api/user/api-tokens`,
+  `/api/extension/leads` (+`/[id]/kit`, `/[id]/submitted`), `/api/cron/job-hunt`.
+- Automation API `/api/v1/*`: Bearer personal access token (`authenticateToken(req, scope)` in
+  `src/lib/apiTokens.ts`), re-checks status and entitlement per call. **Never add approve or
+  submit to it, and nothing may click Submit on a job site.**
+- `mcp-server/` (own package, stdio, `@modelcontextprotocol/sdk`) and `notebooks/` call `/api/v1` only.
+
 ## Billing (`src/lib/billing/`)
 
 Provider-agnostic: `BillingProvider` interface, `manual` provider, `applyBillingEvent()` writes
@@ -220,8 +250,10 @@ src/
     mail/               index.ts, resend.ts, web3forms.ts, templates.ts
     notifications/      derive.ts (deriveItems pure + deriveNotifications), create.ts, types.ts
     billing/            types.ts, manual.ts, plan.ts, apply.ts, index.ts
+    jobs/               settings, access, constants, sources/, normalise, ingest, score, hunt, daily, prepare, autoPrepare, leads, report, upkeep, kit, insights, webhooks, events, ingestApi
+    apiTokens.ts, extensionAuth.ts, cronAuth.ts
     observability/scrub.ts
-  models/               (19, listed above)
+  models/               (22, listed above)
   schemas/              authSchema, passwordResetSchema, profileSchema, interviewSchema
   hooks/                see Client data
   components/
@@ -259,5 +291,6 @@ disabled only when `NODE_ENV !== "production"` **and** `DEV_INSECURE_TLS=1`.
 - `src/middleware.ts` — do not create (`src/proxy.ts` is the proxy)
 - A payment provider — the billing abstraction exists; checkout returns 501 (`docs/ROADMAP.md`)
 - Component tests (`@testing-library/react`, `jsdom`) and `mongodb-memory-server`
-- Email digests / scheduled notifications beyond the daily maintenance cron
-- 2FA, email change, teams, i18n, MCP, the A/B/C pack workflow
+- Email digests beyond the job-hunt daily report
+- Automatic job-site submission (deliberately absent)
+- 2FA, email change, teams, i18n, the A/B/C pack workflow

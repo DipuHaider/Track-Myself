@@ -36,7 +36,13 @@ cover letter + questions, an evaluator that checks claims against the source) wi
 state. Gate: a measured quality gain over the single-call flow on the 20-case benchmark, and a
 durable job runner, since a Vercel function cannot run a multi-minute workflow.
 
-## 3. MCP server
+## 3. MCP server (done for job hunt, October 2026)
+
+`mcp-server/` ships a local stdio server over `/api/v1` with personal access tokens. Still open: a
+remote (HTTP) transport with the MCP authorization flow, for clients that cannot run a local
+process.
+
+### Original note
 
 Phase 3 of the AI plan: a thin, authenticated MCP adapter over the same domain services. Needs
 remote authorization (token audience, scope, revocation) that NextAuth sessions do not provide.
@@ -73,6 +79,17 @@ Manifest + service worker for offline viewing of the application list.
 The scraper matches `linkedin.com` and `indeed.com` hosts only; country domains
 (`de.indeed.com`, `indeed.co.uk`) and LinkedIn regional subdomains are not recognised. Any change
 needs a Web Store resubmission.
+
+## 10b. Job hunt follow-ups
+
+- Per-ATS fill adapters (Workday, Greenhouse, Lever, Personio, SuccessFactors); the generic label
+  matcher handles simple forms only, and iframes are not filled.
+- More sources: Arbeitnow, Bundesagentur detail for external postings, company career pages
+  (Greenhouse/Lever public JSON).
+- Scaling the daily run past a handful of accounts: Vercel Pro (longer functions) or a queue
+  (one invocation per account), instead of one 60-second pass.
+- Fuzzy title matching across sources, and a learned fit score once enough replies exist.
+- Store daily reports as snapshots so past days are exact rather than rebuilt.
 
 ## 11. Housekeeping
 

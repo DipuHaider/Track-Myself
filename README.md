@@ -12,6 +12,11 @@ analysis, a to-do list, in-app issue reporting that emails the maintainer, guide
 settings page and accessibility controls. AI features run on a shared, metered key or on a key
 the user brings themselves.
 
+A job-hunt pipeline finds fresh jobs every morning, prepares a tailored CV and cover letter for
+the ones you pick, helps fill the application in your browser and sends a daily report. You
+always press Submit yourself. An API, webhooks, an MCP server and a notebook connect it to
+Claude, n8n and Colab.
+
 Built with Next.js 16 (App Router), React 19, TypeScript, MongoDB/Mongoose 9, NextAuth 4, SWR
 and Tailwind CSS 4. Tests with vitest; errors to Sentry.
 
@@ -54,7 +59,9 @@ Then open <http://localhost:3000>.
 | `EXTENSION_ORIGIN` | no | One extra explicit origin for the extension API. |
 | `NEXT_PUBLIC_SENTRY_DSN` | no | Error reporting. Reports are scrubbed (`src/lib/observability/scrub.ts`): no bodies, cookies, emails or CV text. |
 | `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | no | Build-time source-map upload. Set in Vercel, not CI. |
-| `CRON_SECRET` | recommended | Authenticates the daily `/api/cron/maintenance` run from `vercel.json`. |
+| `CRON_SECRET` | recommended | Authenticates the daily `/api/cron/maintenance` and `/api/cron/job-hunt` runs from `vercel.json`. |
+| `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | no | Adzuna as a second job-hunt source (free developer key). Without them saved searches use the Bundesagentur source only. |
+| `BA_API_KEY` | no | Overrides the public Bundesagentur Jobsuche client id. |
 | `BILLING_PROVIDER` / `BILLING_WEBHOOK_SECRET` | no | `manual` (default) until a payment adapter exists. |
 | `NEXT_PUBLIC_PREMIUM_PRICE`, `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_UPGRADE_PAY_URL` | no | Pricing-page copy, support address, optional Payoneer payment link. |
 | `DEV_INSECURE_TLS` | dev only | `1` disables TLS verification for corporate inspection proxies. Ignored in production. |
@@ -72,6 +79,7 @@ npm run verify         # typecheck + lint + env check + unit tests — what CI r
 npm test               # vitest (pure modules)
 npm run test:db        # *.dbtest.ts against MONGODB_TEST_URI
 npm run typecheck:ext  # browser extension
+npm run typecheck:mcp  # MCP server (after npm --prefix mcp-server install)
 ```
 
 ---
@@ -86,6 +94,7 @@ Route groups, each with its own guard in `layout.tsx`. There is no `src/middlewa
 | Public | `/`, `/tools/*`, `/faq`, `/terms`, `/privacy`, `/pricing`, `/verify-email` | anyone |
 | Auth | `/login`, `/register`, `/forgot-password`, `/reset-password` | signed out (signed-in users are sent to `/me`) |
 | Portal | `/me`, `/me/applications`, `/me/settings`, `/me/my-cv`, `/me/cv`, `/me/todos`, `/me/notifications`, `/me/issues`, `/me/ai-key` | any signed-in user |
+| Job hunt | `/me/jobs`, `/me/jobs/[id]`, `/me/jobs/searches`, `/me/jobs/report` | `canUseJobHunt()`: superadmin, or Premium with the feature switched on |
 | Dashboard | `/dashboard`, `/applications`, `/analytics`, `/dashboard/cv`, `/dashboard/users`, `/dashboard/issues`, `/dashboard/audit` | editor and above |
 | Dashboard (admin) | `/settings`, `/dashboard/rbac` | admin and above |
 
@@ -221,8 +230,11 @@ Transformers.js (Apache-2.0, ~25 MB, cached by the browser). The CSP allows WebA
 
 ## Browser extension
 
-`browser-extension/` holds a Manifest V3 extension that adds a one-click "save this job" button
-on LinkedIn and Indeed job pages.
+`browser-extension/` holds a Manifest V3 extension. It adds a one-click "save this job" button on
+LinkedIn, XING, StepStone and Indeed job pages, a "Send results to TrackMyself" button on their
+search pages, and the job-hunt application helper (see Job hunt). Permissions: `storage`,
+`activeTab` and `scripting` (the helper reaches company career sites only when the person opens
+the popup on that tab), plus host access to the four boards and TrackMyself.
 
 ```bash
 cd browser-extension
@@ -238,9 +250,65 @@ background worker, so CORS is keyed on `chrome-extension://<id>` for ids in `EXT
 Saving posts to `/api/extension/jobs` (honours pause, 60 saves/hour). The API host is hard-coded
 in `src/background.ts`, `src/content.ts` and `src/popup.ts`.
 
+Job-hunt calls use `/api/extension/leads` (ready list, harvest), `/leads/[id]/kit` and
+`/leads/[id]/submitted`; they re-check the account's status and plan on every call.
+
 Changes reach users only after `npm run build` and a Chrome Web Store resubmission. Current
-version **1.1.0**; `manifest.json` and `package.json` must agree (CI checks). Country domains such
+version **1.2.0** (new permissions, so users re-approve); `manifest.json` and `package.json` must agree (CI checks). Country domains such
 as `de.indeed.com` are not yet recognised (roadmap).
+
+## Job hunt
+
+A daily pipeline for finding fresh jobs and getting applications out, with the person in
+control of every submission. Superadmin has it now; Premium accounts get it when an admin turns
+on **Settings → Job hunt for premium accounts** (`canUseJobHunt()` in `src/lib/permissions.ts`).
+
+1. **Saved searches** (`/me/jobs/searches`): keywords, place, radius, "posted within N days"
+   (default 3), excluded companies, and optional LinkedIn / XING / StepStone saved-search links.
+2. **Daily search** (`/api/cron/job-hunt`, 05:00 UTC): each active search queries the
+   Bundesagentur für Arbeit Jobsuche API and Adzuna (`src/lib/jobs/sources/`). Results outside the
+   age window are dropped, the platform is taken from the apply link (a BA hit that applies on
+   stepstone.de counts as StepStone), the same job from several sources is merged, jobs already
+   tracked as applications are skipped, and each new lead gets a fit score: word overlap between
+   CV and posting, 0–100, not a judgement of ability (`src/lib/jobs/score.ts`).
+3. **Inbox** (`/me/jobs`): leads by fit, newest or deadline, with progress toward each platform's
+   daily target. Shortlist, dismiss, or prepare in bulk. "Search now" runs the searches on demand.
+4. **Prepare** (`prepareLead()` in `src/lib/jobs/prepare.ts`): creates the tracked application
+   (Wishlist, with posting date, deadline and link), tailors the CV, writes a cover letter, runs a
+   gap check and saves both PDFs to My Documents linked to the application. AI goes through the
+   gateway under the account's own entitlement and falls back to the non-AI versions. Optional
+   auto-prepare does this each morning for the best new leads up to each platform's remaining
+   target.
+5. **Review** (`/me/jobs/[id]`): CV changes, editable letter, gap questions whose answers feed a
+   re-tailor, then **Approve and apply with the extension**.
+6. **Assisted apply** (browser extension 1.2): the posting opens with `#tm-lead=<id>`, or the popup
+   injects the helper into any tab via `activeTab`. It fills matching fields, uses saved screening
+   answers only on clear matches, attaches the prepared CV and letter, and highlights what needs
+   the person. **It never presses Next or Submit.** When the site shows its confirmation, the
+   application is marked Submitted.
+7. **Daily report** (`/me/jobs/report`, email, bell, `report.daily` webhook): new jobs against
+   targets, what is waiting, deadlines in three days, follow-ups, and feedback from the last 30
+   days (reply rate per platform, fit band against replies, time to first reply). Overdue
+   follow-ups become to-dos once; prepared applications whose deadline passed are closed with a
+   note.
+
+LinkedIn, XING and StepStone forbid automated applying, and LinkedIn restricts accounts that do
+it. Nothing here submits on anyone's behalf, and the search-results harvest only runs when the
+person presses "Send results to TrackMyself" on a page they opened.
+
+### Automation API, webhooks, MCP and notebook
+
+Personal access tokens (Settings → Integrations; hashed, scoped, expiring, revocable) unlock
+`/api/v1`: leads, ingest, prepare, hunt, report, insights and application updates. Signed
+webhooks (`X-TM-Signature`, HMAC-SHA256) announce `lead.created`, `lead.ready`,
+`application.submitted` and `report.daily`. Approving and submitting are not in the API.
+
+- `mcp-server/`: a stdio MCP server so Claude Desktop or Claude Code can work the pipeline in
+  conversation. Setup in `mcp-server/README.md`.
+- `notebooks/job_hunt_insights.ipynb`: read-only Google Colab notebook for funnels, fit against
+  replies, response times and a suggested target mix.
+- `docs/automation.md`: the API reference, webhook verification and n8n recipes (job-alert
+  emails into the inbox, extra schedules, chat notifications).
 
 ---
 
@@ -291,22 +359,29 @@ the root.
 
 ### Scheduled maintenance
 
-`vercel.json` runs `/api/cron/maintenance` daily (Hobby plan: once a day). It purges expired
-trash, settles orphaned AI calls, removes used tokens and unattached uploads, and retries
-half-finished account deletions. The same work also runs opportunistically on normal traffic.
+`vercel.json` runs `/api/cron/maintenance` daily at 03:00 UTC (Hobby plan: once a day per job).
+It purges expired trash, settles orphaned AI calls, removes used tokens and unattached uploads,
+and retries half-finished account deletions. The same work also runs opportunistically on
+normal traffic.
+
+`/api/cron/job-hunt` runs at 05:00 UTC: search, auto-prepare, upkeep and the daily report for every
+account with job hunt on, inside one 60-second invocation. Accounts that do not fit are reported
+as left over and run next time; "Search now" and `POST /api/v1/hunt/run` cover the rest.
 
 ### Migrations
 
 Idempotent entries in `src/lib/migrations/index.ts`, run by a superadmin from Settings →
 Maintenance or `POST /api/admin/migrations/<name>`. After deploying this version run, in order:
 `ensure-indexes`, `normalise-emails`, `backfill-email-verified`, `backfill-interview-user-id`,
-`backfill-document-application-id`, `purge-preview-cvfiles`, `drop-reminders`.
+`backfill-document-application-id`, `purge-preview-cvfiles`, `drop-reminders`. Run `ensure-indexes`
+again after deploying job hunt so `JobSearch`, `JobLead` and `ApiToken` get their indexes.
 
 ### CI/CD
 
 `.github/workflows/ci.yml`: **verify** (typecheck, lint, env check, unit tests, build with
 placeholder env), **extension** (typecheck, build, manifest/package check, artifact), **test-db**
-(vitest `*.dbtest.ts` against a MongoDB service container), **audit** (`npm audit`, blocks on
+(vitest `*.dbtest.ts` against a MongoDB service container), **mcp** (builds the MCP server and
+checks its stdio handshake), **audit** (`npm audit`, blocks on
 critical). Vercel deploys from the GitHub integration; CI does not gate it until branch protection
 requires the `verify` and `extension` checks on `main`:
 
@@ -328,7 +403,8 @@ All shared in MongoDB (`RateBucket`): login 8/15 min per email + 30/15 min per I
 login 8 + 30; register 5/h per IP; forgot/reset/verify/resend 5–20/h; account delete 10/h;
 password change 5/15 min; CV import 40/h; uploads 30/h; CV generate 30/10 min; applications
 60/h; extension saves 60/h; search 60/min; AI tasks 20/10 min per task (tighter on tailoring);
-BYOK key checks 5/10 min; exports 3/h.
+BYOK key checks 5/10 min; exports 3/h; job search refresh 4/h; lead preparation 20/h;
+extension harvest 20 batches/h; API tokens 120 requests/min each.
 
 ---
 
@@ -352,7 +428,7 @@ Enforced by review and by lint. `AGENTS.md` holds the full list.
 `User` · `Application` · `Interview` · `Document` · `CVProfile` · `CVFile` · `AiDraft` ·
 `AccessControl` · `AppSettings` · `AdminAction` · `Todo` · `IssueReport` · `Notification` ·
 `PasswordResetToken` · `EmailVerificationToken` · `RateBucket` · `AiBudget` · `AiCallLog` ·
-`AiUsageCounter`
+`AiUsageCounter` · `JobSearch` · `JobLead` · `ApiToken`
 
 `Application.userId`, `Document.userId` and `Interview.userId` are `ObjectId`; `CVProfile.userId`
 and `CVFile.userId` are `String`. Mongoose casts through the models; raw driver queries need the
@@ -363,7 +439,9 @@ right type.
 ## Not implemented
 
 - A payment provider (abstraction and request flow only)
-- 2FA, email change, teams, i18n, email digests, MCP, the A/B/C generation workflow
+- 2FA, email change, teams, i18n, the A/B/C generation workflow
+- Automatic submission of applications (deliberately; see Job hunt)
+- Per-ATS form adapters (Workday, Greenhouse, Personio) beyond the generic label matcher
 - Component-level UI tests
 
 See `docs/ROADMAP.md` and `docs/AUDIT-2026-10.md`.
