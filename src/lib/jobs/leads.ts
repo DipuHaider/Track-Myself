@@ -6,6 +6,7 @@ import { SUBMISSION_METHODS, SUBMITTED_STATUS } from "@/constants/applicationSta
 import { OPEN_LEAD_STATUSES, LEAD_STATUSES, type LeadStatus } from "@/lib/jobs/constants";
 import { TARGET_PLATFORMS, targetPlatformFor, type JobHuntSettings, type TargetPlatform } from "@/lib/jobs/settings";
 import { parsePage, envelope } from "@/lib/pagination";
+import { emitSubmitted } from "@/lib/jobs/events";
 
 const DAY = 86_400_000;
 const DISMISS_TTL_DAYS = 30;
@@ -266,8 +267,12 @@ export async function applyLeadAction(
   if (action === "restore") Object.assign(set, { status: "new", expiresAt: null });
   if (action === "approve") Object.assign(set, { status: "ready", approvedAt: now });
   if (action === "applying") Object.assign(set, { status: "applying", approvedAt: lead.approvedAt ?? now });
+  let submittedMethod = "";
   if (action === "submitted") {
     Object.assign(set, { status: "submitted", submittedAt: now });
+    submittedMethod = body.submissionMethod && (SUBMISSION_METHODS as readonly string[]).includes(body.submissionMethod)
+      ? body.submissionMethod
+      : SUBMISSION_FOR[str(lead.platform)] ?? "Company Application Form";
     if (lead.applicationId) {
       const method = body.submissionMethod && (SUBMISSION_METHODS as readonly string[]).includes(body.submissionMethod)
         ? body.submissionMethod
@@ -281,6 +286,12 @@ export async function applyLeadAction(
   }
 
   const updated = (await JobLead.findOneAndUpdate({ _id: leadId, userId }, { $set: set }, { new: true }).lean()) as Raw;
+  if (action === "submitted") {
+    await emitSubmitted(userId, {
+      leadId, applicationId: lead.applicationId ? String(lead.applicationId) : null,
+      company: str(lead.company), title: str(lead.title), method: submittedMethod,
+    }).catch(() => undefined);
+  }
   return { ok: true, lead: leadView(updated, true) };
 }
 

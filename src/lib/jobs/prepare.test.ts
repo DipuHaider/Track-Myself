@@ -11,6 +11,7 @@ const s = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ default: async () => undefined }));
+vi.mock("@/lib/jobs/events", () => ({ emitLeadReady: async () => undefined }));
 vi.mock("@/models/JobLead", () => ({
   default: {
     findOne: () => ({ lean: async () => s.lead }),

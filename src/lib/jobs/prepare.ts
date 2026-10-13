@@ -18,6 +18,7 @@ import { renderCoverLetterDocx, renderTailoredResumeDocx, type AppInfo } from "@
 import { renderCoverLetterPdf, renderTailoredResumePdf } from "@/lib/cv/pdf";
 import { canExportPdf, type Plan, type Role } from "@/lib/permissions";
 import type { CVContent } from "@/types/cv";
+import { emitLeadReady } from "@/lib/jobs/events";
 
 export type PrepareUser = { id: string; role: Role; plan: Plan; status: "active" | "paused"; email?: string | null };
 
@@ -289,6 +290,9 @@ export async function prepareLead(
         },
       },
     );
+    if (!opts.letterOnly) {
+      await emitLeadReady(user.id, { id: leadId, company: lead.company, title: lead.title, applicationId }).catch(() => undefined);
+    }
     return { ok: true, leadId, applicationId, fileIds, notes };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Preparation failed.";

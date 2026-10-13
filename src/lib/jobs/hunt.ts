@@ -8,6 +8,7 @@ import { searchAdzuna } from "@/lib/jobs/sources/adzuna";
 import { toLeadDraft, withinAge } from "@/lib/jobs/normalise";
 import { ingestLeads, expireLeads } from "@/lib/jobs/ingest";
 import { normaliseJobHunt } from "@/lib/jobs/settings";
+import { emitLeadsCreated } from "@/lib/jobs/events";
 import type { LeadDraft, RawLead, SearchQuery } from "@/lib/jobs/types";
 import type { CVContent } from "@/types/cv";
 import type { Role } from "@/lib/permissions";
@@ -154,6 +155,7 @@ export async function runHuntForUser(
   }
 
   summary.expired = await expireLeads(userId, now);
+  await emitLeadsCreated(userId, summary.createdIds, "search").catch(() => undefined);
   return summary;
 }
 
