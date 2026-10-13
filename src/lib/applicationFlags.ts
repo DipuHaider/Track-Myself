@@ -62,6 +62,16 @@ export function postingIdentity(app: Application): string | null {
   const indeed = url.match(/[?&](?:jk|vjk)=([a-z0-9]+)/i)?.[1];
   if (indeed) return `indeed:${indeed}`;
 
+  const xing = url.match(/xing\.com\/jobs\/[^?#]*?-(\d{5,})(?:[/?#]|$)/i)?.[1];
+  if (xing) return `xing:${xing}`;
+
+  const stepstone = url.match(/stepstone\.de\/[^?#]*?--(\d{5,})-inline\.html/i)?.[1]
+    ?? url.match(/stepstone\.de\/[^?#]*?-(\d{6,})(?:[/?#.]|$)/i)?.[1];
+  if (stepstone) return `stepstone:${stepstone}`;
+
+  const ba = url.match(/arbeitsagentur\.de\/jobsuche\/jobdetail\/([A-Za-z0-9-]+)/i)?.[1];
+  if (ba) return `ba:${ba}`;
+
   return null;
 }
 

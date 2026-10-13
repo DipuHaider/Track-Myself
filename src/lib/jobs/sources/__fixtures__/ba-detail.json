@@ -1,0 +1,102 @@
+{
+  "stellenangebotsart": "ARBEIT",
+  "stellenangebotsTitel": "Lead Developer Frontend (m/w/d) - Hybrid,München,Stuttgart,Nürnberg,Düsseldorf,Eschborn,Hamburg",
+  "quereinstiegGeeignet": false,
+  "stellenangebotsBeschreibung": "Standorte:  Düsseldorf, Eschborn, Hamburg, München, Nürnberg, Stuttgart Randstad Digital Germany AG: Seit 1995 sind wir Experten für digitale Innovationen. Als globales Technologieunternehmen der Randstad Gruppe bieten wir maßgeschneiderte Softwareentwicklung und IT-Consulting in den Bereichen Advisory, Customer Experience, Cloud, Digital & Product Engineering sowie Data & Analytics auf höchstem Niveau.      Randstad Digital setzt sich für Diversität & Inklusion am Arbeitsplatz ein: Vielfalt unterschiedlicher Ideen, Erfahrungen und Perspektiven unserer Digital Engineers sind maßgeblich für uns",
+  "arbeitszeitSchichtNachtWochenende": false,
+  "arbeitszeitTeilzeitAbend": false,
+  "arbeitszeitTeilzeitNachmittag": false,
+  "arbeitszeitTeilzeitVormittag": false,
+  "arbeitszeitTeilzeitFlexibel": false,
+  "arbeitszeitVollzeit": true,
+  "eintrittszeitraum": {
+    "von": "2026-10-02"
+  },
+  "verguetungsangabe": "KEINE_ANGABEN",
+  "vertragsdauer": "UNBEFRISTET",
+  "istGeringfuegigeBeschaeftigung": false,
+  "istBehinderungGefordert": false,
+  "stellenlokationen": [
+    {
+      "adresse": {
+        "strasse": "Schockenriedstr. 8c",
+        "plz": "70565",
+        "ort": "Stuttgart",
+        "region": "BADEN_WUERTTEMBERG",
+        "land": "DEUTSCHLAND"
+      },
+      "breite": 48.725829,
+      "laenge": 9.118224
+    },
+    {
+      "adresse": {
+        "strasse": "Wanheimer Straße 68",
+        "plz": "40468",
+        "ort": "Düsseldorf",
+        "region": "NORDRHEIN_WESTFALEN",
+        "land": "DEUTSCHLAND"
+      },
+      "breite": 51.285789,
+      "laenge": 6.7862565
+    },
+    {
+      "adresse": {
+        "strasse": "Frankfurter Str. 100",
+        "plz": "65760",
+        "ort": "Eschborn, Taunus",
+        "region": "HESSEN",
+        "land": "DEUTSCHLAND"
+      },
+      "breite": 50.134797,
+      "laenge": 8.5727205
+    },
+    {
+      "adresse": {
+        "strasse": "Rothenburger Str. 116",
+        "plz": "90439",
+        "ort": "Nürnberg, Mittelfranken",
+        "region": "BAYERN",
+        "land": "DEUTSCHLAND"
+      },
+      "breite": 49.44375,
+      "laenge": 11.0535345
+    },
+    {
+      "adresse": {
+        "strasse": "Süderstraße 79",
+        "plz": "20097",
+        "ort": "Hamburg",
+        "region": "HAMBURG",
+        "land": "DEUTSCHLAND"
+      },
+      "breite": 53.544987,
+      "laenge": 10.0287045
+    },
+    {
+      "adresse": {
+        "strasse": "Christoph-Rapparini-Bogen 29",
+        "plz": "80639",
+        "ort": "München",
+        "region": "BAYERN",
+        "land": "DEUTSCHLAND"
+      },
+      "breite": 48.146157,
+      "laenge": 11.504547
+    }
+  ],
+  "homeofficemoeglich": false,
+  "istPrivateArbeitsvermittlung": false,
+  "istArbeitnehmerUeberlassung": false,
+  "veroeffentlichungszeitraum": {
+    "von": "2026-02-05"
+  },
+  "datumErsteVeroeffentlichung": "2026-02-05",
+  "aenderungsdatum": "2026-10-02T17:33:01.676",
+  "externeURL": "https://www.finest-jobs.com/stellenanzeige/Lead-Developer-Frontend-D-Hybrid-1228012?cp=BA",
+  "istBetreut": false,
+  "hauptberuf": "Frontend-Entwickler/in",
+  "firma": "Randstad Digital",
+  "allianzpartnerUrl": "www.finest-jobs.com",
+  "allianzpartnerName": "finest-jobs.com",
+  "referenznummer": "12811-2130264-S"
+}

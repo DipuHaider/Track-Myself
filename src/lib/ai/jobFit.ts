@@ -29,7 +29,7 @@ const LEVELS = ["required", "preferred", "unclear"] as const;
 
 /* The CV is flattened to labelled sections so the model can cite where it found
    something. Without a section to point at, "evidence" is just an assertion. */
-function cvSections(cv: CVContent): string {
+export function cvSections(cv: CVContent): string {
   const parts: string[] = [];
 
   if (cv.summary) parts.push(`[summary] ${cv.summary}`);

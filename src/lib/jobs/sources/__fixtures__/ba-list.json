@@ -1,0 +1,92 @@
+{
+  "ergebnisliste": [
+    {
+      "stellenangebotsart": "ARBEIT",
+      "stellenangebotsTitel": "Frontend Developer / Typescript Engineer (m/w/d)",
+      "arbeitszeitVollzeit": true,
+      "eintrittszeitraum": {
+        "von": "2026-12-01"
+      },
+      "verguetungsangabe": "KEINE_ANGABEN",
+      "vertragsdauer": "UNBEFRISTET",
+      "stellenlokationen": [
+        {
+          "adresse": {
+            "strasse": "New-York-Ring",
+            "hausnummer": "6",
+            "plz": "22297",
+            "ort": "Hamburg",
+            "region": "HAMBURG",
+            "land": "DEUTSCHLAND"
+          },
+          "breite": 53.60285307500004,
+          "laenge": 10.020205672000088
+        }
+      ],
+      "homeofficemoeglich": true,
+      "homeofficetyp": "NACH_VEREINBARUNG",
+      "veroeffentlichungszeitraum": {
+        "von": "2026-10-06"
+      },
+      "datumErsteVeroeffentlichung": "2026-06-30",
+      "aenderungsdatum": "2026-10-06T16:11:50.239",
+      "hauptberuf": "Wirtschaftsinformatiker/in (Hochschule)",
+      "alternativBeruf1": "Bachelor Professional - IT (Softwareentwicklung)",
+      "firma": "ADS Allg Deutsche Steuerberatung mbH",
+      "arbeitgeberKundennummerHash": "h6johqG4H2aEn2W_QrUOeAdaf0gKO44K-SFKd_-YGsc=",
+      "referenznummer": "10001-1003306737-S",
+      "entfernung": 4,
+      "alleBerufe": [
+        "Wirtschaftsinformatiker/in (Hochschule)",
+        "Bachelor Professional - IT (Softwareentwicklung)"
+      ]
+    },
+    {
+      "stellenangebotsart": "ARBEIT",
+      "stellenangebotsTitel": "Lead Developer Frontend (m/w/d) - Hybrid,München,Stuttgart,Nürnberg,Düsseldorf,Eschborn,Hamburg",
+      "quereinstiegGeeignet": false,
+      "arbeitszeitSchichtNachtWochenende": false,
+      "arbeitszeitTeilzeitAbend": false,
+      "arbeitszeitTeilzeitNachmittag": false,
+      "arbeitszeitTeilzeitVormittag": false,
+      "arbeitszeitTeilzeitFlexibel": false,
+      "arbeitszeitVollzeit": true,
+      "eintrittszeitraum": {
+        "von": "2026-10-02"
+      },
+      "verguetungsangabe": "KEINE_ANGABEN",
+      "vertragsdauer": "UNBEFRISTET",
+      "istGeringfuegigeBeschaeftigung": false,
+      "stellenlokationen": [
+        {
+          "adresse": {
+            "strasse": "Süderstraße 79",
+            "plz": "20097",
+            "ort": "Hamburg",
+            "region": "HAMBURG",
+            "land": "DEUTSCHLAND"
+          },
+          "breite": 53.544987,
+          "laenge": 10.0287045
+        }
+      ],
+      "homeofficemoeglich": false,
+      "veroeffentlichungszeitraum": {
+        "von": "2026-02-05"
+      },
+      "datumErsteVeroeffentlichung": "2026-02-05",
+      "aenderungsdatum": "2026-10-02T17:33:01.676",
+      "externeURL": "https://www.finest-jobs.com/stellenanzeige/Lead-Developer-Frontend-D-Hybrid-1228012?cp=BA",
+      "hauptberuf": "Frontend-Entwickler/in",
+      "firma": "Randstad Digital",
+      "referenznummer": "12811-2130264-S",
+      "entfernung": 3,
+      "alleBerufe": [
+        "Frontend-Entwickler/in"
+      ]
+    }
+  ],
+  "maxErgebnisse": 10,
+  "page": 1,
+  "size": 2
+}

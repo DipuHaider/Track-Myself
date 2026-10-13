@@ -1,0 +1,45 @@
+{
+  "count": 2,
+  "results": [
+    {
+      "id": "5012345678",
+      "title": "<strong>Frontend</strong> Developer (m/w/d)",
+      "description": "Wir suchen einen Frontend Developer mit React und TypeScript Erfahrung …",
+      "created": "2026-10-12T09:15:00Z",
+      "redirect_url": "https://www.adzuna.de/land/ad/5012345678?se=x",
+      "company": {
+        "display_name": "Beispiel GmbH"
+      },
+      "location": {
+        "display_name": "Hamburg, Hamburg"
+      },
+      "salary_min": 55000,
+      "salary_max": 70000,
+      "salary_is_predicted": "0"
+    },
+    {
+      "id": "5012345679",
+      "title": "Backend Engineer",
+      "description": "Node.js, MongoDB",
+      "created": "2026-10-11T07:00:00Z",
+      "redirect_url": "https://www.adzuna.de/land/ad/5012345679",
+      "company": {
+        "display_name": "Other AG"
+      },
+      "location": {
+        "display_name": "Berlin"
+      },
+      "salary_min": 60000,
+      "salary_max": 60000,
+      "salary_is_predicted": "1"
+    },
+    {
+      "id": "",
+      "title": "broken",
+      "company": {
+        "display_name": "x"
+      },
+      "redirect_url": "https://x"
+    }
+  ]
+}
