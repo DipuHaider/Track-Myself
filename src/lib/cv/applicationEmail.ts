@@ -4,7 +4,7 @@ import { postingTerms } from "@/lib/ai/jobFit";
 import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
 import { fence } from "@/lib/ai/prompt";
 import { applicationEmailSchema } from "@/lib/ai/schemas";
-import { greetingFor, roleParts } from "@/lib/cv/coverLetter";
+import { greetingFor, pickProjects, roleParts, sentence } from "@/lib/cv/coverLetter";
 import type { AICredential } from "@/lib/cv/ai/provider";
 
 export type ApplicationEmail = { subject: string; body: string };
@@ -30,47 +30,66 @@ export function sanitizeEmail(input: unknown, c: CVContent): ApplicationEmail | 
 }
 
 export function emailSubject(c: CVContent, info: AppInfo): string {
-  return [`Application: ${info.jobTitle}`, c.name].filter(Boolean).join(" – ");
+  return [`Application for ${info.jobTitle}`, c.name].filter(Boolean).join(" – ");
 }
 
 function words(text: string): Set<string> {
   return new Set(text.toLowerCase().split(/[^a-z0-9+#]+/).filter(Boolean));
 }
 
+function overlap(text: string, terms: Set<string>): number {
+  let n = 0;
+  for (const w of words(text)) if (terms.has(w)) n++;
+  return n;
+}
+
+function list(items: string[]): string {
+  return items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}` : items.join("");
+}
+
 export function draftApplicationEmail(c: CVContent, info: AppInfo): ApplicationEmail {
-  const terms = new Set(postingTerms([info.jobDescription, info.notes].filter(Boolean).join("\n")));
+  const posting = [info.jobDescription, info.notes].filter(Boolean).join("\n");
+  const terms = new Set(postingTerms(posting));
   const skills = [...new Set(c.skills.flatMap((g) => g.items.split(",").map((s) => s.trim()).filter(Boolean)))];
   const matched = terms.size ? skills.filter((s) => [...words(s)].some((w) => terms.has(w))) : [];
   const shown = (matched.length ? matched : skills).slice(0, 4);
 
-  const latest = c.experience.find((e) => e.title || e.company);
-  const role = latest ? roleParts(latest) : null;
-  const who = c.positioning || role?.title || c.gradeTitle || "";
-  const intro = who
-    ? `I am ${/^[aeiou]/i.test(who) ? "an" : "a"} ${who}${role?.company ? ` at ${role.company}` : ""}`
+  const roles = c.experience.filter((e) => e.title || e.company).map((e) => ({ ...e, ...roleParts(e) }));
+  const latest = roles[0];
+  const best = terms.size
+    ? [...roles].sort((a, b) => overlap(b.bullets.join(" "), terms) - overlap(a.bullets.join(" "), terms))[0]
+    : latest;
+  const bullet = best
+    ? [...best.bullets].filter(Boolean).sort((a, b) => (terms.size ? overlap(b, terms) - overlap(a, terms) : 0)).map(sentence)[0]
     : "";
 
-  const lines = [
+  const who = c.positioning || latest?.title || c.gradeTitle || "";
+  const intro = who ? `I am ${/^[aeiou]/i.test(who) ? "an" : "a"} ${who}${latest?.company ? ` at ${latest.company}` : ""}.` : "";
+  const proof = !bullet || !best
+    ? ""
+    : best === latest && latest.company
+      ? ` There, I ${bullet}.`
+      : ` At ${best.company || "a previous role"}, I ${bullet}.`;
+  const stack = shown.length
+    ? ` I work daily with ${list(shown)}${matched.length ? ", which is what your posting asks for" : ""}.`
+    : "";
+  const projects = pickProjects(c, posting, 3);
+  const availability = c.availability.trim().replace(/[.\s]+$/, "");
+
+  const blocks = [
     greetingFor(info),
-    "",
     `I would like to apply for the ${info.jobTitle} position at ${info.companyName}` +
-      (info.platform ? `, which I found on ${info.platform}` : "") + ".",
-    "",
-    [
-      intro && `${intro}.`,
-      shown.length && `My work centres on ${shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}` : shown[0]}` +
-        (matched.length ? ", which matches what your posting asks for." : "."),
-    ].filter(Boolean).join(" "),
-    "",
-    "Please find my CV and cover letter attached. I would be glad to talk about how I can contribute to your team.",
-    c.availability.trim() ? `\n${c.availability.trim().replace(/[.\s]+$/, "")}.` : "",
-    "",
-    "Kind regards,",
-    signature(c),
+      (info.platform ? `, advertised on ${info.platform}` : "") +
+      ". My CV and cover letter are attached.",
+    `${intro}${proof}${stack}`.trim(),
+    projects.length ? `Relevant work:\n${projects.map((p) => `- ${p}`).join("\n")}` : "",
+    `I would welcome a short conversation about how I can help ${info.companyName}.` +
+      (availability ? ` ${availability.charAt(0).toUpperCase()}${availability.slice(1)}.` : ""),
+    `Kind regards,\n${signature(c)}`,
   ];
   return {
     subject: emailSubject(c, info),
-    body: lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+    body: blocks.filter(Boolean).join("\n\n"),
   };
 }
 
@@ -84,8 +103,10 @@ function cvForPrompt(c: CVContent): string {
       const r = roleParts(e);
       return `Role: ${r.title} at ${r.company} (${e.dates})\n${e.bullets.slice(0, 4).map((b) => `- ${b}`).join("\n")}`;
     }),
+    (c.projects ?? []).length > 0 &&
+      `Projects:\n${c.projects.slice(0, 10).map((p) => `- ${[p.name, p.stack && `(${p.stack})`, p.text].filter(Boolean).join(" ")}`).join("\n")}`,
     c.availability && `Availability: ${c.availability}`,
-  ].filter(Boolean).join("\n").slice(0, 7000);
+  ].filter(Boolean).join("\n").slice(0, 8000);
 }
 
 export function buildEmailPrompt(c: CVContent, info: AppInfo, correction = ""): string {
@@ -94,12 +115,20 @@ export function buildEmailPrompt(c: CVContent, info: AppInfo, correction = ""): 
     "Write the email a candidate sends to apply for this job, with the CV and cover letter attached. Return only JSON:",
     '{"subject": "...", "body": "..."}',
     "",
+    "Structure of the body (plain text, blank line between blocks):",
+    `1. Greeting.`,
+    `2. One or two sentences: applying for the role at the company${info.platform ? `, advertised on ${info.platform}` : ""}; CV and cover letter attached.`,
+    "3. Two or three sentences: who the candidate is, one concrete achievement from the CV (with a number if the CV has one) that matches the posting, and the matching skills.",
+    "4. Optional: \"Relevant work:\" followed by 2-3 lines starting with \"- \", each a CV project with its link or a few words on what it is. Omit the block if no CV project fits.",
+    "5. One sentence inviting a conversation, plus availability if the CV gives it.",
+    "6. Sign-off line, then the signature.",
+    "",
     "Rules:",
-    "- Subject: under 90 characters, names the role (and the reference number if the posting gives one) and the candidate's name.",
-    "- Body: plain text with blank lines between paragraphs, 90-170 words before the signature. No markdown, no placeholders such as [Name].",
-    "- Open with the role and company, then one or two concrete CV facts that match what the posting asks for, then mention the attached CV and cover letter and invite a conversation.",
-    "- Use only facts from the CV. Never invent employers, numbers, degrees or skills.",
-    "- Do not repeat the cover letter; this is a short, specific covering email.",
+    "- Subject: under 90 characters, in the form \"Application for <role> – <name>\", adding the reference number if the posting gives one.",
+    "- 90-170 words before the signature. No markdown, no placeholders such as [Name].",
+    "- Use only facts from the CV. Never invent employers, numbers, links, degrees or skills.",
+    "- A short, specific covering email; do not repeat the cover letter.",
+    "- Avoid: \"I am writing to\", \"passionate\", \"proven track record\", \"dynamic team\", \"I am confident\", \"strong fit\".",
     "- Write in the same language as the job posting.",
     `- Greeting: ${info.contactName ? `address ${info.contactName} by name` : "\"Dear Hiring Manager,\" (or the posting's language equivalent)"}.`,
     `- End with a sign-off line, then this signature exactly:\n${signature(c)}`,

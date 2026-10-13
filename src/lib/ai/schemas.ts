@@ -34,6 +34,7 @@ export const salaryEstimateSchema = z
 export const coverLetterSchema = z.object({
   greeting: text(200),
   paragraphs: z.array(z.string().trim().min(1).max(2000)).min(1).max(8),
+  projects: z.array(z.string().trim().max(400)).max(8).optional(),
   closing: text(200),
 });
 

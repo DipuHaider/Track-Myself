@@ -1,20 +1,19 @@
-import type { CVContent } from "@/types/cv";
+import type { CVContent, CVProject } from "@/types/cv";
 import type { AppInfo } from "@/lib/cv/docx/coverLetter";
 import { postingTerms } from "@/lib/ai/jobFit";
 import { runAiJsonTask, type Actor } from "@/lib/ai/gateway";
 import { fence } from "@/lib/ai/prompt";
 import { coverLetterSchema } from "@/lib/ai/schemas";
 import type { AICredential } from "@/lib/cv/ai/provider";
+import type { CoverLetterText } from "@/lib/cv/letterLayout";
 
-export type CoverLetterText = {
-  greeting: string;
-  paragraphs: string[];
-  closing: string;
-};
+export { PROJECTS_HEADING, letterBlocks, letterPlainText, type CoverLetterText, type LetterBlock } from "@/lib/cv/letterLayout";
 
 const MAX_PARAGRAPHS = 8;
 const MAX_PARAGRAPH = 1500;
 const MAX_LINE = 160;
+const MAX_PROJECTS = 5;
+const MAX_PROJECT_LINE = 220;
 
 function clean(value: unknown, max: number): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
@@ -22,14 +21,18 @@ function clean(value: unknown, max: number): string {
 
 export function sanitizeLetter(input: unknown): CoverLetterText | null {
   if (!input || typeof input !== "object") return null;
-  const raw = input as { greeting?: unknown; paragraphs?: unknown; closing?: unknown };
+  const raw = input as { greeting?: unknown; paragraphs?: unknown; projects?: unknown; closing?: unknown };
   const paragraphs = Array.isArray(raw.paragraphs)
     ? raw.paragraphs.map((p) => clean(p, MAX_PARAGRAPH)).filter(Boolean).slice(0, MAX_PARAGRAPHS)
     : [];
   if (!paragraphs.length) return null;
+  const projects = Array.isArray(raw.projects)
+    ? raw.projects.map((p) => clean(p, MAX_PROJECT_LINE).replace(/^[-•*]\s*/, "")).filter(Boolean).slice(0, MAX_PROJECTS)
+    : [];
   return {
     greeting: clean(raw.greeting, MAX_LINE) || "Dear Hiring Manager,",
     paragraphs,
+    ...(projects.length ? { projects } : {}),
     closing: clean(raw.closing, MAX_LINE) || "Kind regards,",
   };
 }
@@ -44,9 +47,9 @@ function overlap(text: string, terms: Set<string>): number {
   return n;
 }
 
-const LABEL_PREFIX = /^[A-Z][\w&/ -]{1,40}:\s+(?=\S)/;
+const LABEL_PREFIX =/^[A-Z][\w&/ -]{1,40}:\s+(?=\S)/;
 
-function sentence(text: string): string {
+export function sentence(text: string): string {
   const t = text.trim().replace(LABEL_PREFIX, "").replace(/[.;,\s]+$/, "");
   if (!t) return "";
   if (/^[A-Z]{2}/.test(t) || /^[A-Z][a-z]*[A-Z]/.test(t.split(/\s/)[0])) return t;
@@ -76,6 +79,30 @@ export function greetingFor(info: AppInfo): string {
   return info.contactName ? `Dear ${info.contactName},` : "Dear Hiring Manager,";
 }
 
+export function projectLine(p: CVProject): string {
+  const text = p.text.replace(/\s+/g, " ").trim();
+  const firstSentence = text.split(/(?<=[.!?])\s/)[0] ?? "";
+  const trimmed = firstSentence.replace(/[.;,\s]+$/, "");
+  const detail = trimmed.length > 140 ? `${trimmed.slice(0, 137)}…` : trimmed;
+  return [p.name.trim(), detail].filter(Boolean).join(" – ") + (p.stack.trim() ? ` (${p.stack.trim()})` : "");
+}
+
+export function pickProjects(c: CVContent, posting: string, max = 4): string[] {
+  const terms = new Set(postingTerms(posting));
+  const rows = (c.projects ?? []).filter((p) => p.name.trim());
+  const ranked = terms.size
+    ? rows
+        .map((p, i) => ({ p, i, score: overlap(`${p.name} ${p.stack} ${p.text}`, terms) }))
+        .sort((a, b) => b.score - a.score || a.i - b.i)
+        .map((r) => r.p)
+    : rows;
+  return ranked.slice(0, max).map(projectLine).map((l) => l.slice(0, MAX_PROJECT_LINE));
+}
+
+function aOrAn(word: string): string {
+  return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
 export function draftCoverLetter(c: CVContent, info: AppInfo): CoverLetterText {
   const posting = [info.jobDescription, info.notes].filter(Boolean).join("\n");
   const terms = new Set(postingTerms(posting));
@@ -86,59 +113,65 @@ export function draftCoverLetter(c: CVContent, info: AppInfo): CoverLetterText {
     : [];
   const shownSkills = matchedSkills.length ? matchedSkills : skills.slice(0, 4);
 
-  const roles = c.experience.filter((e) => e.title || e.company);
+  const roles = c.experience
+    .filter((e) => e.title || e.company)
+    .map((e, i) => ({ ...e, ...roleParts(e), i }));
   const ranked = terms.size
-    ? [...roles].sort((a, b) => overlap(b.bullets.join(" "), terms) - overlap(a.bullets.join(" "), terms))
+    ? [...roles].sort((a, b) => overlap(b.bullets.join(" "), terms) - overlap(a.bullets.join(" "), terms) || a.i - b.i)
     : roles;
-  const lead = ranked[0] ? { ...ranked[0], ...roleParts(ranked[0]) } : undefined;
-  const latest = roles[0] ? { ...roles[0], ...roleParts(roles[0]) } : undefined;
-
-  const bullets = lead
-    ? [...lead.bullets]
-        .filter(Boolean)
-        .sort((a, b) => (terms.size ? overlap(b, terms) - overlap(a, terms) : 0))
-        .slice(0, 2)
-        .map(sentence)
-        .filter(Boolean)
-    : [];
+  const featured = ranked.slice(0, 2).sort((a, b) => a.i - b.i);
+  const latest = roles[0];
 
   const who = c.positioning || latest?.title || c.gradeTitle || "";
   const where = info.location ? ` in ${info.location.split(",")[0].trim()}` : "";
+  const seen = info.platform ? `, advertised on ${info.platform}` : "";
   const paragraphs: string[] = [];
 
   paragraphs.push(
-    `I am applying for the ${info.jobTitle} position at ${info.companyName}${where}. ` +
+    `I am applying for the ${info.jobTitle} position at ${info.companyName}${where}${seen}. ` +
     (who
-      ? `I am ${/^[aeiou]/i.test(who) ? "an" : "a"} ${who}${latest?.company ? `, currently with ${latest.company},` : ""} ` +
-        `and this role is a close match for the work I do best.`
-      : "This role is a close match for the work I do best."),
+      ? `As ${aOrAn(who)} ${who}${latest?.company && !featured.includes(latest) ? ` at ${latest.company}` : ""}, I build the kind of systems this role ` +
+        `is about, and I would like to do that for ${info.companyName}.`
+      : `The role matches the work I do best, and I would like to do it for ${info.companyName}.`),
   );
 
-  if (lead && bullets.length) {
-    paragraphs.push(
-      `In my role as ${lead.title}${lead.company ? ` at ${lead.company}` : ""}, I ${bullets[0]}` +
-      (bullets[1] ? `. I also ${bullets[1]}.` : "."),
-    );
-  } else if (c.summary) {
-    paragraphs.push(c.summary);
+  for (const role of featured) {
+    const bullets = [...role.bullets]
+      .filter(Boolean)
+      .sort((a, b) => (terms.size ? overlap(b, terms) - overlap(a, terms) : 0))
+      .slice(0, 2)
+      .map(sentence)
+      .filter(Boolean);
+    if (!bullets.length) continue;
+    const at = role.company ? `At ${role.company}` : "In my previous role";
+    const as = role.title ? `, as ${role.title},` : ",";
+    paragraphs.push(`${at}${as} I ${bullets[0]}` + (bullets[1] ? `. I also ${bullets[1]}.` : "."));
   }
+  if (paragraphs.length === 1 && c.summary) paragraphs.push(c.summary);
 
   if (shownSkills.length) {
     paragraphs.push(
       matchedSkills.length
-        ? `Your posting asks for ${list(shownSkills)}, which is where I work day to day, and I would bring that ` +
-          `experience to ${info.companyName} from the first week.`
-        : `My core skills are ${list(shownSkills)}, and I would bring them to ${info.companyName} from the first week.`,
+        ? `Your posting asks for ${list(shownSkills)}. That is the stack I work in every day, so I could contribute ` +
+          `from the first weeks rather than after a long ramp-up.`
+        : `My core skills are ${list(shownSkills)}, and I would bring them to ${info.companyName} from the first weeks.`,
     );
   }
 
   const availability = c.availability.trim().replace(/[.\s]+$/, "");
   paragraphs.push(
-    `I would welcome a conversation about how I could contribute to your team. My CV is attached.` +
+    `I would welcome a conversation about what ${info.companyName} needs from this role and how I can help. ` +
+    `My CV is attached.` +
     (availability ? ` ${availability.charAt(0).toUpperCase()}${availability.slice(1)}.` : ""),
   );
 
-  return { greeting: greetingFor(info), paragraphs, closing: "Kind regards," };
+  const projects = pickProjects(c, posting);
+  return {
+    greeting: greetingFor(info),
+    paragraphs,
+    ...(projects.length ? { projects } : {}),
+    closing: "Kind regards,",
+  };
 }
 
 function cvForPrompt(c: CVContent): string {
@@ -147,28 +180,36 @@ function cvForPrompt(c: CVContent): string {
     c.positioning && `Positioning: ${c.positioning}`,
     c.summary && `Summary: ${c.summary}`,
     c.skills.length && `Skills: ${c.skills.map((g) => `${g.label}: ${g.items}`).join(" | ")}`,
-    ...c.experience.slice(0, 5).map(
-      (e) => `Role: ${e.title} at ${e.company} (${e.dates})\n${e.bullets.slice(0, 6).map((b) => `- ${b}`).join("\n")}`,
-    ),
+    ...c.experience.slice(0, 5).map((e) => {
+      const r = roleParts(e);
+      return `Role: ${r.title} at ${r.company} (${e.dates})\n${e.bullets.slice(0, 6).map((b) => `- ${b}`).join("\n")}`;
+    }),
+    (c.projects ?? []).length > 0 &&
+      `Projects:\n${c.projects.slice(0, 12).map((p) => `- ${[p.name, p.stack && `(${p.stack})`, p.text].filter(Boolean).join(" ")}`).join("\n")}`,
     c.education?.length && `Education: ${c.education.map((e) => [e.degree, e.school].filter(Boolean).join(", ")).join(" | ")}`,
     c.languages?.length && `Languages: ${c.languages.map((l) => [l.name, l.level].filter(Boolean).join(" ")).join(", ")}`,
     c.availability && `Availability: ${c.availability}`,
   ];
-  return lines.filter(Boolean).join("\n").slice(0, 9000);
+  return lines.filter(Boolean).join("\n").slice(0, 11000);
 }
 
 export function buildCoverLetterPrompt(c: CVContent, info: AppInfo, correction = ""): string {
   const posting = [info.jobDescription, info.notes].filter(Boolean).join("\n").slice(0, 9000);
   return [
-    "Write a cover letter for this job application. Return only JSON:",
-    '{"greeting": "...", "paragraphs": ["...", "..."], "closing": "..."}',
+    "Write a modern cover letter for this job application. Return only JSON:",
+    '{"greeting": "...", "paragraphs": ["...", "..."], "projects": ["...", "..."], "closing": "..."}',
+    "",
+    "Structure:",
+    `- Paragraph 1: the role and company${info.platform ? ` and that it was advertised on ${info.platform}` : ""}, then one sentence on why this candidate fits what this company needs. Never open with "I am writing to".`,
+    "- Paragraphs 2-3: one paragraph for each of the one or two most relevant employers. Name the employer and the job title, and give two concrete achievements from the CV, with numbers where the CV has them, tied to what the posting asks for.",
+    "- Paragraph 4: the skills from the posting the candidate actually has, and how they would use them in this role.",
+    "- Last paragraph: a short call to action that says the CV is attached and, if the CV gives it, availability.",
+    "- projects: 2 to 4 CV projects most relevant to this posting, each one line such as \"Name – link or what it is (year, stack)\". Use only projects in the CV; return [] if none fit.",
     "",
     "Rules:",
-    "- 3 to 4 paragraphs, 220-350 words in total. No headings, no bullet points, no placeholders.",
-    "- Use only facts from the CV below. Never invent employers, numbers, degrees or skills.",
-    "- Tie two or three concrete CV achievements to what the posting actually asks for.",
-    "- Name the company and the role. Open with why this role, not with \"I am writing to\".",
-    "- Plain, confident, specific; no clichés such as \"passionate\", \"team player\" or \"I believe I would be a great fit\".",
+    "- 280-400 words in the paragraphs. No headings or bullets inside paragraphs, no placeholders.",
+    "- Use only facts from the CV below. Never invent employers, numbers, links, degrees or skills.",
+    "- Plain, confident, specific. Avoid: \"passionate\", \"proven track record\", \"dynamic team\", \"I am confident\", \"strong fit\", \"team player\", \"hit the ground running\".",
     "- Write in the same language as the job posting.",
     `- Greeting: ${info.contactName ? `address ${info.contactName} by name` : "\"Dear Hiring Manager,\" (or the posting's language equivalent)"}.`,
     "- Closing: a short sign-off line such as \"Kind regards,\" without the name.",
@@ -177,6 +218,7 @@ export function buildCoverLetterPrompt(c: CVContent, info: AppInfo, correction =
     `Company: ${info.companyName}`,
     `Role: ${info.jobTitle}`,
     info.location ? `Location: ${info.location}` : "",
+    info.platform ? `Advertised on: ${info.platform}` : "",
     "",
     fence("job_posting", posting || "(no posting text — write from the role title and the CV)"),
     "",
@@ -216,11 +258,11 @@ export async function writeCoverLetter(opts: {
     task: "cover-letter.write",
     actor: opts.actor,
     prompt: buildCoverLetterPrompt(opts.content, opts.info, opts.correction),
-    maxOutputTokens: 1500,
+    maxOutputTokens: 2000,
     userKey: opts.userKey,
     schema: coverLetterSchema,
     kind: "object",
-    schemaHint: '{"greeting": string, "paragraphs": string[], "closing": string}',
+    schemaHint: '{"greeting": string, "paragraphs": string[], "projects": string[], "closing": string}',
   });
 
   if (!run.ok) {

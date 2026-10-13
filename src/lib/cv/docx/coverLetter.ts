@@ -1,6 +1,6 @@
 import { Document, Paragraph } from "docx";
 import type { CVContent } from "@/types/cv";
-import type { CoverLetterText } from "@/lib/cv/coverLetter";
+import { PROJECTS_HEADING, letterBlocks, type CoverLetterText } from "@/lib/cv/coverLetter";
 import { FONT, p, pageMargin, txt } from "./shared";
 
 export type AppInfo = {
@@ -35,8 +35,15 @@ export function buildCoverLetter(c: CVContent, info: AppInfo, letter: CoverLette
   }));
 
   children.push(p(txt(letter.greeting, { size: 21 }), { after: 200 }));
-  for (const para of letter.paragraphs) {
-    children.push(p(txt(para, { size: 21 }), { after: 200 }));
+  for (const block of letterBlocks(letter)) {
+    if (block.kind === "paragraph") {
+      children.push(p(txt(block.text, { size: 21 }), { after: 200 }));
+      continue;
+    }
+    children.push(p(txt(`${PROJECTS_HEADING}:`, { bold: true, size: 21 }), { after: 80 }));
+    block.items.forEach((item, i) => {
+      children.push(p(txt(`•  ${item}`, { size: 21 }), { after: i === block.items.length - 1 ? 200 : 40 }));
+    });
   }
 
   children.push(p(txt(letter.closing, { size: 21 }), { before: 80, after: 320 }));

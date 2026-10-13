@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     const useAi = ent.allowed;
     const hash = draftHash({
       userId: auth.id, docType, format: "letter", variant: "letter",
-      jobDescription: `${jobDescription}\n${appInfo.contactName ?? ""}`, correction, baseline,
+      jobDescription: `${jobDescription}\n${appInfo.contactName ?? ""}\n${appInfo.platform ?? ""}\nletter-v2`, correction, baseline,
     });
     const cached = useAi ? await findLetterDraft(auth.id, hash) : null;
     const written = cached

@@ -14,12 +14,17 @@ import { SUBMISSION_METHODS } from "@/constants/applicationStatus";
 import type { LeadView } from "@/lib/jobs/leads";
 import Loading from "@/components/shared/Spinner";
 
-type Letter = { greeting: string; paragraphs: string[]; closing: string };
+type Letter = { greeting: string; paragraphs: string[]; projects?: string[]; closing: string };
 
 function asLetter(raw: unknown): Letter | null {
   const l = raw as Partial<Letter> | null;
   if (!l || typeof l.greeting !== "string" || !Array.isArray(l.paragraphs) || typeof l.closing !== "string") return null;
-  return { greeting: l.greeting, paragraphs: l.paragraphs.map(String), closing: l.closing };
+  return {
+    greeting: l.greeting,
+    paragraphs: l.paragraphs.map(String),
+    projects: Array.isArray(l.projects) ? l.projects.map(String) : [],
+    closing: l.closing,
+  };
 }
 
 const DEFAULT_METHOD: Record<string, string> = {
@@ -258,12 +263,15 @@ function GapAnswers({
 function LetterEditor({ letter, busy, onSave }: { letter: Letter; busy: boolean; onSave: (l: Letter) => void }) {
   const [greeting, setGreeting] = useState(letter.greeting);
   const [body, setBody] = useState(letter.paragraphs.join("\n\n"));
+  const [projects, setProjects] = useState((letter.projects ?? []).join("\n"));
   const [closing, setClosing] = useState(letter.closing);
   const gid = useId();
   const bid = useId();
+  const pid = useId();
   const cid = useId();
 
-  const dirty = greeting !== letter.greeting || body !== letter.paragraphs.join("\n\n") || closing !== letter.closing;
+  const dirty = greeting !== letter.greeting || body !== letter.paragraphs.join("\n\n") || closing !== letter.closing ||
+    projects !== (letter.projects ?? []).join("\n");
 
   return (
     <section className="surface rounded-xl border p-5">
@@ -280,6 +288,11 @@ function LetterEditor({ letter, busy, onSave }: { letter: Letter; busy: boolean;
           <p id={`${bid}-hint`} className="text-muted mt-1 text-xs">Separate paragraphs with a blank line.</p>
         </div>
         <div>
+          <label htmlFor={pid} className="mb-1 block text-sm font-medium">Relevant projects</label>
+          <textarea id={pid} rows={4} className="w-full rounded-md border px-3 py-2 text-sm" value={projects} onChange={(e) => setProjects(e.target.value)} aria-describedby={`${pid}-hint`} />
+          <p id={`${pid}-hint`} className="text-muted mt-1 text-xs">One project per line, printed as a short list before the last paragraph. Leave empty to drop it.</p>
+        </div>
+        <div>
           <label htmlFor={cid} className="mb-1 block text-sm font-medium">Closing</label>
           <input id={cid} className="w-full rounded-md border px-3 py-2 text-sm" value={closing} onChange={(e) => setClosing(e.target.value)} maxLength={200} />
         </div>
@@ -287,7 +300,12 @@ function LetterEditor({ letter, busy, onSave }: { letter: Letter; busy: boolean;
       <button
         type="button"
         disabled={!dirty || busy}
-        onClick={() => onSave({ greeting, paragraphs: body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean), closing })}
+        onClick={() => onSave({
+          greeting,
+          paragraphs: body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
+          projects: projects.split("\n").map((p) => p.trim()).filter(Boolean),
+          closing,
+        })}
         className="btn-primary mt-4 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm"
       >
         {busy && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}

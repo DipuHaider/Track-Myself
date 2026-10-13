@@ -2,7 +2,7 @@ import dbConnect from "@/lib/db";
 import CVFile from "@/models/CVFile";
 import JobLead from "@/models/JobLead";
 import { loadJobHunt } from "@/lib/jobs/access";
-import { sanitizeLetter } from "@/lib/cv/coverLetter";
+import { letterPlainText, sanitizeLetter } from "@/lib/cv/coverLetter";
 
 const KIT_MAX_BYTES = 3 * 1024 * 1024;
 const KIT_STATUSES = new Set(["ready", "applying"]);
@@ -27,7 +27,7 @@ export function splitName(full: string): { firstName: string; lastName: string }
 export function letterText(raw: unknown): string {
   const l = sanitizeLetter(raw);
   if (!l) return "";
-  return [l.greeting, ...l.paragraphs, l.closing].filter(Boolean).join("\n\n");
+  return letterPlainText(l);
 }
 
 /* Everything the extension needs to fill one application form, served only

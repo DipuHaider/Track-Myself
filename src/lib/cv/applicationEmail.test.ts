@@ -22,11 +22,11 @@ const info = {
 describe("draftApplicationEmail", () => {
   it("writes a subject and a signed body for this job", () => {
     const { subject, body } = draftApplicationEmail(cv, info);
-    expect(subject).toBe("Application: Full Stack Developer – Test Person");
+    expect(subject).toBe("Application for Full Stack Developer – Test Person");
     expect(body).toMatch(/^Dear Hiring Manager,/);
-    expect(body).toContain("Full Stack Developer position at P&T Software, which I found on StepStone.");
+    expect(body).toContain("Full Stack Developer position at P&T Software, advertised on StepStone. My CV and cover letter are attached.");
     expect(body).toContain("at Bashundhara Group");
-    expect(body).toContain("which matches what your posting asks for");
+    expect(body).toContain("which is what your posting asks for");
     expect(body).toContain("Test Person\n(+880) 171-7768146\ntest@example.com\nlinkedin.com/in/test");
     expect(body).not.toMatch(/\n{3,}/);
   });

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ai/gateway", () => ({ runAiJsonTask: vi.fn() }));
 
-import { draftCoverLetter, roleParts } from "@/lib/cv/coverLetter";
+import { draftCoverLetter, letterBlocks, letterPlainText, pickProjects, roleParts, sanitizeLetter } from "@/lib/cv/coverLetter";
 import { normaliseContent, tidyPhone } from "@/lib/cv/content";
 
 describe("roleParts", () => {
@@ -36,6 +36,10 @@ describe("draftCoverLetter", () => {
     positioning: "Senior Software Engineer",
     contact: { phone: "+880) 171-7768146" },
     skills: [{ label: "Languages", items: "TypeScript, React, Node.js, PHP" }],
+    projects: [
+      { name: "UK Education Consultants", stack: "Laravel", text: "ahzassociates.co.uk, built from scratch. 2022." },
+      { name: "Developers' Forum", stack: "MERN", text: "profound-liger-f9751d.netlify.app, a React and Node.js forum. 2024." },
+    ],
     experience: [{
       title: "Bashundhara Group",
       company: "Dhaka, Bangladesh Assistant Manager (Sr. Software Engineer)",
@@ -54,10 +58,40 @@ describe("draftCoverLetter", () => {
     }).paragraphs.join("\n");
 
     expect(cv.contact.phone).toBe("(+880) 171-7768146");
-    expect(text).toContain("currently with Bashundhara Group");
-    expect(text).toContain("In my role as Assistant Manager (Sr. Software Engineer) at Bashundhara Group, I design and maintain");
+    expect(text).toContain("As a Senior Software Engineer, I build");
+    expect(text).toContain("At Bashundhara Group, as Assistant Manager (Sr. Software Engineer), I design and maintain");
     expect(text).toContain("I also revamped legacy");
     expect(text).not.toMatch(/Architecture:|Maintenance:/);
     expect(text).toContain("Your posting asks for");
+  });
+});
+
+describe("relevant projects", () => {
+  const cv = normaliseContent({
+    name: "T",
+    projects: [
+      { name: "Shop", stack: "Laravel", text: "shop.example.com" },
+      { name: "Forum", stack: "React, Node.js", text: "forum.example.com. Built with a team of three." },
+      { name: "", stack: "x", text: "no name" },
+    ],
+  });
+
+  it("puts the projects that match the posting first", () => {
+    expect(pickProjects(cv, "React and Node.js developer")).toEqual([
+      "Forum – forum.example.com (React, Node.js)",
+      "Shop – shop.example.com (Laravel)",
+    ]);
+  });
+
+  it("prints the list before the last paragraph", () => {
+    const letter = { greeting: "Hi,", paragraphs: ["One.", "Two.", "Bye."], projects: ["A", " ", "B"], closing: "Kind regards," };
+    expect(letterBlocks(letter).map((b) => b.kind)).toEqual(["paragraph", "paragraph", "projects", "paragraph"]);
+    expect(letterPlainText(letter)).toBe("Hi,\n\nOne.\n\nTwo.\n\nRelevant projects:\n• A\n• B\n\nBye.\n\nKind regards,");
+  });
+
+  it("keeps projects from the model and strips bullets", () => {
+    const out = sanitizeLetter({ greeting: "Hi", paragraphs: ["x"], projects: ["- One", "", "• Two"], closing: "Bye" });
+    expect(out?.projects).toEqual(["One", "Two"]);
+    expect(sanitizeLetter({ greeting: "Hi", paragraphs: ["x"], closing: "Bye" })).not.toHaveProperty("projects");
   });
 });

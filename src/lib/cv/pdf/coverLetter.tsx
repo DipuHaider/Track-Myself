@@ -1,7 +1,7 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { CVContent } from "@/types/cv";
 import type { AppInfo } from "@/lib/cv/docx";
-import type { CoverLetterText } from "@/lib/cv/coverLetter";
+import { PROJECTS_HEADING, letterBlocks, type CoverLetterText } from "@/lib/cv/coverLetter";
 import { FONT, FONT_BOLD, pt } from "./shared";
 
 const s = StyleSheet.create({
@@ -16,6 +16,7 @@ const s = StyleSheet.create({
   company: { fontFamily: FONT_BOLD },
   subject: { fontFamily: FONT_BOLD, marginTop: 18, marginBottom: 14 },
   para: { marginBottom: 11 },
+  item: { marginTop: 2, paddingLeft: 6 },
   signOff: { marginTop: 4, marginBottom: 20 },
   name: { fontFamily: FONT_BOLD },
 });
@@ -52,7 +53,16 @@ export function CoverLetterDocument({
         <Text style={s.subject}>{`Application for ${info.jobTitle}`}</Text>
 
         <Text style={s.para}>{letter.greeting}</Text>
-        {letter.paragraphs.map((para, i) => <Text key={i} style={s.para}>{para}</Text>)}
+        {letterBlocks(letter).map((block, i) =>
+          block.kind === "paragraph" ? (
+            <Text key={i} style={s.para}>{block.text}</Text>
+          ) : (
+            <View key={i} style={s.para}>
+              <Text style={s.company}>{`${PROJECTS_HEADING}:`}</Text>
+              {block.items.map((item, j) => <Text key={j} style={s.item}>{`•  ${item}`}</Text>)}
+            </View>
+          ),
+        )}
 
         <View wrap={false}>
           <Text style={s.signOff}>{letter.closing}</Text>
