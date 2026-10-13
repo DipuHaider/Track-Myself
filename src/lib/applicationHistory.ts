@@ -2,7 +2,7 @@ import Application from "@/models/Application";
 import Document from "@/models/Document";
 import User from "@/models/User";
 import { attachmentIdFromUrl } from "@/lib/attachments";
-import { APPLICATION_STATUSES } from "@/constants/applicationStatus";
+import { APPLICATION_STATUSES, normaliseMethods } from "@/constants/applicationStatus";
 
 const HISTORY_MAX = 100;
 
@@ -50,6 +50,11 @@ export function sanitizeUpdate(incoming: Record<string, unknown>): Record<string
   for (const [key, value] of Object.entries(incoming)) {
     if (key.startsWith("$") || key.includes(".") || PROTECTED_FIELDS.has(key)) continue;
     update[key] = value;
+  }
+  if ("submissionMethods" in update) {
+    const methods = normaliseMethods(update.submissionMethods);
+    update.submissionMethods = methods;
+    update.submissionMethod = methods[0] ?? null;
   }
   return update;
 }

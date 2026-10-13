@@ -279,7 +279,7 @@ export async function applyLeadAction(
         : SUBMISSION_FOR[str(lead.platform)] ?? "Company Application Form";
       await updateApplication(
         { _id: lead.applicationId, userId },
-        { applicationStatus: SUBMITTED_STATUS, appliedDate: now, submissionMethod: method },
+        { applicationStatus: SUBMITTED_STATUS, appliedDate: now, submissionMethods: [method] },
         () => historyActor(userId),
       ).catch(() => null);
     }

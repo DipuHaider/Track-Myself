@@ -125,6 +125,20 @@ export const SUBMISSION_METHODS = [
   "Other",
 ] as const;
 
+/* An application can go out several ways at once (portal and an email to the
+   recruiter). submissionMethods holds all of them; submissionMethod stays the
+   first, so older readers and analytics keep working. */
+export function methodsOf(app: { submissionMethod?: string | null; submissionMethods?: string[] | null }): string[] {
+  if (app.submissionMethods?.length) return app.submissionMethods;
+  return app.submissionMethod ? [app.submissionMethod] : [];
+}
+
+export function normaliseMethods(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const known = SUBMISSION_METHODS as readonly string[];
+  return [...new Set(value.filter((v): v is string => typeof v === "string" && known.includes(v)))];
+}
+
 export const SUBMISSION_LINK_METHODS: ReadonlySet<string> = new Set([
   "Online / Job Portal",
   "Company Application Form",

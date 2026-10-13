@@ -45,6 +45,7 @@ type AppLite = {
   postedAt?: Date | null;
   deadline?: Date | null;
   submissionMethod?: string;
+  submissionMethods?: string[];
   leadId?: { toString(): string } | null;
   statusHistory?: { status: string; at: Date }[];
 };
@@ -78,7 +79,7 @@ export function toInsightRow(
     appliedWeekday: appliedAt ? new Date(appliedAt).getDay() : null,
     postedAt: iso(app.postedAt),
     deadline: iso(app.deadline),
-    submissionMethod: app.submissionMethod ?? "",
+    submissionMethod: (app.submissionMethods?.length ? app.submissionMethods : [app.submissionMethod ?? ""]).filter(Boolean).join(", "),
     fitScore: typeof lead?.fitScore === "number" ? lead.fitScore : null,
     responded: [...statuses].some((s) => RESPONDED.has(s)),
     interviewed: [...statuses].some((s) => INTERVIEWED.has(s)) || interviewRounds > 0,
@@ -94,7 +95,7 @@ export async function loadInsights(userId: string, sinceDays = 180) {
   const since = new Date(Date.now() - sinceDays * 86_400_000);
   const apps = (await Application.find(
     { userId, createdAt: { $gte: since } },
-    "companyName jobTitle platform applicationStatus createdAt appliedDate postedAt deadline submissionMethod leadId statusHistory",
+    "companyName jobTitle platform applicationStatus createdAt appliedDate postedAt deadline submissionMethod submissionMethods leadId statusHistory",
   ).lean()) as AppLite[];
 
   const leadIds = apps.map((a) => a.leadId).filter(Boolean);

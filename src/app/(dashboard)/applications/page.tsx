@@ -71,7 +71,7 @@ function ApplicationsContent() {
       if (!q) return true;
       return [
         app.companyName, app.jobTitle, app.platform, app.jobType, app.location, app.city, app.country,
-        app.applicationStatus, app.notes, app.salary, app.contactNumber, app.submissionMethod,
+        app.applicationStatus, app.notes, app.salary, app.contactNumber, ...(app.submissionMethods ?? [app.submissionMethod]),
         ...(app.contacts ?? []).flatMap((c) => [c.name, c.email]),
         app.owner?.name, app.owner?.email,
       ]

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ACTIVE_STAGES, APPLICATION_STATUSES, CLOSED_STATUSES, MAIN_STATUSES, SUBMISSION_DETAIL_METHODS,
-  SUBMISSION_LINK_METHODS, SUBMISSION_METHODS, composeStatus, mainStatusOf, stageOf,
+  SUBMISSION_LINK_METHODS, SUBMISSION_METHODS, composeStatus, mainStatusOf, methodsOf, normaliseMethods, stageOf,
 } from "@/constants/applicationStatus";
 
 describe("two-level statuses", () => {
@@ -29,5 +29,19 @@ describe("two-level statuses", () => {
       expect(SUBMISSION_METHODS as readonly string[]).toContain(m);
     }
     for (const m of SUBMISSION_DETAIL_METHODS) expect(SUBMISSION_METHODS as readonly string[]).toContain(m);
+  });
+});
+
+describe("several submission methods", () => {
+  it("reads older single-method applications", () => {
+    expect(methodsOf({ submissionMethod: "Postal Mail" })).toEqual(["Postal Mail"]);
+    expect(methodsOf({ submissionMethod: "Postal Mail", submissionMethods: ["CV Drop", "Email to Contact"] }))
+      .toEqual(["CV Drop", "Email to Contact"]);
+    expect(methodsOf({})).toEqual([]);
+  });
+
+  it("keeps only known methods, once each", () => {
+    expect(normaliseMethods(["CV Drop", "Fax", "CV Drop", 3, "LinkedIn Message"])).toEqual(["CV Drop", "LinkedIn Message"]);
+    expect(normaliseMethods("CV Drop")).toEqual([]);
   });
 });

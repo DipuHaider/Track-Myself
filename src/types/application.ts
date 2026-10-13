@@ -37,6 +37,7 @@ export interface Application {
   statusHistory?: { status: string; at: string | Date; kind: string; byId?: string; byName?: string }[];
   applicationType?: string;
   submissionMethod?: string;
+  submissionMethods?: string[];
   submissionDetail?: string;
   applicationStatus: (typeof APPLICATION_STATUSES)[number];
   responseStatus?: string | null;

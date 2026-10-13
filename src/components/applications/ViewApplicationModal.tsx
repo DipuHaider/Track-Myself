@@ -8,7 +8,7 @@ import StatusBadge from "@/components/applications/StatusBadge";
 import ApplicationTimeline from "@/components/applications/ApplicationTimeline";
 import InterviewRounds from "@/components/applications/InterviewRounds";
 import { useInterviews } from "@/hooks/useInterviews";
-import { OFFER_RECEIVED_STATUS, joinJobTypes, parseJobTypes, responseOptionsFor } from "@/constants/applicationStatus";
+import { OFFER_RECEIVED_STATUS, joinJobTypes, methodsOf, parseJobTypes, responseOptionsFor } from "@/constants/applicationStatus";
 import { formatLocation } from "@/lib/applicationLocation";
 import { formatSalary } from "@/lib/salary";
 import type { Application } from "@/types/application";
@@ -91,7 +91,8 @@ export default function ViewApplicationModal({
     .map((d) => `${d.name} (${d.format || ".pdf"})`)
     .join(", ");
   const contacts = (application.contacts ?? []).filter((c) => c.name || c.email || c.phone);
-  const appliedVia = [application.submissionMethod, application.submissionDetail].filter(Boolean).join(" — ");
+  const methods = methodsOf(application).join(", ");
+  const appliedVia = [methods, application.submissionDetail].filter(Boolean).join(" — ");
   const appliedLink = application.submissionDetail && /^https?:\/\/\S+$/i.test(application.submissionDetail)
     ? application.submissionDetail
     : "";
@@ -125,7 +126,7 @@ export default function ViewApplicationModal({
             <div>
               <p className="text-muted text-xs">Applied through</p>
               <p className="mt-0.5 text-sm font-medium">
-                {application.submissionMethod} —{" "}
+                {methods} —{" "}
                 <a href={appliedLink} target="_blank" rel="noreferrer" className="text-primary break-all hover:underline">
                   {appliedLink}
                 </a>

@@ -128,6 +128,7 @@ async function handlePost(req: Request) {
     applicationStatus,
     statusHistory: initialHistory(applicationStatus, await historyActor(user.id)),
     submissionMethod,
+    submissionMethods: submissionMethod ? [submissionMethod] : undefined,
     submissionDetail:  submissionMethod && SUBMISSION_DETAIL_METHODS.has(submissionMethod) ? str("submissionDetail").slice(0, 300) : undefined,
     appliedDate:       submissionMethod ? new Date() : undefined,
   });

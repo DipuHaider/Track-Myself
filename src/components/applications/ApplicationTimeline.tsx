@@ -9,7 +9,7 @@ import { STATUS_CLASS } from "@/components/applications/StatusBadge";
 import { INTERVIEW_STATUS_CLASS } from "@/components/applications/InterviewRounds";
 import type { Application } from "@/types/application";
 import type { Interview } from "@/types/interview";
-import { OFFER_RECEIVED_STATUS, WARM_LEAD_FEEDBACK, responseOptionsFor } from "@/constants/applicationStatus";
+import { OFFER_RECEIVED_STATUS, WARM_LEAD_FEEDBACK, methodsOf, responseOptionsFor } from "@/constants/applicationStatus";
 
 const STATUS_ICON: Record<string, ReactNode> = {
   "Wishlist":              <Star size={14} />,
@@ -120,7 +120,7 @@ function classFor(step: Step): string {
 function detailOf(step: Step, app: Application): string {
   if (step.kind === "interview") return step.value === "Scheduled" ? "" : step.value ?? "";
   if (step.status === "Submitted") {
-    const via = app.submissionMethod || app.platform;
+    const via = methodsOf(app).join(", ") || app.platform;
     return via ? `Via ${via}` : "";
   }
   if (step.kind === "observed_baseline") return "Tracking started";

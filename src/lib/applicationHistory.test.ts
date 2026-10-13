@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { initialHistory, sanitizeUpdate } from "@/lib/applicationHistory";
 
 describe("sanitizeUpdate", () => {
+  it("keeps the single method in step with the list", () => {
+    expect(sanitizeUpdate({ submissionMethods: ["CV Drop", "Fax", "Email to Contact"] })).toEqual({
+      submissionMethods: ["CV Drop", "Email to Contact"],
+      submissionMethod: "CV Drop",
+    });
+    expect(sanitizeUpdate({ submissionMethods: [] })).toEqual({ submissionMethods: [], submissionMethod: null });
+    expect(sanitizeUpdate({ companyName: "Acme" })).toEqual({ companyName: "Acme" });
+  });
+
   it("drops operators, dotted paths and protected fields", () => {
     const out = sanitizeUpdate({
       companyName: "Acme",

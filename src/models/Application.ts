@@ -18,6 +18,7 @@ const ApplicationSchema = new Schema(
     workplaceType: { type: String },
     applicationType: { type: String },
     submissionMethod: { type: String, enum: [...SUBMISSION_METHODS] },
+    submissionMethods: { type: [{ type: String, enum: [...SUBMISSION_METHODS] }], default: undefined },
     submissionDetail: { type: String, trim: true, maxlength: 300 },
     applicationStatus: {
       type: String,

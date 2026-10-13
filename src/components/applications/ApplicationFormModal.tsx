@@ -16,7 +16,9 @@ import {
   FACEBOOK_PLATFORMS, JOB_TYPES, MAX_CONTACTS, MAX_JOB_POST_URLS, PLATFORMS, PROVIDED_DOCUMENTS, SUBMISSION_DETAIL_HINTS,
   OFFER_RECEIVED_STATUS, SUBMISSION_DETAIL_METHODS, SUBMISSION_METHODS, WARM_LEAD_FEEDBACK, responseOptionsFor,
   joinJobTypes, parseJobTypes,
+  methodsOf,
 } from "@/constants/applicationStatus";
+import SubmissionMethodPicker from "@/components/applications/SubmissionMethodPicker";
 import type { Application, ApplicationContact, SalaryExpectation } from "@/types/application";
 import { formatLocation, splitLocation } from "@/lib/applicationLocation";
 import { isWarmLead, normaliseCompany } from "@/lib/applicationFlags";
@@ -97,7 +99,7 @@ type FormData = {
   salaryMin: string;
   salaryMax: string;
   expectation: ExpectationForm;
-  submissionMethod: string;
+  submissionMethods: string[];
   submissionDetail: string;
   contacts: ContactRow[];
   jobPostUrls: string[];
@@ -194,7 +196,7 @@ const EMPTY: FormData = {
   salaryMin: "",
   salaryMax: "",
   expectation: EMPTY_EXPECTATION,
-  submissionMethod: "",
+  submissionMethods: [],
   submissionDetail: "",
   contacts: [],
   jobPostUrls: [""],
@@ -227,7 +229,7 @@ function toForm(app: Application): FormData {
     salaryMin: editableAmount(app.salaryMin),
     salaryMax: editableAmount(app.salaryMax),
     expectation: toExpectationForm(app.salaryExpectation),
-    submissionMethod: app.submissionMethod ?? "",
+    submissionMethods: methodsOf(app),
     submissionDetail: app.submissionDetail ?? "",
     contacts: toContactRows(app),
     jobPostUrls: [app.jobPostUrl ?? "", ...(app.additionalJobPostUrls ?? [])].filter((u, i) => i === 0 || u),
@@ -436,16 +438,24 @@ export default function ApplicationFormModal({
     setForm((f) => ({ ...f, contacts: f.contacts.filter((_, j) => j !== i) }));
 
   const mainStatus = mainStatusOf(form.applicationStatus);
-  const isLinkMethod = SUBMISSION_LINK_METHODS.has(form.submissionMethod);
+  const detailMethods = form.submissionMethods.filter((m) => SUBMISSION_DETAIL_METHODS.has(m));
+  const isLinkMethod = detailMethods.length > 0 && detailMethods.every((m) => SUBMISSION_LINK_METHODS.has(m));
+  const detailLabel = isLinkMethod
+    ? "Application link"
+    : detailMethods.some((m) => SUBMISSION_LINK_METHODS.has(m)) ? "Where / how / link" : "Where / how";
 
-  const handleSubmissionMethod = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const method = e.target.value;
-    setForm((f) => ({
-      ...f,
-      submissionMethod: method,
-      contacts: CONTACT_FIRST_METHODS.has(method) && f.contacts.length === 0 ? [{ ...EMPTY_CONTACT }] : f.contacts,
-    }));
-  };
+  const toggleSubmissionMethod = (method: string) =>
+    setForm((f) => {
+      const adding = !f.submissionMethods.includes(method);
+      const submissionMethods = adding
+        ? SUBMISSION_METHODS.filter((m) => m === method || f.submissionMethods.includes(m))
+        : f.submissionMethods.filter((m) => m !== method);
+      return {
+        ...f,
+        submissionMethods,
+        contacts: adding && CONTACT_FIRST_METHODS.has(method) && f.contacts.length === 0 ? [{ ...EMPTY_CONTACT }] : f.contacts,
+      };
+    });
 
   const handlePlatformChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const platform = e.target.value;
@@ -531,8 +541,8 @@ export default function ApplicationFormModal({
             estimate: form.expectation.estimate,
           }
         : null,
-      submissionMethod: form.submissionMethod || null,
-      submissionDetail: SUBMISSION_DETAIL_METHODS.has(form.submissionMethod) ? form.submissionDetail.trim() : "",
+      submissionMethods: form.submissionMethods,
+      submissionDetail: detailMethods.length ? form.submissionDetail.trim() : "",
       contacts,
       contactNumber: contacts.find((c) => c.phone)?.phone ?? "",
       jobPostUrl: links[0] ?? "",
@@ -614,27 +624,22 @@ export default function ApplicationFormModal({
     form.platform === "Facebook Page" ? "e.g. Tech Jobs BD" : "e.g. Remote Jobs Group";
 
   const submissionMethodField = (
-    <Field label={mainStatus === SUBMITTED_STATUS ? "Submitted via" : "Applied through"}>
-      {(id) => (
-        <select id={id} className={inputCls} value={form.submissionMethod} onChange={handleSubmissionMethod}>
-          <option value="">—</option>
-          {SUBMISSION_METHODS.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-      )}
-    </Field>
+    <SubmissionMethodPicker
+      label={mainStatus === SUBMITTED_STATUS ? "Submitted via" : "Applied through"}
+      value={form.submissionMethods}
+      onToggle={toggleSubmissionMethod}
+    />
   );
 
-  const submissionDetailField = SUBMISSION_DETAIL_METHODS.has(form.submissionMethod) ? (
-    <Field label={isLinkMethod ? "Application link" : "Where / how"}>
+  const submissionDetailField = detailMethods.length ? (
+    <Field label={detailLabel}>
       {(id) => (
         <input
           id={id}
           type={isLinkMethod ? "url" : "text"}
           className={inputCls}
           maxLength={300}
-          placeholder={SUBMISSION_DETAIL_HINTS[form.submissionMethod] ?? ""}
+          placeholder={SUBMISSION_DETAIL_HINTS[detailMethods[0]] ?? ""}
           value={form.submissionDetail}
           onChange={set("submissionDetail")}
         />
@@ -1098,10 +1103,14 @@ export default function ApplicationFormModal({
                 </select>
               )}
             </Field>
-            {mainStatus !== SUBMITTED_STATUS && submissionMethodField}
           </div>
 
-          {mainStatus !== SUBMITTED_STATUS && submissionDetailField}
+          {mainStatus !== SUBMITTED_STATUS && (
+            <div className="space-y-2">
+              {submissionMethodField}
+              {submissionDetailField}
+            </div>
+          )}
 
           {/* Row 7 — dates */}
           <div className="grid grid-cols-2 gap-3">
