@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/serverAuth";
 import WelcomeHeader from "@/components/portal/WelcomeHeader";
 import GettingStarted from "@/components/portal/GettingStarted";
 import TriagePanel from "@/components/portal/TriagePanel";
+import JobHuntTodayCard from "@/components/jobs/JobHuntTodayCard";
 import StatsGrid from "@/components/portal/StatsGrid";
 import PortalRecentApplications from "@/components/portal/PortalRecentApplications";
 
@@ -16,6 +17,7 @@ export default async function MePage() {
     <div className="mx-auto max-w-4xl space-y-8">
       <WelcomeHeader user={{ id: user.id, role: user.role, plan: user.plan, status: user.status, email: user.email }} />
       <GettingStarted userId={user.id} />
+      <JobHuntTodayCard />
       <TriagePanel />
       <StatsGrid />
       <PortalRecentApplications />

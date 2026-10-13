@@ -1329,3 +1329,24 @@ select optgroup {
 }
 
 :root[data-theme="dark"] .ai-pill[data-warn] { color: #fcd34d; }
+
+/* ── Job hunt ── */
+.fit-chip { display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fit-high { background: var(--success-bg); color: var(--success); }
+.fit-mid  { background: var(--warning-bg); color: var(--warning); }
+.fit-low  { background: var(--surface-2); color: var(--muted-foreground); }
+
+.lead-status { display: inline-flex; align-items: center; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 500; }
+.lead-status-new         { background: var(--info-bg); color: var(--info); }
+.lead-status-shortlisted { background: var(--surface-2); color: var(--foreground); }
+.lead-status-preparing   { background: var(--surface-2); color: var(--muted-foreground); }
+.lead-status-ready       { background: var(--success-bg); color: var(--success); }
+.lead-status-applying    { background: var(--warning-bg); color: var(--warning); }
+.lead-status-submitted   { background: var(--success-bg); color: var(--success); }
+.lead-status-dismissed,
+.lead-status-expired     { background: var(--surface-2); color: var(--muted-foreground); }
+.lead-status-failed      { background: var(--danger-bg); color: var(--danger); }
+
+.progress-track { height: 0.5rem; border-radius: 9999px; background: var(--surface-2); overflow: hidden; }
+.progress-fill  { height: 100%; border-radius: 9999px; background: linear-gradient(90deg, var(--btn-primary-from), var(--btn-primary-to)); transition: width var(--dur, 160ms) var(--ease-out, ease); }
+.progress-fill[data-done="true"] { background: var(--success); }

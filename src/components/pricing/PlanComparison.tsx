@@ -1,6 +1,6 @@
 import { Check, Minus } from "lucide-react";
 import {
-  CV_FORMATS_FREE, CV_FORMATS_PREMIUM, canExportPdf, canUseAppDocs, cvVersionLimit,
+  CV_FORMATS_FREE, CV_FORMATS_PREMIUM, canExportPdf, canUseAppDocs, canUseJobHunt, cvVersionLimit,
   type CVFormatKey,
 } from "@/lib/permissions";
 
@@ -64,6 +64,12 @@ export function planRows(): PlanRow[] {
       hint: "Shared-key uses per month. Bring your own AI key for unlimited use on any plan.",
       free: { ok: true, text: `${FREE_AI_USES_PER_MONTH} uses / month` },
       premium: { ok: true, text: `${PREMIUM_AI_USES_PER_MONTH} uses / month` },
+    },
+    {
+      feature: "Job hunt",
+      hint: "A daily search of fresh jobs, a tailored CV and letter for the ones you pick, help filling the form, and a daily report. You always press Submit yourself.",
+      free: { ok: canUseJobHunt("free", "free", true), text: canUseJobHunt("free", "free", true) ? "Included" : "Not included" },
+      premium: { ok: canUseJobHunt("free", "premium", true), text: canUseJobHunt("free", "premium", true) ? "Rolling out" : "Not included" },
     },
   ];
 }

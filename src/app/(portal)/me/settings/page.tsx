@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Accessibility, Bell, Crown, Database, ShieldCheck, UserCircle } from "lucide-react";
+import { Accessibility, Bell, Crown, Database, Radar, ShieldCheck, UserCircle } from "lucide-react";
 import SettingsTabs, { type SettingsTabDef } from "@/components/settings/SettingsTabs";
 import ProfileTab from "@/components/settings/ProfileTab";
 import SecurityTab from "@/components/settings/SecurityTab";
@@ -10,6 +10,7 @@ import AccessibilityTab from "@/components/settings/AccessibilityTab";
 import NotificationsTab from "@/components/settings/NotificationsTab";
 import PlanTab from "@/components/settings/PlanTab";
 import DataTab from "@/components/settings/DataTab";
+import JobHuntTab from "@/components/settings/JobHuntTab";
 import VerifyEmailBanner from "@/components/portal/VerifyEmailBanner";
 import Loading from "@/components/shared/Spinner";
 
@@ -18,6 +19,7 @@ const TABS = [
   { key: "security", label: "Security", icon: ShieldCheck },
   { key: "accessibility", label: "Accessibility", icon: Accessibility },
   { key: "notifications", label: "Notifications", icon: Bell },
+  { key: "job-hunt", label: "Job hunt", icon: Radar },
   { key: "plan", label: "Plan", icon: Crown },
   { key: "data", label: "Data", icon: Database },
 ] as const satisfies readonly SettingsTabDef<string>[];
@@ -31,6 +33,7 @@ const PANELS: Record<TabKey, React.ComponentType> = {
   security: SecurityTab,
   accessibility: AccessibilityTab,
   notifications: NotificationsTab,
+  "job-hunt": JobHuntTab,
   plan: PlanTab,
   data: DataTab,
 };

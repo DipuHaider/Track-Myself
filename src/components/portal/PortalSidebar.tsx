@@ -3,10 +3,10 @@
 import { useSession } from "next-auth/react";
 import {
   Briefcase, Crown, FileText, FolderOpen, Home,
-  Bell, KeyRound, LayoutDashboard, LifeBuoy, ListTodo, Settings, Wrench,
+  Bell, KeyRound, LayoutDashboard, LifeBuoy, ListTodo, Radar, Settings, Wrench,
 } from "lucide-react";
 import AppSidebar, { type AppNavItem } from "@/components/layout/AppSidebar";
-import { isPremiumUser } from "@/lib/permissions";
+import { canUseJobHunt, isPremiumUser } from "@/lib/permissions";
 
 export default function PortalSidebar() {
   const { data: session } = useSession();
@@ -19,6 +19,9 @@ export default function PortalSidebar() {
 
   const items: AppNavItem[] = [
     { href: "/me",              icon: LayoutDashboard, label: "Overview",        mobileLabel: "Home",    exact: true },
+    ...(canUseJobHunt(sessionUser?.role, sessionUser?.plan, true)
+      ? [{ href: "/me/jobs", icon: Radar, label: "Job hunt", mobileLabel: "Jobs" } satisfies AppNavItem]
+      : []),
     { href: "/me/applications", icon: Briefcase,       label: "My Applications", mobileLabel: "My Apps" },
     { href: "/me/my-cv",        icon: FolderOpen,      label: "My Documents",    mobileLabel: "Docs" },
     { href: "/me/cv",           icon: FileText,        label: "CV Builder",      mobileLabel: "Builder", badge: proBadge },

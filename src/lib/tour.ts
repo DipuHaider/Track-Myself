@@ -132,6 +132,13 @@ const DOCS: TourStep = {
   body: "Upload CVs, references and certificates. Mark one of each kind as primary and the builder will draw from it.",
 };
 
+const JOB_HUNT: TourStep = {
+  id: "job-hunt",
+  target: '[data-tour="nav:/me/jobs"]',
+  title: "Fresh jobs every morning",
+  body: "Save a search and new jobs posted in the last few days land here daily. Pick the good ones and they get a tailored CV and cover letter, ready for you to review and apply.",
+};
+
 const PORTAL_TOOLS: TourStep = {
   id: "tools",
   target: '[data-tour="nav:/tools"]',
@@ -185,7 +192,7 @@ export function stepsFor(scope: TourScope, premium: boolean): TourStep[] {
   return [
     ...PORTAL_BASE,
     premium ? CV_PREMIUM : CV_FREE,
-    ...(premium ? [DOCS] : []),
+    ...(premium ? [DOCS, JOB_HUNT] : []),
     PORTAL_TOOLS,
     BUBBLE,
   ];
